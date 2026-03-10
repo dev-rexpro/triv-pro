@@ -10,11 +10,11 @@ import { LuChevronDown } from 'react-icons/lu';
 import AnimatedPlaceholder from './AnimatedPlaceholder';
 import { useThrottledOrder } from '../hooks/useThrottledOrder';
 
-const SearchOverlay = () => {
+const SearchOverlay = ({ mode = 'search', onSelect, onClose }: { mode?: 'search' | 'selectSpot', onSelect?: (asset: string) => void, onClose?: () => void } = {}) => {
     const { searchQuery, setSearchQuery, setSearchOpen, history, clearHistory, addToHistory, markets, futuresMarkets, spotSymbols, futuresSymbols, favorites, toggleFavorite, rates, currency, setActivePage, setTradeType } = useExchangeStore();
     const [dexResults, setDexResults] = useState([]);
     const [isTyping, setIsTyping] = useState(false);
-    const [activeTab, setActiveTab] = useState('All');
+    const [activeTab, setActiveTab] = useState(mode === 'selectSpot' ? 'Spot' : 'All');
     const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
     const isInteracting = React.useRef(false);
     const interactionTimeout = React.useRef<any>(null);
@@ -58,7 +58,20 @@ const SearchOverlay = () => {
 
     // Search against ALL spot symbols from exchangeInfo
     const sortedSpotResultSymbols = useMemo(() => {
-        if (searchQuery.trim().length === 0) return [];
+        if (searchQuery.trim().length === 0) {
+            if (mode === 'selectSpot') {
+                return spotSymbols
+                    .filter(s => s.quoteAsset === 'USDT')
+                    .sort((a, b) => {
+                        const volA = spotTickerMap[a.symbol] ? parseFloat(spotTickerMap[a.symbol].quoteVolume || '0') : 0;
+                        const volB = spotTickerMap[b.symbol] ? parseFloat(spotTickerMap[b.symbol].quoteVolume || '0') : 0;
+                        return volB - volA;
+                    })
+                    .slice(0, 50)
+                    .map(s => s.symbol);
+            }
+            return [];
+        }
         const q = searchQuery.toLowerCase();
         const matched = spotSymbols.filter(s => {
             const sym = s.symbol.toLowerCase();
@@ -139,8 +152,9 @@ const SearchOverlay = () => {
     }, [searchQuery, addToHistory]);
 
     const handleCancel = useCallback(() => {
-        window.history.back();
-    }, []);
+        if (onClose) onClose();
+        else window.history.back();
+    }, [onClose]);
 
     return (
         <motion.div
@@ -170,7 +184,7 @@ const SearchOverlay = () => {
                 <button onClick={handleCancel} className="text-[15px] font-bold text-slate-900">Cancel</button>
             </div>
 
-            {searchQuery.length > 0 && (
+            {searchQuery.length > 0 && mode !== 'selectSpot' && (
                 <div className="border-b border-slate-100 flex gap-6 px-5 overflow-x-auto no-scrollbar items-center">
                     {['All', 'Spot', 'Futures', 'DEX', 'Bots', 'Traders', 'Feed'].map(t => (
                         <button
@@ -190,9 +204,9 @@ const SearchOverlay = () => {
                 onTouchStart={handleInteraction}
                 onTouchMove={handleInteraction}
             >
-                {searchQuery.length === 0 ? (
+                {(searchQuery.length === 0 && mode !== 'selectSpot') ? (
                     <>
-                        {history.length > 0 && (
+                        {history.length > 0 && mode !== 'selectSpot' && (
                             <div className="mb-8">
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="font-bold text-[18px] text-slate-900 tracking-tight">Search history</h3>
@@ -216,36 +230,38 @@ const SearchOverlay = () => {
                             </div>
                         )}
 
-                        <div>
-                            <h3 className="font-bold text-[18px] text-slate-900 tracking-tight mb-6">Popular searches</h3>
-                            <div className="space-y-6">
-                                {top10.map((coin: any, i: number) => {
-                                    const isFav = favorites.includes(coin.symbol);
-                                    return (
-                                        <div key={coin.symbol} className="flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
-                                                <span className={`font-medium text-sm w-4 ${i < 3 ? 'text-[#e9ba3b]' : 'text-slate-400'}`}>{i + 1}</span>
-                                                <CoinIcon symbol={coin.symbol} size={8} />
-                                                <div className="font-bold text-slate-900 text-[15px] leading-none">{coin.symbol.replace('USDT', '')}</div>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                <div className="text-right">
-                                                    <div className="font-semibold text-[15px] text-slate-900 leading-tight">{coin.lastPrice >= 10 ? parseFloat(coin.lastPrice).toLocaleString() : parseFloat(coin.lastPrice).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</div>
-                                                    <div className={`text-[11px] font-semibold ${parseFloat(coin.priceChangePercent) >= 0 ? 'text-[#00C076]' : 'text-[#FF4D5B]'}`}>
-                                                        {parseFloat(coin.priceChangePercent) >= 0 ? '+' : ''}{parseFloat(coin.priceChangePercent).toFixed(2)}%
-                                                    </div>
+                        {mode !== 'selectSpot' && (
+                            <div>
+                                <h3 className="font-bold text-[18px] text-slate-900 tracking-tight mb-6">Popular searches</h3>
+                                <div className="space-y-6">
+                                    {top10.map((coin: any, i: number) => {
+                                        const isFav = favorites.includes(coin.symbol) || favorites.includes(`${coin.symbol}:spot`);
+                                        return (
+                                            <div key={coin.symbol} className="flex items-center justify-between">
+                                                <div className="flex items-center gap-4">
+                                                    <span className={`font-medium text-sm w-4 ${i < 3 ? 'text-[#e9ba3b]' : 'text-slate-400'}`}>{i + 1}</span>
+                                                    <CoinIcon symbol={coin.symbol} size={8} />
+                                                    <div className="font-bold text-slate-900 text-[15px] leading-none">{coin.symbol.replace('USDT', '')}</div>
                                                 </div>
-                                                {isFav ? (
-                                                    <Star size={20} className="text-[#e9ba3b]" fill="currentColor" onClick={(e) => { e.stopPropagation(); toggleFavorite(coin.symbol); }} />
-                                                ) : (
-                                                    <Star size={20} className="text-slate-400" onClick={(e) => { e.stopPropagation(); toggleFavorite(coin.symbol); }} />
-                                                )}
+                                                <div className="flex items-center gap-4">
+                                                    <div className="text-right">
+                                                        <div className="font-semibold text-[15px] text-slate-900 leading-tight">{coin.lastPrice >= 10 ? parseFloat(coin.lastPrice).toLocaleString() : parseFloat(coin.lastPrice).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</div>
+                                                        <div className={`text-[11px] font-semibold ${parseFloat(coin.priceChangePercent) >= 0 ? 'text-[#00C076]' : 'text-[#FF4D5B]'}`}>
+                                                            {parseFloat(coin.priceChangePercent) >= 0 ? '+' : ''}{parseFloat(coin.priceChangePercent).toFixed(2)}%
+                                                        </div>
+                                                    </div>
+                                                    {isFav ? (
+                                                        <Star size={20} className="text-[#e9ba3b]" fill="currentColor" onClick={(e) => { e.stopPropagation(); toggleFavorite(`${coin.symbol}:spot`); }} />
+                                                    ) : (
+                                                        <Star size={20} className="text-slate-400" onClick={(e) => { e.stopPropagation(); toggleFavorite(`${coin.symbol}:spot`); }} />
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </>
                 ) : (
                     <div className="space-y-8">
@@ -261,11 +277,15 @@ const SearchOverlay = () => {
                                         const change = t ? parseFloat(t.priceChangePercent) : null;
                                         return (
                                             <div key={`spot-${item.symbol}`} className="flex items-center justify-between cursor-pointer" onClick={() => {
-                                                useExchangeStore.setState({ selectedCoin: item.symbol });
-                                                setTradeType('spot');
-                                                setActivePage('chart-trade');
-                                                setSearchOpen(false);
-                                                setSearchQuery('');
+                                                if (mode === 'selectSpot' && onSelect) {
+                                                    onSelect(item.baseAsset);
+                                                } else {
+                                                    useExchangeStore.setState({ selectedCoin: item.symbol });
+                                                    setTradeType('spot');
+                                                    setActivePage('chart-trade');
+                                                    setSearchOpen(false);
+                                                    setSearchQuery('');
+                                                }
                                             }}>
                                                 <div className="flex items-center gap-3">
                                                     <CoinIcon symbol={item.baseAsset} size={8} />
@@ -286,7 +306,7 @@ const SearchOverlay = () => {
                                                     ) : (
                                                         <div className="text-right text-slate-400 text-[13px] font-medium">—</div>
                                                     )}
-                                                    <Star size={18} className={isFav ? "text-[#e9ba3b]" : "text-slate-300"} fill={isFav ? "currentColor" : "none"} onClick={(e) => { e.stopPropagation(); toggleFavorite(item.symbol); }} />
+                                                    <Star size={18} className={(favorites.includes(item.symbol) || favorites.includes(`${item.symbol}:spot`)) ? "text-[#e9ba3b]" : "text-slate-300"} fill={(favorites.includes(item.symbol) || favorites.includes(`${item.symbol}:spot`)) ? "currentColor" : "none"} onClick={(e) => { e.stopPropagation(); toggleFavorite(`${item.symbol}:spot`); }} />
                                                 </div>
                                             </div>
                                         );
@@ -334,7 +354,7 @@ const SearchOverlay = () => {
                                                     ) : (
                                                         <div className="text-right text-slate-400 text-[13px] font-medium">—</div>
                                                     )}
-                                                    <Star size={18} className={isFav ? "text-[#e9ba3b]" : "text-slate-300"} fill={isFav ? "currentColor" : "none"} onClick={(e) => { e.stopPropagation(); toggleFavorite(item.symbol); }} />
+                                                    <Star size={18} className={(favorites.includes(item.symbol) || favorites.includes(`${item.symbol}:futures`)) ? "text-[#e9ba3b]" : "text-slate-300"} fill={(favorites.includes(item.symbol) || favorites.includes(`${item.symbol}:futures`)) ? "currentColor" : "none"} onClick={(e) => { e.stopPropagation(); toggleFavorite(`${item.symbol}:futures`); }} />
                                                 </div>
                                             </div>
                                         );

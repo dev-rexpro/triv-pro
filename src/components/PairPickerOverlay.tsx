@@ -156,9 +156,9 @@ const PairPickerOverlay = () => {
                                 >
                                     <Star
                                         size={16}
-                                        className={`shrink-0 mr-3 ${isFav ? 'text-[#e9ba3b]' : 'text-slate-300'}`}
-                                        fill={isFav ? 'currentColor' : 'none'}
-                                        onClick={(e) => { e.stopPropagation(); toggleFavorite(item.symbol); }}
+                                        className={`shrink-0 mr-3 ${(favorites.includes(item.symbol) || favorites.includes(`${item.symbol}:${isFutures ? 'futures' : 'spot'}`)) ? 'text-[#e9ba3b]' : 'text-slate-300'}`}
+                                        fill={(favorites.includes(item.symbol) || favorites.includes(`${item.symbol}:${isFutures ? 'futures' : 'spot'}`)) ? 'currentColor' : 'none'}
+                                        onClick={(e) => { e.stopPropagation(); toggleFavorite(`${item.symbol}:${isFutures ? 'futures' : 'spot'}`); }}
                                     />
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-1.5">

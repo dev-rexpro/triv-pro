@@ -81,22 +81,43 @@ const MarketView = () => {
     // Reset subTab when mainTab changes
     useEffect(() => {
         if (mainTab === 'Favorites') {
-            setSubTab('Futures');
+            setSubTab('All');
         } else {
             setSubTab('Futures');
         }
-    }, [mainTab, favoriteGroups]);
+    }, [mainTab]);
 
     const sortedSymbols = useMemo(() => {
-        let list = subTab === 'Futures' ? [...futuresMarkets] : [...markets];
-
         if (mainTab === 'Favorites') {
-            if (subTab === 'Futures' || subTab === 'Spot') {
-                return list.filter(m => favorites.includes(m.symbol)).map(m => m.symbol);
+            const combined = [...markets, ...futuresMarkets];
+            const resolveMarket = (fav: string) => {
+                if (fav.includes(':')) {
+                    const [sym, type] = fav.split(':');
+                    return combined.find(m => m.symbol === sym && (type === 'futures' ? m.isFutures : !m.isFutures));
+                }
+                return combined.find(m => m.symbol === fav);
+            };
+
+            let symbolList: string[] = [];
+            if (subTab === 'All') {
+                symbolList = favorites;
+            } else if (subTab === 'Futures') {
+                symbolList = favorites.filter(f => {
+                    const m = resolveMarket(f);
+                    return m && m.isFutures;
+                });
+            } else if (subTab === 'Spot') {
+                symbolList = favorites.filter(f => {
+                    const m = resolveMarket(f);
+                    return m && !m.isFutures;
+                });
+            } else {
+                symbolList = favoriteGroups[subTab] || [];
             }
-            const groupFavs = favoriteGroups[subTab] || favorites;
-            return list.filter(m => groupFavs.includes(m.symbol)).map(m => m.symbol);
+            return symbolList;
         }
+
+        let list = subTab === 'Futures' ? [...futuresMarkets] : [...markets];
 
         if (manualSort) {
             list.sort((a, b) => {
@@ -174,9 +195,16 @@ const MarketView = () => {
     const stableSymbols = useThrottledOrder(sortedSymbols, isInteracting, [mainTab, subTab, filter, manualSort], 30000);
 
     const filtered = useMemo(() => {
-        const source = subTab === 'Futures' ? futuresMarkets : markets;
-        return stableSymbols.map(sym => source.find(m => m.symbol === sym)).filter(Boolean) as any;
-    }, [stableSymbols, markets, futuresMarkets, subTab]);
+        const combined = [...markets, ...futuresMarkets];
+        return stableSymbols.map(id => {
+            if (id.includes(':')) {
+                const [sym, type] = id.split(':');
+                return combined.find(m => m.symbol === sym && (type === 'futures' ? m.isFutures : !m.isFutures));
+            }
+            // Backward compatibility for old favorites or if sortedSymbols somehow returns just symbol
+            return combined.find(m => m.symbol === id);
+        }).filter(Boolean) as MarketData[];
+    }, [stableSymbols, markets, futuresMarkets]);
 
 
     const rowVirtualizer = useVirtualizer({
@@ -191,10 +219,10 @@ const MarketView = () => {
         if (name) addFavoriteGroup(name);
     }, [addFavoriteGroup]);
 
-    const handleCoinClick = useCallback((symbol: string) => {
-        useExchangeStore.setState({ selectedCoin: symbol });
-        setActivePage(subTab === 'Spot' ? 'trade' : 'futures');
-    }, [setActivePage, subTab]);
+    const handleCoinClick = useCallback((coin: any) => {
+        useExchangeStore.setState({ selectedCoin: coin.symbol });
+        setActivePage(coin.isFutures ? 'futures' : 'trade');
+    }, [setActivePage]);
 
     return (
         <div className="pb-24 bg-[#FDFDFD] min-h-screen font-sans">
@@ -227,11 +255,11 @@ const MarketView = () => {
                 <div className="px-4 flex items-center justify-between mb-4">
                     <div className="flex gap-6 text-[15px] font-bold text-slate-400 overflow-x-auto no-scrollbar">
                         {mainTab === 'Favorites' ? (
-                            ['Futures', 'Spot', ...Object.keys(favoriteGroups)].filter(g => !hiddenGroups.includes(g)).map(g => (
+                            ['All', 'Futures', 'Spot', ...Object.keys(favoriteGroups)].filter(g => !hiddenGroups.includes(g)).map(g => (
                                 <span
                                     key={g}
                                     onClick={() => setSubTab(g)}
-                                    className={`cursor-pointer pb-2 whitespace-nowrap ${subTab === g ? 'text-slate-900 border-b-2 border-slate-900' : ''}`}
+                                    className={`cursor-pointer pb-2 whitespace-nowrap transition-all ${subTab === g ? 'text-slate-900 border-b-2 border-slate-900 font-bold' : ''}`}
                                 >
                                     {g}
                                 </span>
@@ -353,8 +381,8 @@ const MarketView = () => {
                                     >
                                         <MarketRow
                                             coin={coin}
-                                            showPerp={subTab === 'Futures' || mainTab === 'Favorites'}
-                                            onClick={() => handleCoinClick(coin.symbol)}
+                                            showPerp={!!coin.isFutures}
+                                            onClick={() => handleCoinClick(coin)}
                                         />
                                     </div>
                                 );

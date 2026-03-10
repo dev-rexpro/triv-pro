@@ -3,6 +3,7 @@ export interface MarketData {
     lastPrice: string;
     priceChangePercent: string;
     quoteVolume: string;
+    isFutures?: boolean;
     [key: string]: any;
 }
 
@@ -85,6 +86,22 @@ export interface FuturesPosition {
     leverage: number;
     liqPrice?: number;
     unrealizedPnl?: number; // Calculated dynamically
+}
+
+export interface PositionHistoryRecord {
+    id: string;
+    pair: string;
+    side: 'Long' | 'Short' | 'Buy' | 'Sell';
+    size: number;
+    margin: number;
+    entryPrice: number;
+    markPrice: number;
+    leverage: number;
+    pnl: number;
+    pnlPercent: number;
+    timeOpened: number;
+    timeClosed: number;
+    marginMode: string;
 }
 
 export type CurrencyCode = 'USD' | 'USDT' | 'BTC' | 'IDR';

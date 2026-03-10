@@ -46,9 +46,9 @@ export const formatCurrency = (
 
 export const getCurrencySymbol = (currency: CurrencyCode): string => {
     switch (currency) {
-        case 'IDR': return 'Rp';
-        case 'BTC': return '₿';
-        case 'USDT': return '';
+        case 'IDR': return 'Rp ';
+        case 'BTC': return '$';
+        case 'USDT': return '$';
         case 'USD':
         default: return '$';
     }

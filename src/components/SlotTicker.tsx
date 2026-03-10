@@ -9,7 +9,7 @@ const Digit = memo(({ char }: DigitProps) => {
     const numbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
     if (!isNumber) {
-        return <span className="inline-block px-[0.1em]">{char}</span>;
+        return <span className="inline-block">{char}</span>;
     }
 
     return (

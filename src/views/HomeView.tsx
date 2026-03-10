@@ -46,7 +46,7 @@ import { useThrottledOrder } from '../hooks/useThrottledOrder';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const HomeView = () => {
-    const { balance, todayPnl, pnlPercent, markets, setActivePage, setSearchOpen, homeFilter, setHomeFilter, favorites, favoriteGroups, hiddenGroups, currency: globalCurrency, rates, setDepositOptionOpen, hideBalance, setHideBalance, getPnLForTimeframe } = useExchangeStore();
+    const { balance, todayPnl, pnlPercent, markets, futuresMarkets, setActivePage, setSearchOpen, homeFilter, setHomeFilter, favorites, favoriteGroups, hiddenGroups, currency: globalCurrency, rates, setDepositOptionOpen, hideBalance, setHideBalance, getPnLForTimeframe } = useExchangeStore();
     const currency = (globalCurrency === 'BTC' || globalCurrency === 'USDT') ? 'USD' : globalCurrency;
     const [isFavSheetOpen, setIsFavSheetOpen] = useState(false);
     const [favSubFilter, setFavSubFilter] = useState('All');
@@ -54,15 +54,31 @@ const HomeView = () => {
     const [pnlTimeframe, setPnlTimeframe] = useState('1D');
     const [isModeSheetOpen, setIsModeSheetOpen] = useState(false);
     const [currentMode, setCurrentMode] = useState('Exchange');
-
     const sortedSymbols = useMemo(() => {
         let list = [...markets];
         switch (homeFilter) {
-            case 'Favorites':
-                if (favSubFilter === 'All') return list.filter(m => favorites.includes(m.symbol)).map(m => m.symbol);
-                if (favSubFilter === 'Futures') return list.filter(m => favorites.includes(m.symbol) && m.symbol.endsWith('USDT')).map(m => m.symbol);
-                if (favSubFilter === 'Spot') return list.filter(m => favorites.includes(m.symbol) && !m.symbol.endsWith('USDT')).map(m => m.symbol);
-                return favoriteGroups[favSubFilter] || [];
+            case 'Favorites': {
+                const combined = [...markets, ...futuresMarkets];
+                const resolveMarket = (fav: string) => {
+                    if (fav.includes(':')) {
+                        const [sym, type] = fav.split(':');
+                        return combined.find(m => m.symbol === sym && (type === 'futures' ? m.isFutures : !m.isFutures));
+                    }
+                    return combined.find(m => m.symbol === fav);
+                };
+
+                if (favSubFilter === 'All') return favorites;
+                if (favSubFilter === 'Futures') return favorites.filter(f => resolveMarket(f)?.isFutures);
+                if (favSubFilter === 'Spot') return favorites.filter(f => !resolveMarket(f)?.isFutures);
+
+                const groupSymbols = favoriteGroups[favSubFilter] || [];
+                return favorites.filter(f => groupSymbols.includes(f));
+            }
+            case 'Hot':
+                return list.sort((a, b) => {
+                    const diff = parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume);
+                    return diff !== 0 ? diff : a.symbol.localeCompare(b.symbol);
+                }).map(m => m.symbol);
             case 'New':
                 return list.slice().reverse().slice(0, 10).map(m => m.symbol);
             case 'Popular':
@@ -84,7 +100,7 @@ const HomeView = () => {
             default:
                 return list.sort((a, b) => a.symbol.localeCompare(b.symbol)).map(m => m.symbol);
         }
-    }, [markets, homeFilter, favorites, favSubFilter]);
+    }, [markets, futuresMarkets, homeFilter, favorites, favSubFilter]);
 
     const isInteracting = React.useRef(false);
     const interactionTimeout = React.useRef<any>(null);
@@ -100,13 +116,19 @@ const HomeView = () => {
     const stableSymbols = useThrottledOrder(sortedSymbols, isInteracting, [homeFilter, favSubFilter], 30000);
 
     const filteredMarkets = useMemo(() => {
-        return stableSymbols.map(sym => markets.find(m => m.symbol === sym)).filter(Boolean) as any;
-    }, [stableSymbols, markets]);
+        const combined = [...markets, ...futuresMarkets];
+        return stableSymbols.map(id => {
+            if (id.includes(':')) {
+                const [sym, type] = id.split(':');
+                return combined.find(m => m.symbol === sym && (type === 'futures' ? m.isFutures : !m.isFutures));
+            }
+            return combined.find(m => m.symbol === id);
+        }).filter(Boolean) as any;
+    }, [stableSymbols, markets, futuresMarkets]);
 
-    const handleCoinClick = useCallback((symbol: string) => {
-        useExchangeStore.getState().selectedCoin = symbol;
-        useExchangeStore.setState({ selectedCoin: symbol });
-        setActivePage('trade');
+    const handleCoinClick = useCallback((coin: any) => {
+        useExchangeStore.setState({ selectedCoin: coin.symbol });
+        setActivePage(coin.isFutures ? 'futures' : 'trade');
     }, [setActivePage]);
 
     const displayBalance = useMemo(() => convertAmount(balance, currency, rates), [balance, currency, rates]);
@@ -116,12 +138,29 @@ const HomeView = () => {
         return {
             value: pnl.value,
             displayValue: convertAmount(Math.abs(pnl.value), currency, rates),
-            percent: pnl.percent
+            percent: pnl.percent,
+            hasData: pnl.hasData
         };
     }, [getPnLForTimeframe, pnlTimeframe, currency, rates, balance, todayPnl]);
 
+    // Check which timeframes have snapshot data available
+    const timeframeAvailability = useMemo(() => {
+        return ['1D', '1W', '1M', '6M', '1Y'].reduce((acc, tf) => {
+            acc[tf] = getPnLForTimeframe(tf).hasData;
+            return acc;
+        }, {} as Record<string, boolean>);
+    }, [getPnLForTimeframe, balance]);
+
     const displayPnl = currentPnlData.displayValue;
     const pnlPercentDisplay = currentPnlData.percent;
+    const hasPnlData = currentPnlData.hasData;
+
+    // Safety: if current timeframe has no data, fall back to 1D
+    useEffect(() => {
+        if (timeframeAvailability[pnlTimeframe] === false) {
+            setPnlTimeframe('1D');
+        }
+    }, [timeframeAvailability, pnlTimeframe]);
 
     const noiseFactors = useMemo(() => {
         let pointsCount = 30;
@@ -173,9 +212,8 @@ const HomeView = () => {
     }, [displayBalance, displayPnl, todayPnl, pnlTimeframe, noiseFactors]);
 
     const chartColor = useMemo(() => {
-        if (!chartData || chartData.length < 2) return '#00C076';
-        return chartData[chartData.length - 1] >= chartData[0] ? '#00C076' : '#FF4D5B';
-    }, [chartData]);
+        return currentPnlData.value >= 0 ? '#00C076' : '#FF4D5B';
+    }, [currentPnlData.value]);
 
     const formatLabel = (val: number) => {
         return currency === 'IDR' ? `Rp${val.toLocaleString('id-ID', { maximumFractionDigits: 0 })}` : `$${val.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
@@ -243,17 +281,26 @@ const HomeView = () => {
                                         <CurrencySelector />
                                     </div>
                                 </div>
-                                <div className="text-sm font-medium flex items-center gap-1">
-                                    <span className="text-slate-500">{pnlTimeframe === '1D' ? "Today's" : pnlTimeframe} PnL</span>
-                                    <span className={currentPnlData.value >= 0 ? "text-[#00C076]" : "text-[#FF4D5B]"}>
+                                <div className="text-sm font-medium flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+                                    <span className="text-slate-500 whitespace-nowrap">
+                                        {pnlTimeframe === '1D' ? "Today's" : pnlTimeframe} PnL
+                                    </span>
+                                    <div className={`flex flex-wrap items-baseline gap-x-1.5 ${currentPnlData.value >= 0 ? "text-[#00C076]" : "text-[#FF4D5B]"}`}>
                                         {hideBalance ? (
-                                            '******'
+                                            <span className="font-bold">******</span>
+                                        ) : !hasPnlData ? (
+                                            <span className="text-[15px] font-bold text-slate-300 leading-none">—</span>
                                         ) : (
                                             <>
-                                                {currentPnlData.value >= 0 ? '+' : '-'} <SlotTicker value={Math.abs(displayPnl)} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" /> ({currentPnlData.value >= 0 ? '+' : ''}{pnlPercentDisplay}%)
+                                                <span className="text-[15px] font-bold leading-none">
+                                                    {currentPnlData.value >= 0 ? '+' : '-'}{getCurrencySymbol(currency)}<SlotTicker value={Math.abs(displayPnl)} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" />
+                                                </span>
+                                                <span className="text-[12px] font-medium leading-none">
+                                                    ({currentPnlData.value >= 0 ? '+' : ''}{Number(pnlPercentDisplay).toLocaleString('id-ID', { maximumFractionDigits: 2 })}%)
+                                                </span>
                                             </>
                                         )}
-                                    </span>
+                                    </div>
                                 </div>
                             </div>
                             <div
@@ -298,8 +345,14 @@ const HomeView = () => {
                                 {['1D', '1W', '1M', '6M', '1Y'].map(tf => (
                                     <button
                                         key={tf}
-                                        onClick={(e) => { e.stopPropagation(); setPnlTimeframe(tf); }}
-                                        className={`flex-1 py-1.5 text-xs font-bold rounded-full transition-colors ${tf === pnlTimeframe ? 'bg-[#F2F2F2] text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+                                        onClick={(e) => { e.stopPropagation(); if (timeframeAvailability[tf]) setPnlTimeframe(tf); }}
+                                        disabled={!timeframeAvailability[tf]}
+                                        className={`flex-1 py-1.5 text-xs font-bold rounded-full transition-colors ${!timeframeAvailability[tf]
+                                            ? 'text-slate-300 cursor-not-allowed'
+                                            : tf === pnlTimeframe
+                                                ? 'bg-[#F2F2F2] text-slate-900'
+                                                : 'text-slate-400 hover:text-slate-600'
+                                            }`}
                                     >
                                         {tf}
                                     </button>
@@ -315,14 +368,14 @@ const HomeView = () => {
 
                     <div className="flex gap-4 mt-6">
                         <button onClick={() => setDepositOptionOpen(true)} className="flex-1 bg-[#F5F7F9] py-2.5 rounded-full font-bold text-slate-900 text-sm">Deposit</button>
-                        <button className="flex-1 bg-[#121212] py-2.5 rounded-full font-bold text-white text-sm">Trade</button>
+                        <button onClick={() => setActivePage('trade')} className="flex-1 bg-[#121212] py-2.5 rounded-full font-bold text-white text-sm">Trade</button>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-4 gap-4 mb-6">
                     {[
                         { label: 'Earn', icon: <div className="relative"><span className="text-slate-800"><BiCoinStack size={28} /></span><div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full border-2 border-slate-800 flex items-center justify-center"><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /></div></div> },
-                        { label: 'My rewards', icon: <div className="text-slate-800"><Ticket size={28} /></div> },
+                        { label: 'Rewards', icon: <div className="text-slate-800"><Ticket size={28} /></div> },
                         { label: 'Referral', icon: <div className="text-slate-800"><Gift size={28} /></div> },
                         { label: 'More', icon: <div className="text-slate-800"><Grid size={28} /></div> }
                     ].map(item => (
@@ -358,7 +411,7 @@ const HomeView = () => {
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <div className="flex gap-6 text-sm font-medium text-slate-500 overflow-x-auto no-scrollbar items-center">
-                            {['Favorites', 'Hot', 'New', 'Stocks', 'DEX'].map(tab => (
+                            {['Favorites', 'Hot', 'New', 'Gainers', 'Losers'].map(tab => (
                                 <button
                                     key={tab}
                                     onClick={() => setHomeFilter(tab)}
@@ -379,7 +432,7 @@ const HomeView = () => {
                                             </div>
                                         </div>
                                     ) : tab}
-                                    {(tab === 'New' || tab === 'Stocks') && <div className="absolute -top-0.5 -right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />}
+                                    {tab === 'New' && <div className="absolute -top-0.5 -right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />}
                                 </button>
                             ))}
                         </div>
@@ -389,10 +442,10 @@ const HomeView = () => {
                     <div className="mt-2 space-y-1">
                         {filteredMarkets.slice(0, 7).map(coin => (
                             <MarketRow
-                                key={coin.symbol}
+                                key={`${coin.symbol}-${coin.isFutures}`}
                                 coin={coin}
-                                showPerp={coin.symbol.endsWith('USDT')}
-                                onClick={() => handleCoinClick(coin.symbol)}
+                                showPerp={!!coin.isFutures}
+                                onClick={() => handleCoinClick(coin)}
                             />
                         ))}
                     </div>

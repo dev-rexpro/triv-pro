@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { FiChevronLeft as ChevronLeft, FiSearch as Search, FiCheck as Check, FiCopy as Copy } from 'react-icons/fi';
 import { MdOutlineArrowDropDown as ChevronDown } from 'react-icons/md';
 import useExchangeStore from '../stores/useExchangeStore';
@@ -7,7 +7,7 @@ import CoinIcon from '../components/CoinIcon';
 import SuccessDialog from '../components/SuccessDialog';
 
 const CryptoDepositView = () => {
-    const { setActivePage, markets, assets, addTransaction, setWallets, wallets } = useExchangeStore();
+    const { setActivePage, markets, assets, addTransaction, setWallets, wallets, session } = useExchangeStore();
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [selectedCoin, setSelectedCoin] = useState<string | null>(null);
     const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
@@ -48,11 +48,33 @@ const CryptoDepositView = () => {
         { id: 'MATIC', name: 'Polygon', time: '~ 5 minutes', min: '0.01', fee: '0.10' }
     ];
 
-    const generateDepositAddress = () => {
+    const { depositAddress, qrPattern } = useMemo(() => {
+        if (!selectedNetwork || !selectedCoin) return { depositAddress: '', qrPattern: Array(144).fill(false) };
+        const seedStr = `${session?.user?.email || 'user'}-${selectedCoin}-${selectedNetwork}`;
+        let hash = 0;
+        for (let i = 0; i < seedStr.length; i++) {
+            hash = Math.imul(31, hash) + seedStr.charCodeAt(i) | 0;
+        }
+        const seededRandom = () => {
+            hash = (hash * 9301 + 49297) % 233280;
+            return hash / 233280;
+        };
+
         const prefix = selectedNetwork === 'TRC20' ? 'T' : selectedNetwork === 'ERC20' || selectedNetwork === 'BEP20' || selectedNetwork === 'MATIC' ? '0x' : selectedNetwork === 'SOL' ? '' : '1';
-        const randomString = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        return prefix + randomString.toUpperCase();
-    };
+        let randomString = '';
+        for (let i = 0; i < 26; i++) {
+            randomString += Math.floor(seededRandom() * 36).toString(36);
+        }
+        const address = prefix + randomString.toUpperCase();
+
+        const pattern = Array.from({ length: 144 }).map((_, i) => {
+            const isCorner = i === 0 || i === 11 || i === 132 || i === 143;
+            if (isCorner) return true;
+            return seededRandom() > 0.4;
+        });
+
+        return { depositAddress: address, qrPattern: pattern };
+    }, [selectedCoin, selectedNetwork, session?.user?.email]);
 
     const handleSimulateDeposit = () => {
         const numAmount = parseFloat(amount);
@@ -93,7 +115,13 @@ const CryptoDepositView = () => {
     };
 
     return (
-        <div className="fixed inset-0 bg-white z-[300] flex flex-col pt-safe px-4 pb-0 overflow-y-auto no-scrollbar">
+        <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
+            className="fixed inset-0 bg-white z-[300] flex flex-col pt-safe px-4 pb-0 overflow-hidden"
+        >
             {/* Header */}
             <div className="flex items-center justify-between py-4 sticky top-0 bg-white z-10">
                 <button
@@ -205,8 +233,8 @@ const CryptoDepositView = () => {
                         <div className="bg-[#F5F7F9] w-64 h-64 mx-auto rounded-3xl mb-8 flex items-center justify-center relative shadow-sm border border-slate-100">
                             {/* Dummy QR Pattern */}
                             <div className="w-48 h-48 bg-white p-2 flex flex-wrap gap-1 content-start justify-center overflow-hidden">
-                                {Array.from({ length: 144 }).map((_, i) => (
-                                    <div key={i} className={`w-3 h-3 ${Math.random() > 0.4 ? 'bg-slate-900' : 'bg-transparent'} ${i === 0 || i === 11 || i === 132 || i === 143 ? 'rounded-md scale-150 bg-slate-900' : ''}`} />
+                                {qrPattern.map((isDark, i) => (
+                                    <div key={i} className={`w-3 h-3 ${isDark ? 'bg-slate-900' : 'bg-transparent'} ${i === 0 || i === 11 || i === 132 || i === 143 ? 'rounded-md scale-150 bg-slate-900' : ''}`} />
                                 ))}
                             </div>
                             <div className="absolute w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md">
@@ -216,7 +244,7 @@ const CryptoDepositView = () => {
 
                         <div className="text-[13px] font-medium text-slate-400 mb-2">Address</div>
                         <div className="flex items-center justify-between mb-8">
-                            <div className="font-bold text-[16px] text-slate-900 break-all pr-4">{generateDepositAddress()}</div>
+                            <div className="font-bold text-[16px] text-slate-900 break-all pr-4">{depositAddress}</div>
                             <button className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 shrink-0 shadow-sm">
                                 <Copy size={14} />
                             </button>
@@ -307,7 +335,7 @@ const CryptoDepositView = () => {
                 message={successDialog.message}
                 onClose={handleSuccessClose}
             />
-        </div>
+        </motion.div>
     );
 };
 

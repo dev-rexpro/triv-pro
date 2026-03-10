@@ -18,7 +18,9 @@ import CardDepositView from './views/CardDepositView';
 import WithdrawalView from './views/WithdrawalView';
 import TransferView from './views/TransferView';
 import HistoryView from './views/HistoryView';
+import ConvertView from './views/ConvertView';
 import ChartTradeView from './views/ChartTradeView';
+import TradeHistoryView from './views/TradeHistoryView';
 import AuthView from './views/AuthView';
 import ProfileView from './views/ProfileView';
 import UserCenterView from './views/UserCenterView';
@@ -51,6 +53,7 @@ export default function App() {
       setSession(session);
       if (session) {
         useExchangeStore.getState().fetchSupabaseWallets();
+        useExchangeStore.getState().fetchSupabaseFavorites();
       }
     });
 
@@ -59,6 +62,7 @@ export default function App() {
       if (session) {
         useExchangeStore.getState().fetchSupabaseWallets();
         useExchangeStore.getState().fetchSupabaseHistory();
+        useExchangeStore.getState().fetchSupabaseFavorites();
       }
     });
 
@@ -184,10 +188,23 @@ export default function App() {
         * { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
-      <AnimatePresence>
+      <AnimatePresence mode="popLayout">
         {isSearchOpen && <SearchOverlay />}
         {isManageGroupsOpen && <ManageGroupsView />}
         {isPairPickerOpen && <PairPickerOverlay />}
+
+        {/* Subpages / Overlays */}
+        {activePage === 'deposit-crypto' && <CryptoDepositView key="deposit-crypto" />}
+        {activePage === 'deposit-fiat' && <FiatDepositView key="deposit-fiat" />}
+        {activePage === 'deposit-card' && <CardDepositView key="deposit-card" />}
+        {activePage === 'withdraw' && <WithdrawalView key="withdraw" />}
+        {activePage === 'transfer' && <TransferView key="transfer" />}
+        {activePage === 'convert' && <ConvertView key="convert" />}
+        {activePage === 'history' && <HistoryView key="history" />}
+        {activePage === 'trade-history' && <TradeHistoryView key="trade-history" />}
+        {activePage === 'chart-trade' && <ChartTradeView key="chart-trade" />}
+        {activePage === 'profile' && <ProfileView key="profile" />}
+        {activePage === 'user-center' && <UserCenterView key="user-center" />}
       </AnimatePresence>
       <DepositBottomSheet />
 
@@ -197,15 +214,6 @@ export default function App() {
         {activePage === 'trade' && <TradeView />}
         {activePage === 'futures' && <TradeView />}
         {activePage === 'assets' && <AssetsView />}
-        {activePage === 'deposit-crypto' && <CryptoDepositView />}
-        {activePage === 'deposit-fiat' && <FiatDepositView />}
-        {activePage === 'deposit-card' && <CardDepositView />}
-        {activePage === 'withdraw' && <WithdrawalView />}
-        {activePage === 'transfer' && <TransferView />}
-        {activePage === 'history' && <HistoryView />}
-        {activePage === 'chart-trade' && <ChartTradeView />}
-        {activePage === 'profile' && <ProfileView />}
-        {activePage === 'user-center' && <UserCenterView />}
       </div>
 
       {activePage !== 'chart-trade' && activePage !== 'profile' && activePage !== 'user-center' && (

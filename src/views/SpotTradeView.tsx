@@ -166,11 +166,25 @@ export default function SpotTradeView() {
         setTradeSide(side);
     };
 
+    const formatInput = (val: string) => {
+        if (!val) return '';
+        const parts = val.replace(/,/g, '').split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.');
+    };
+
+    const handlePriceInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const raw = e.target.value.replace(/[^0-9.]/g, '');
+        setPriceInput(formatInput(raw));
+    };
+
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = e.target.value;
-        setAmountInput(val);
-        if (val && !isNaN(parseFloat(val))) {
-            const pct = Math.min(100, Math.max(0, (parseFloat(val) / MAX_BTC) * 100));
+        const raw = e.target.value.replace(/[^0-9.]/g, '');
+        const formatted = formatInput(raw);
+        setAmountInput(formatted);
+        const numVal = parseFloat(raw);
+        if (raw && !isNaN(numVal)) {
+            const pct = Math.min(100, Math.max(0, (numVal / MAX_BTC) * 100));
             setSliderPercent(pct);
         } else {
             setSliderPercent(0);
@@ -182,7 +196,7 @@ export default function SpotTradeView() {
         if (pct === 0) {
             setAmountInput('');
         } else {
-            setAmountInput((MAX_BTC * (pct / 100)).toFixed(8));
+            setAmountInput(formatInput((MAX_BTC * (pct / 100)).toFixed(8)));
         }
     };
 
@@ -210,8 +224,8 @@ export default function SpotTradeView() {
 
     const maxBuySellValue = MAX_BTC.toFixed(8) + ' BTC';
 
-    const totalUsdt = amountInput && !isNaN(parseFloat(amountInput))
-        ? (parseFloat(amountInput) * currentPriceNum).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const totalUsdt = amountInput && !isNaN(parseFloat(amountInput.replace(/,/g, '')))
+        ? (parseFloat(amountInput.replace(/,/g, '')) * currentPriceNum).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         : '';
 
     const renderSvgChart = (customHeight?: number) => {
@@ -335,9 +349,9 @@ export default function SpotTradeView() {
                             <span className="text-[11px] text-gray-500 font-medium leading-none mb-1">Price (USDT)</span>
                             <input
                                 type="text"
-                                className="bg-transparent font-semibold text-gray-900 text-[15px] outline-none w-full p-0 leading-none"
+                                className="bg-transparent font-medium text-gray-900 text-[15px] outline-none w-full p-0 leading-none"
                                 value={priceInput}
-                                onChange={(e) => setPriceInput(e.target.value)}
+                                onChange={handlePriceInputChange}
                             />
                         </div>
 
@@ -347,7 +361,7 @@ export default function SpotTradeView() {
                                     <span className="text-[11px] text-gray-500 font-medium leading-none mb-1">Amount (BTC)</span>
                                     <input
                                         type="text"
-                                        className="bg-transparent font-semibold text-gray-900 text-[15px] outline-none w-full p-0 leading-none"
+                                        className="bg-transparent font-medium text-gray-900 text-[15px] outline-none w-full p-0 leading-none"
                                         value={amountInput}
                                         onChange={handleAmountChange}
                                     />
@@ -400,7 +414,7 @@ export default function SpotTradeView() {
                                     <span className="text-[11px] text-gray-500 font-medium leading-none mb-1">Total (USDT)</span>
                                     <input
                                         type="text"
-                                        className="bg-transparent font-semibold text-gray-900 text-[15px] outline-none w-full p-0 leading-none pointer-events-none"
+                                        className="bg-transparent font-medium text-gray-900 text-[15px] outline-none w-full p-0 leading-none pointer-events-none"
                                         value={totalUsdt}
                                         readOnly
                                     />
@@ -616,7 +630,7 @@ export default function SpotTradeView() {
                 </div>
 
                 {/* Mini Chart Drawer */}
-                <div className={`fixed bottom-[65px] w-full max-w-md bg-white transition-all duration-300 border-t border-gray-100 z-40 ${isMiniChartOpen ? 'h-[280px] shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)]' : 'h-[44px]'}`}>
+                <div className={`fixed w-full max-w-md bg-white transition-all duration-300 border-t border-gray-100 z-40 ${isMiniChartOpen ? 'h-[280px] shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)]' : 'h-[44px]'}`} style={{ bottom: 'calc(65px + var(--safe-area-bottom))' }}>
                     <div
                         className="flex items-center justify-between px-4 py-3 cursor-pointer"
                         onClick={() => setIsMiniChartOpen(!isMiniChartOpen)}

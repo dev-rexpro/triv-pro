@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { FiChevronLeft as ChevronLeft, FiCopy as Copy, FiCheck as Check } from 'react-icons/fi';
 import { TbFilter2Cog } from 'react-icons/tb';
 import { LuFileSearch as FileSearch } from 'react-icons/lu';
@@ -130,7 +130,13 @@ const HistoryView = () => {
         const symbolPrefix = isPositive ? '+' : '';
 
         return (
-            <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="fixed inset-0 bg-[#FDFDFD] z-[310] flex flex-col pt-safe px-4">
+            <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
+                className="fixed inset-0 bg-[#FDFDFD] z-[310] flex flex-col pt-safe px-4"
+            >
                 <div className="flex items-center justify-between py-4 sticky top-0 bg-[#FDFDFD] z-10">
                     <button onClick={() => setSelectedTx(null)} className="p-1 -ml-1 text-slate-900"><ChevronLeft size={28} /></button>
                     <div className="w-8"></div>
@@ -192,7 +198,13 @@ const HistoryView = () => {
     };
 
     return (
-        <div className="fixed inset-0 bg-[#FDFDFD] z-[300] flex flex-col pt-safe pb-0 overflow-y-auto no-scrollbar">
+        <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
+            className="fixed inset-0 bg-[#FDFDFD] z-[300] flex flex-col pt-safe pb-0 overflow-hidden"
+        >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-4 sticky top-0 bg-[#FDFDFD] z-10 border-b border-transparent">
                 <button
@@ -481,7 +493,7 @@ const HistoryView = () => {
                     </>
                 )}
             </AnimatePresence>
-        </div>
+        </motion.div>
     );
 };
 

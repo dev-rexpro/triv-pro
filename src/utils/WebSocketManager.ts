@@ -7,8 +7,10 @@ class WebSocketManager {
     private spotWs: WebSocket | null = null;
     private futuresWs: WebSocket | null = null;
     private subscribers: Set<string> = new Set();
-    private throttleMs: number = 400;
-    private lastUpdate: number = 0;
+    private marketThrottleMs: number = 400;    // price list: fast updates
+    private portfolioThrottleMs: number = 3000; // portfolio value: ~3s like Binance/OKX/MEXC
+    private lastMarketUpdate: number = 0;
+    private lastPortfolioUpdate: number = 0;
     private updateQueue: any[] = [];
 
     private constructor() { }
@@ -58,15 +60,21 @@ class WebSocketManager {
                 }));
 
             const now = Date.now();
-            if (now - this.lastUpdate > this.throttleMs) {
+
+            // Fast: update market price list (~400ms)
+            if (now - this.lastMarketUpdate > this.marketThrottleMs) {
                 if (type === 'spot') {
                     useExchangeStore.getState().updateMarkets(formatted);
                 } else {
                     useExchangeStore.getState().updateFuturesMarkets(formatted);
                 }
-                this.lastUpdate = now;
-                // Trigger simulation update
+                this.lastMarketUpdate = now;
+            }
+
+            // Slow: update portfolio balance (~3000ms like Binance/OKX/MEXC)
+            if (now - this.lastPortfolioUpdate > this.portfolioThrottleMs) {
                 useExchangeStore.getState().updateAssetPrices();
+                this.lastPortfolioUpdate = now;
             }
         } catch (err) {
             console.error('WS Handle Error:', err);

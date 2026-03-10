@@ -1,7 +1,9 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import useExchangeStore from '../stores/useExchangeStore';
-import { IoChevronBack, IoScanOutline } from "react-icons/io5";
-import { FiHeadphones } from 'react-icons/fi';
+import { IoChevronBack } from "react-icons/io5";
+import { FiMoon } from 'react-icons/fi';
+import { PiHeadset } from 'react-icons/pi';
 import { LuUser } from "react-icons/lu";
 import { IoIosArrowForward } from "react-icons/io";
 import { MdClose } from "react-icons/md";
@@ -25,15 +27,21 @@ const ProfileView = () => {
     }, [email]);
 
     return (
-        <div className="fixed inset-0 bg-white z-[300] flex flex-col font-sans overflow-hidden">
+        <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
+            className="fixed inset-0 bg-[#FDFDFD] z-[300] flex flex-col font-sans overflow-hidden"
+        >
             {/* Header */}
-            <div className="flex justify-between items-center px-4 pt-[calc(16px+var(--safe-area-top))] pb-3 bg-white">
+            <div className="flex justify-between items-center px-4 pt-[calc(16px+var(--safe-area-top))] pb-4 bg-[#FDFDFD]">
                 <button onClick={() => setActivePage('home')} className="p-2 -ml-2 text-slate-800 active:scale-95 transition-transform">
                     <IoChevronBack size={24} />
                 </button>
                 <div className="flex items-center gap-4 text-slate-800">
-                    <button className="active:scale-95 transition-transform"><FiHeadphones size={24} /></button>
-                    <button className="active:scale-95 transition-transform"><IoScanOutline size={24} /></button>
+                    <button className="active:scale-95 transition-transform"><FiMoon size={24} /></button>
+                    <button className="active:scale-95 transition-transform"><PiHeadset size={24} /></button>
                     <button className="active:scale-95 transition-transform"><LuUser size={24} /></button>
                 </div>
             </div>
@@ -93,7 +101,7 @@ const ProfileView = () => {
                             <span className="leading-tight">Boosted yield</span>
                         </div>
                         <div className="flex items-start gap-1.5 flex-1 justify-end">
-                            <div className="text-[#c19a6b] mt-[3px]"><FiHeadphones /></div>
+                            <div className="text-[#c19a6b] mt-[3px]"><PiHeadset /></div>
                             <span className="leading-tight">Priority<br />support</span>
                         </div>
                     </div>
@@ -111,9 +119,9 @@ const ProfileView = () => {
                     <div className="grid grid-cols-4 gap-4">
                         {[
                             { label: 'Earn', icon: <div className="relative"><span className="text-slate-800"><BiCoinStack size={28} /></span><div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full border-2 border-slate-800 flex items-center justify-center"><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /></div></div> },
-                            { label: 'My rewards', icon: <span className="text-slate-800"><IoTicketOutline size={28} /></span> },
+                            { label: 'Rewards', icon: <span className="text-slate-800"><IoTicketOutline size={28} /></span> },
                             { label: 'Referral', icon: <span className="text-slate-800"><FiGift size={28} /></span> },
-                            { label: 'Campaign\ncenter', icon: <span className="text-slate-800"><BsMegaphone size={28} /></span> }
+                            { label: 'Campaign', icon: <span className="text-slate-800"><BsMegaphone size={28} /></span> }
                         ].map((item, idx) => (
                             <div key={idx} className="flex flex-col items-center cursor-pointer active:scale-95 transition-transform">
                                 <div className="h-12 w-12 flex items-center justify-center mb-1">
@@ -125,7 +133,7 @@ const ProfileView = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 };
 

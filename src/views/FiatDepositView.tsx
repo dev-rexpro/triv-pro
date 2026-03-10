@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { FiChevronLeft as ChevronLeft, FiSearch as Search, FiCheck as Check } from 'react-icons/fi';
 import { MdOutlineArrowDropDown as ChevronDown } from 'react-icons/md';
 import useExchangeStore from '../stores/useExchangeStore';
@@ -67,7 +67,13 @@ const FiatDepositView = () => {
     };
 
     return (
-        <div className="fixed inset-0 bg-white z-[300] flex flex-col pt-safe px-4 pb-0 overflow-y-auto no-scrollbar">
+        <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
+            className="fixed inset-0 bg-white z-[300] flex flex-col pt-safe px-4 pb-0 overflow-hidden"
+        >
             {/* Header */}
             <div className="flex items-center justify-between py-4 sticky top-0 bg-white z-10">
                 <button
@@ -175,7 +181,7 @@ const FiatDepositView = () => {
                 message={successDialog.message}
                 onClose={handleSuccessClose}
             />
-        </div>
+        </motion.div>
     );
 };
 

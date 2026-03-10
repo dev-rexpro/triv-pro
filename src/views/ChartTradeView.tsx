@@ -48,7 +48,7 @@ const ChartTradeView = () => {
 
     const isFutures = tradeType === 'futures';
     const { orderBook } = useOrderBookSocket(selectedCoin, isFutures ? 'futures' : 'spot', 10);
-    const isFav = favorites.includes(selectedCoin);
+    const isFav = favorites.includes(selectedCoin) || favorites.includes(`${selectedCoin}:${isFutures ? 'futures' : 'spot'}`);
 
     // Extract base asset dynamically
     const baseAsset = useMemo(() => {
@@ -167,7 +167,7 @@ const ChartTradeView = () => {
                         <Star
                             className={`w-5 h-5 cursor-pointer ${isFav ? 'text-yellow-500' : 'text-gray-800'}`}
                             fill={isFav ? 'currentColor' : 'none'}
-                            onClick={() => toggleFavorite(selectedCoin)}
+                            onClick={() => toggleFavorite(`${selectedCoin}:${isFutures ? 'futures' : 'spot'}`)}
                         />
                         <Share2 className="w-5 h-5 text-gray-800 cursor-pointer" />
                     </div>
@@ -260,7 +260,7 @@ const ChartTradeView = () => {
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.98, y: 10 }}
                                     transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                                    className="fixed top-[72px] bottom-[70px] left-0 right-0 z-[60] bg-white flex flex-col"
+                                    className="fixed top-[72px] bottom-[calc(70px+var(--safe-area-bottom))] left-0 right-0 z-[60] bg-white flex flex-col"
                                 >
                                     {/* Chart Area */}
                                     <div className="flex-1 relative w-full overflow-hidden min-h-0">
@@ -511,9 +511,9 @@ const ChartTradeView = () => {
             </div>
 
             {/* Bottom bar */}
-            <div className={`fixed bottom-0 w-full max-w-md border-t border-slate-100 px-4 py-2 flex items-center justify-between gap-4 z-[70] ${isChartExpanded ? 'bg-[#fcfcfc] h-[70px]' : 'bg-white'}`}>
+            <div className={`fixed bottom-0 w-full max-w-md border-t border-slate-100 px-4 pt-3 pb-[calc(10px+var(--safe-area-bottom))] flex items-center justify-between gap-4 z-[70] ${isChartExpanded ? 'bg-[#fcfcfc]' : 'bg-white'}`}>
                 <button
-                    className={`flex-1 ${isChartExpanded ? 'max-w-[210px]' : 'max-w-[180px]'} bg-black text-white font-bold py-2.5 rounded-full text-[15px] text-center active:scale-[0.98] transition-all whitespace-nowrap`}
+                    className="flex-1 max-w-[200px] bg-black text-white font-bold py-3 rounded-full text-[15px] text-center active:scale-[0.98] transition-all whitespace-nowrap"
                     onClick={() => {
                         useExchangeStore.setState({ selectedCoin, activePage: isFutures ? 'futures' : 'trade' });
                     }}

@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { FiChevronLeft as ChevronLeft } from 'react-icons/fi';
-import { IoIosSwap as SwapIcon } from 'react-icons/io';
+import { LuFileClock as HistoryIcon } from 'react-icons/lu';
+import { TbArrowsSort as SwapIcon } from 'react-icons/tb';
 import { MdOutlineArrowDropDown as ChevronDown } from 'react-icons/md';
 import useExchangeStore from '../stores/useExchangeStore';
 import CoinIcon from '../components/CoinIcon';
@@ -86,7 +87,7 @@ const TransferView = () => {
                 isOpen: true,
                 message: `Moved ${numAmount} ${selectedCoin}\nfrom ${fromAccount} to ${toAccount}.`
             });
-        }, 1000); // Shorter delay for instant transfers
+        }, 800);
     };
 
     const handleSuccessClose = () => {
@@ -98,121 +99,146 @@ const TransferView = () => {
     const formatWalletName = (w: TargetWallet) => w === 'spot' ? 'Funding' : w === 'futures' ? 'Trading' : 'Earn';
 
     return (
-        <div className="fixed inset-0 bg-[#FDFDFD] z-[300] flex flex-col px-4 pb-0 overflow-hidden">
+        <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
+            className="fixed inset-0 bg-white z-[300] flex flex-col px-4 pb-0 overflow-hidden"
+        >
             {/* Header */}
-            <div className="flex items-center justify-between py-4 bg-[#FDFDFD] z-10 sticky pt-safe top-0 border-b border-transparent">
+            <div className="flex items-center justify-between py-6 bg-white z-10 sticky pt-safe top-0">
                 <button
                     onClick={() => window.history.back()}
-                    className="p-1 -ml-1 flex items-center justify-center text-slate-900"
+                    className="p-1 -ml-1 text-slate-900"
                 >
                     <ChevronLeft size={28} />
                 </button>
-                <div className="font-bold text-[17px] text-slate-900">
+                <div className="font-bold text-[19px] text-slate-900">
                     Transfer
                 </div>
-                <div className="w-8 flex justify-end">
-                </div>
+                <button
+                    onClick={() => setActivePage('trade-history')}
+                    className="p-1 text-slate-900"
+                >
+                    <HistoryIcon size={24} />
+                </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto no-scrollbar pt-6">
-
-                {/* Visual Transfer Box */}
-                <div className="relative mb-6 mx-2">
-                    <div className="bg-[#F5F7F9] rounded-xl flex flex-col mb-1 overflow-hidden relative border border-slate-100/50">
-                        <div className="p-4 border-b border-white flex">
-                            <div className="w-[80px] text-sm text-slate-500 font-medium">From</div>
-                            <div className="font-bold text-[15px] text-slate-900">{formatWalletName(fromAccount)}</div>
+            <div className="flex-1 overflow-y-auto no-scrollbar pt-2">
+                {/* Account Selection Box */}
+                <div className="relative mb-8 pt-2">
+                    <div className="space-y-1">
+                        <div className="bg-[#F5F7F9] rounded-xl p-4 pl-5 flex flex-col justify-center h-[72px]">
+                            <span className="text-[13px] text-gray-400 font-medium mb-1">From</span>
+                            <span className="text-[17px] font-bold text-slate-900">{formatWalletName(fromAccount)}</span>
                         </div>
-                        <div className="p-4 flex">
-                            <div className="w-[80px] text-sm text-slate-500 font-medium">To</div>
-                            <div className="font-bold text-[15px] text-slate-900">{formatWalletName(toAccount)}</div>
-                        </div>
-
-                        {/* Swap Button Absolute Center */}
-                        <div
-                            className="absolute right-6 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-900 shadow-sm flex items-center justify-center text-white cursor-pointer active:scale-90 transition-transform z-10"
-                            onClick={handleSwapAccounts}
-                        >
-                            <span className="rotate-90"><SwapIcon size={18} /></span>
-                        </div>
-
-                        {/* Connecting Line styling to match mockup */}
-                        <div className="absolute left-6 top-6 bottom-6 w-px bg-slate-300 flex flex-col justify-between items-center z-0">
-                            <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                            <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+                        <div className="bg-[#F5F7F9] rounded-xl p-4 pl-5 flex flex-col justify-center h-[72px]">
+                            <span className="text-[13px] text-gray-400 font-medium mb-1">To</span>
+                            <span className="text-[17px] font-bold text-slate-900">{formatWalletName(toAccount)}</span>
                         </div>
                     </div>
-                </div>
 
-                <div className="mx-2 mb-6">
-                    <div className="text-[13px] font-medium text-slate-900 mb-2">Asset</div>
-                    <div
-                        className="bg-[#F5F7F9] rounded-xl p-4 flex justify-between items-center cursor-pointer"
-                        onClick={() => setIsCoinDrawerOpen(true)}
+                    {/* Centric Swap Button */}
+                    <button
+                        onClick={handleSwapAccounts}
+                        className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-10 h-10 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform z-10"
                     >
-                        <div className="flex items-center gap-2">
-                            <CoinIcon symbol={selectedCoin} size={6} />
-                            <span className="font-bold text-[15px] text-slate-900">{selectedCoin}</span>
-                        </div>
-                        <span className="text-slate-400"><ChevronDown size={22} /></span>
+                        <SwapIcon size={22} />
+                    </button>
+                </div>
+
+                {/* Asset Selection */}
+                <div className="mb-8">
+                    <label className="block text-[15px] font-bold text-slate-900 mb-3 ml-1">Asset</label>
+                    <div
+                        onClick={() => setIsCoinDrawerOpen(true)}
+                        className="bg-[#F5F7F9] rounded-xl p-4 pl-5 flex items-center justify-between cursor-pointer active:bg-[#edf0f3] transition-colors h-[54px]"
+                    >
+                        <span className="text-[16px] font-bold text-slate-900">{selectedCoin}</span>
+                        <ChevronDown size={24} />
                     </div>
                 </div>
 
-                <div className="mx-2 mb-8">
-                    <div className="text-[13px] font-medium text-slate-900 mb-2">Amount</div>
-                    <div className="bg-[#F5F7F9] rounded-xl p-4 flex flex-col relative">
+                {/* Amount Input */}
+                <div className="mb-2">
+                    <label className="block text-[15px] font-bold text-slate-900 mb-3 ml-1">Amount</label>
+                    <div className="bg-[#F5F7F9] rounded-xl p-4 pl-5 flex items-center justify-between h-[54px] relative">
                         <input
                             type="number"
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
-                            className="w-full bg-transparent border-none text-[16px] font-bold text-slate-900 outline-none placeholder:text-slate-300 mb-2"
                             placeholder="Enter amount"
+                            className="bg-transparent border-none outline-none text-[16px] font-bold text-slate-900 placeholder:text-gray-300 flex-1 h-full"
                         />
-                        <div className="absolute right-4 top-4 flex items-center gap-3">
-                            <span className="text-sm font-bold text-slate-500">{selectedCoin}</span>
-                            <button onClick={handleMaxAmount} className="bg-slate-900 text-white text-[12px] font-bold px-3 py-1 rounded-full active:scale-95">Max</button>
+                        <div className="flex items-center gap-3">
+                            <span className="text-[15px] font-bold text-slate-500">{selectedCoin}</span>
+                            <button
+                                onClick={handleMaxAmount}
+                                className="bg-black text-white px-3 py-1.5 rounded-full text-[12px] font-bold active:scale-95 transition-transform"
+                            >
+                                Max
+                            </button>
                         </div>
-                        <div className="text-[12px] text-slate-500 font-medium">
-                            Available {availableBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })} {selectedCoin}
+                    </div>
+                    <div className="mt-3 ml-1 text-[13px] text-gray-400 font-medium tracking-tight">
+                        <div className="mt-3 ml-1 text-[13px] text-gray-400 font-medium tracking-tight">
+                            Available {availableBalance.toFixed(8).replace(/\.?0+$/, '')} {selectedCoin}
                         </div>
                     </div>
                 </div>
-
             </div>
 
-            <div className="p-4 bg-[#FDFDFD] border-t border-slate-100 pb-8 z-20">
+            {/* Sticky Action Button */}
+            <div className="p-4 bg-white pb-10">
                 <button
                     onClick={handleSimulateTransfer}
                     disabled={!amount || isSimulating || parseFloat(amount) > availableBalance}
-                    className={`w-full py-4 rounded-full font-bold text-[16px] text-center transition-opacity ${(amount && parseFloat(amount) > 0 && parseFloat(amount) <= availableBalance) ? 'bg-[#121212] text-white active:bg-black' : 'bg-slate-100 text-slate-400'}`}
+                    className={`w-full h-14 rounded-full font-bold text-[17px] transition-all ${(amount && parseFloat(amount) > 0 && parseFloat(amount) <= availableBalance)
+                        ? 'bg-slate-900 text-white active:scale-[0.98]'
+                        : 'bg-[#F5F7F9] text-gray-300'
+                        }`}
                 >
                     {isSimulating ? 'Processing...' : 'Confirm'}
                 </button>
             </div>
 
-            {/* Simple Coin Drawer */}
+            {/* Coin Selector Drawer */}
             <AnimatePresence>
                 {isCoinDrawerOpen && (
                     <>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/40 z-[500]" onClick={() => setIsCoinDrawerOpen(false)} />
                         <motion.div
-                            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[501] overflow-hidden flex flex-col max-h-[70vh]"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/40 z-[500]"
+                            onClick={() => setIsCoinDrawerOpen(false)}
+                        />
+                        <motion.div
+                            initial={{ y: "100%" }}
+                            animate={{ y: 0 }}
+                            exit={{ y: "100%" }}
+                            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[32px] z-[501] overflow-hidden flex flex-col max-h-[80vh]"
                         >
-                            <div className="flex items-center justify-center py-4 border-b border-slate-100 font-bold text-[17px] text-slate-900">
+                            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 mb-1" />
+                            <div className="flex items-center justify-center py-4 font-bold text-[18px] text-slate-900">
                                 Select Asset
                             </div>
 
-                            <div className="p-2 pb-8 overflow-y-auto">
+                            <div className="flex-1 overflow-y-auto px-2 pb-10">
                                 {availableCoins.map(coin => (
-                                    <div key={coin.symbol} className="p-4 cursor-pointer active:bg-slate-50 border-b border-slate-50 last:border-0 flex items-center justify-between" onClick={() => { setSelectedCoin(coin.symbol); setIsCoinDrawerOpen(false); }}>
-                                        <div className="flex items-center gap-3">
-                                            <CoinIcon symbol={coin.symbol} size={6} />
-                                            <span className="font-bold text-[16px] text-slate-900">{coin.symbol}</span>
+                                    <div
+                                        key={coin.symbol}
+                                        className="p-4 px-5 cursor-pointer active:bg-slate-50 flex items-center justify-between rounded-2xl"
+                                        onClick={() => { setSelectedCoin(coin.symbol); setIsCoinDrawerOpen(false); }}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <CoinIcon symbol={coin.symbol} size={8} />
+                                            <span className="font-bold text-[17px] text-slate-900">{coin.symbol}</span>
                                         </div>
                                         <div className="text-right">
-                                            <div className="font-bold text-[14px] text-slate-900">
+                                            <div className="font-bold text-[15px] text-slate-900">
                                                 {coin.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
                                             </div>
                                         </div>
@@ -230,7 +256,7 @@ const TransferView = () => {
                 message={successDialog.message}
                 onClose={handleSuccessClose}
             />
-        </div>
+        </motion.div>
     );
 };
 

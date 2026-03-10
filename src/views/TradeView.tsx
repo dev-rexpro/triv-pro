@@ -59,7 +59,7 @@ const TradeView = () => {
     const [activeTopTab, setActiveTopTab] = useState<'Spot' | 'Futures' | 'Bots' | 'Convert'>('Spot');
     const [isReduceOnly, setIsReduceOnly] = useState(false);
     const [secondsRemaining, setSecondsRemaining] = useState(8430);
-    const [successDialog, setSuccessDialog] = useState({ isOpen: false, title: '', message: '' });
+    const [toastMessage, setToastMessage] = useState<{ title: string; message: string } | null>(null);
     const [isCloseAllConfirmOpen, setIsCloseAllConfirmOpen] = useState(false);
 
     // Futures Specific State
@@ -79,6 +79,15 @@ const TradeView = () => {
     // Order Confirmation Modal State
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [pendingOrder, setPendingOrder] = useState<any>(null);
+
+    const handleClosePosition = (posId: string, symbol: string) => {
+        closeFuturesPosition(posId);
+        setToastMessage({
+            title: 'Position Closed',
+            message: `Successfully closed ${symbol} position.`
+        });
+        setTimeout(() => setToastMessage(null), 3000);
+    };
 
     // Sync local activeTopTab with store's tradeType
     useEffect(() => {
@@ -181,6 +190,8 @@ const TradeView = () => {
         return () => clearInterval(interval);
     }, [activeInterval, activeTopTab, currentSymbol]);
 
+    // Toast auto-close is handled inline where it's set
+
     useEffect(() => {
         if (ticker && klines.length > 0) {
             const lastCandle = klines[klines.length - 1];
@@ -228,11 +239,11 @@ const TradeView = () => {
                 leverage: leverage
             });
 
-            setSuccessDialog({
-                isOpen: true,
+            setToastMessage({
                 title: 'Order Placed',
-                message: `Successfully placed ${tradeSide.toUpperCase()} ${a.toFixed(4)} ${baseCoin}\nat ${p.toLocaleString('en-US')} USDT`
+                message: `Successfully placed ${tradeSide.toUpperCase()} ${a.toFixed(4)} ${baseCoin} at ${p.toLocaleString('en-US')} USDT`
             });
+            setTimeout(() => setToastMessage(null), 3000);
         } else {
             placeSpotOrder({
                 symbol: currentSymbol,
@@ -283,11 +294,11 @@ const TradeView = () => {
                     leverage: leverage
                 });
 
-                setSuccessDialog({
-                    isOpen: true,
+                setToastMessage({
                     title: 'Order Placed',
-                    message: `Successfully placed ${actualSide.toUpperCase()} ${a.toFixed(4)} ${baseCoin}\nat ${p.toLocaleString('en-US')} USDT`
+                    message: `Successfully placed ${actualSide.toUpperCase()} ${a.toFixed(4)} ${baseCoin} at ${p.toLocaleString('en-US')} USDT`
                 });
+                setTimeout(() => setToastMessage(null), 3000);
             } else {
                 placeSpotOrder({
                     symbol: currentSymbol,
@@ -305,33 +316,43 @@ const TradeView = () => {
         }
     };
 
+    const formatInput = (val: string) => {
+        if (!val) return '';
+        const parts = val.replace(/,/g, '').split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.');
+    };
+
+    const handlePriceInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const raw = e.target.value.replace(/[^0-9.]/g, '');
+        setPriceInput(formatInput(raw));
+    };
+
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = e.target.value;
-        // Allow empty or numeric with optional decimal
-        if (val === '' || /^\d*\.?\d*$/.test(val)) {
-            setAmountInput(val);
-            const numVal = parseFloat(val);
-            if (!isNaN(numVal)) {
-                if (activeTopTab === 'Futures') {
-                    const limit = maxBuySellFutures;
-                    if (limit > 0) setSliderPercent(Math.min(100, (numVal / limit) * 100));
-                    else setSliderPercent(0);
-                } else {
-                    if (availableBalance > 0) {
-                        let maxAmount = availableBalance;
-                        if (tradeSide === 'buy') {
-                            const price = parseFloat(priceInput) || 0;
-                            maxAmount = price > 0 ? availableBalance / price : 0;
-                        }
-                        const pct = Math.min(100, Math.max(0, (numVal / maxAmount) * 100));
-                        setSliderPercent(pct);
-                    } else {
-                        setSliderPercent(0);
-                    }
-                }
+        const raw = e.target.value.replace(/[^0-9.]/g, '');
+        const formatted = formatInput(raw);
+        setAmountInput(formatted);
+        const numVal = parseFloat(raw);
+        if (!isNaN(numVal)) {
+            if (activeTopTab === 'Futures') {
+                const limit = maxBuySellFutures;
+                if (limit > 0) setSliderPercent(Math.min(100, (numVal / limit) * 100));
+                else setSliderPercent(0);
             } else {
-                setSliderPercent(0);
+                if (availableBalance > 0) {
+                    let maxAmount = availableBalance;
+                    if (tradeSide === 'buy') {
+                        const price = parseFloat(priceInput.replace(/,/g, '')) || 0;
+                        maxAmount = price > 0 ? availableBalance / price : 0;
+                    }
+                    const pct = Math.min(100, Math.max(0, (numVal / maxAmount) * 100));
+                    setSliderPercent(pct);
+                } else {
+                    setSliderPercent(0);
+                }
             }
+        } else {
+            setSliderPercent(0);
         }
     };
 
@@ -340,16 +361,16 @@ const TradeView = () => {
         if (activeTopTab === 'Futures') {
             const limit = maxBuySellFutures;
             if (pct === 0) setAmountInput('');
-            else setAmountInput((limit * (pct / 100)).toFixed(4));
+            else setAmountInput(formatInput((limit * (pct / 100)).toFixed(4)));
         } else {
             if (availableBalance > 0) {
                 let maxAmount = availableBalance;
                 if (tradeSide === 'buy') {
-                    const price = parseFloat(priceInput) || 0;
+                    const price = parseFloat(priceInput.replace(/,/g, '')) || 0;
                     maxAmount = price > 0 ? availableBalance / price : 0;
                 }
                 const val = maxAmount * (pct / 100);
-                setAmountInput(pct === 0 ? '' : val.toFixed(8));
+                setAmountInput(pct === 0 ? '' : formatInput(val.toFixed(8)));
             }
         }
     };
@@ -426,7 +447,7 @@ const TradeView = () => {
     const aggregatedBids = aggregateOrderBook(orderBook.bids, 'buy');
 
     const isPositive = ticker ? parseFloat(ticker.priceChangePercent) >= 0 : true;
-    const currentPriceNum = parseFloat(priceInput) || 0;
+    const currentPriceNum = parseFloat(priceInput.replace(/,/g, '')) || 0;
 
     const displayAvailable = availableBalance === 0 ? '0' : availableBalance.toLocaleString('en-US', { minimumFractionDigits: currentAsset === 'USDT' ? 2 : 4, maximumFractionDigits: 8 });
 
@@ -439,8 +460,8 @@ const TradeView = () => {
 
     const maxBuySellValue = maxBuySellAmount === 0 ? '0' : maxBuySellAmount.toFixed(8);
 
-    const totalUsdt = amountInput && !isNaN(parseFloat(amountInput))
-        ? (parseFloat(amountInput) * currentPriceNum).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const totalUsdt = amountInput && !isNaN(parseFloat(amountInput.replace(/,/g, '')))
+        ? (parseFloat(amountInput.replace(/,/g, '')) * currentPriceNum).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         : '';
 
     const renderSvgChart = (customHeight?: number) => {
@@ -523,6 +544,10 @@ const TradeView = () => {
                             <span
                                 key={t}
                                 onClick={() => {
+                                    if (t === 'Convert') {
+                                        setActivePage('convert');
+                                        return;
+                                    }
                                     setActiveTopTab(t as any);
                                     if (t === 'Spot') setTradeType('spot');
                                     if (t === 'Futures') setTradeType('futures');
@@ -594,9 +619,9 @@ const TradeView = () => {
                                 ) : (
                                     <input
                                         type="text"
-                                        className="bg-transparent font-semibold text-gray-900 text-[15px] outline-none w-full p-0 leading-none"
+                                        className="bg-transparent font-medium text-gray-900 text-[15px] outline-none w-full p-0 leading-none"
                                         value={priceInput}
-                                        onChange={(e) => setPriceInput(e.target.value)}
+                                        onChange={handlePriceInputChange}
                                         onFocus={() => setIsPriceFocused(true)}
                                         onBlur={() => setIsPriceFocused(false)}
                                     />
@@ -634,9 +659,9 @@ const TradeView = () => {
                                 ) : (
                                     <input
                                         type="text"
-                                        className="bg-transparent font-semibold text-gray-900 text-[15px] outline-none w-full p-0 leading-none"
+                                        className="bg-transparent font-medium text-gray-900 text-[15px] outline-none w-full p-0 leading-none"
                                         value={priceInput}
-                                        onChange={(e) => setPriceInput(e.target.value)}
+                                        onChange={handlePriceInputChange}
                                         onFocus={() => setIsPriceFocused(true)}
                                         onBlur={() => setIsPriceFocused(false)}
                                     />
@@ -651,7 +676,7 @@ const TradeView = () => {
                                 <span className="text-[11px] text-gray-500 font-medium leading-none mb-1">Amount ({baseCoin})</span>
                                 <input
                                     type="text"
-                                    className="bg-transparent font-semibold text-gray-900 text-[15px] outline-none w-full p-0 leading-none"
+                                    className="bg-transparent font-medium text-gray-900 text-[15px] outline-none w-full p-0 leading-none"
                                     value={amountInput}
                                     onChange={handleAmountChange}
                                 />
@@ -706,7 +731,7 @@ const TradeView = () => {
                                         <span className="text-[11px] text-gray-500 font-medium leading-none mb-1">Total (USDT)</span>
                                         <input
                                             type="text"
-                                            className="bg-transparent font-semibold text-gray-900 text-[15px] outline-none w-full p-0 leading-none pointer-events-none"
+                                            className="bg-transparent font-medium text-gray-900 text-[15px] outline-none w-full p-0 leading-none pointer-events-none"
                                             value={totalUsdt}
                                             readOnly
                                         />
@@ -1035,7 +1060,7 @@ const TradeView = () => {
                         <ArrowDropDown className="w-[18px] h-[18px] mt-0.5" />
                     </div>
                 </div>
-                <div className="flex items-center h-full pl-2 bg-white relative cursor-pointer" onClick={() => setActivePage('history')}>
+                <div className="flex items-center h-full pl-2 bg-white relative cursor-pointer" onClick={() => setActivePage('trade-history')}>
                     <History className="w-[18px] h-[18px] text-gray-800" />
                 </div>
             </div>
@@ -1181,7 +1206,7 @@ const TradeView = () => {
                                             <button className="flex-1 py-2.5 rounded-full bg-gray-100 text-gray-900 font-bold text-[14px]">TP/SL</button>
                                             <button
                                                 className="flex-1 py-2.5 rounded-full bg-gray-100 text-gray-900 font-bold text-[14px]"
-                                                onClick={() => closeFuturesPosition(pos.id)}
+                                                onClick={() => handleClosePosition(pos.id, pos.symbol)}
                                             >
                                                 Close
                                             </button>
@@ -1325,7 +1350,7 @@ const TradeView = () => {
             </div>
 
             {/* Mini Chart Drawer */}
-            <div className={`fixed bottom-[65px] w-full max-w-md bg-white transition-all duration-300 border-t border-gray-100 z-[150] ${isMiniChartOpen ? 'h-[320px]' : 'h-[48px]'}`}>
+            <div className={`fixed w-full max-w-md bg-white transition-all duration-300 border-t border-gray-100 z-[150] ${isMiniChartOpen ? 'h-[320px]' : 'h-[48px]'}`} style={{ bottom: 'calc(65px + var(--safe-area-bottom))' }}>
                 <div
                     className="flex items-center justify-between px-4 cursor-pointer h-12 -mt-1"
                     onClick={() => setIsMiniChartOpen(!isMiniChartOpen)}
@@ -1547,12 +1572,28 @@ const TradeView = () => {
                     )
                 }
             </AnimatePresence >
-            <SuccessDialog
-                isOpen={successDialog.isOpen}
-                title={successDialog.title}
-                message={successDialog.message}
-                onClose={() => setSuccessDialog({ ...successDialog, isOpen: false })}
-            />
+
+            {/* Native-like Top Toast for Success */}
+            <AnimatePresence>
+                {toastMessage && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -50, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                        className="fixed top-4 left-4 right-4 z-[2000] bg-white text-gray-900 border border-gray-100 p-4 rounded-xl shadow-[0_12px_32px_rgba(0,0,0,0.08)] flex items-start gap-3 pointer-events-none"
+                        style={{ paddingTop: 'calc(1rem + var(--safe-area-top))' }}
+                    >
+                        <div className="w-8 h-8 rounded-full bg-[#00C076]/10 flex items-center justify-center shrink-0 mt-0.5">
+                            <Check size={18} className="text-[#00C076] stroke-[3]" />
+                        </div>
+                        <div className="flex flex-col flex-1">
+                            <span className="font-bold text-[15px] leading-tight mb-1">{toastMessage.title}</span>
+                            <span className="text-[13px] text-gray-500 leading-snug whitespace-pre-line">{toastMessage.message}</span>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <OrderConfirmationModal
                 isOpen={isConfirmModalOpen}
@@ -1663,11 +1704,11 @@ const TradeView = () => {
                                         onClick={() => {
                                             closeAll();
                                             setIsCloseAllConfirmOpen(false);
-                                            setSuccessDialog({
-                                                isOpen: true,
+                                            setToastMessage({
                                                 title: 'Close all successful',
                                                 message: 'All positions have been closed and orders canceled.'
                                             });
+                                            setTimeout(() => setToastMessage(null), 3000);
                                         }}
                                     >
                                         Close all

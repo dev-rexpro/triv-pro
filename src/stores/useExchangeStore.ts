@@ -3,11 +3,16 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type {
     MarketData, Asset, ExchangeRates, FavoriteGroups, CurrencyCode,
-    WalletBalances, TransactionRecord, TradeRecord, PendingOrder, FuturesPosition, UnifiedCoin
+    WalletBalances, TransactionRecord, TradeRecord, PendingOrder, FuturesPosition, UnifiedCoin, PositionHistoryRecord
 } from '../types';
 import type { BinanceSymbolInfo } from '../utils/api';
 import { supabase } from '../utils/supabase';
 import { Session, User } from '@supabase/supabase-js';
+
+// Throttle portfolio balance recalculation to 3s (like Binance/OKX/MEXC)
+// User-triggered actions (trades, deposits) pass force=true to bypass
+let lastPortfolioCalc = 0;
+const PORTFOLIO_THROTTLE_MS = 3000;
 
 interface ExchangeState {
     markets: MarketData[];
@@ -55,6 +60,7 @@ interface ExchangeState {
     transactionHistory: TransactionRecord[];
     tradeHistory: TradeRecord[];
     watchlist: UnifiedCoin[];
+    positionHistory: PositionHistoryRecord[];
     snapshots: { [date: string]: number };
 
     // Actions
@@ -99,12 +105,14 @@ interface ExchangeState {
     cancelSpotOrder: (orderId: string) => void;
     placeFuturesOrder: (order: { symbol: string; side: 'Buy' | 'Sell'; type: 'Limit' | 'Market'; price: number; amount: number; marginMode: string; leverage: number }) => void;
     closeFuturesPosition: (id: string) => void;
-    getPnLForTimeframe: (timeframe: string) => { value: number; percent: number };
+    getPnLForTimeframe: (timeframe: string) => { value: number; percent: number; hasData: boolean };
     setShowOrderConfirmation: (val: boolean) => void;
     closeAll: () => void;
     fetchSupabaseWallets: () => Promise<void>;
     fetchSupabaseHistory: () => Promise<void>;
     performInternalTransfer: (coin: string, from: string, to: string, amount: number) => Promise<boolean>;
+    fetchSupabaseFavorites: () => Promise<void>;
+    syncFavoritesToSupabase: () => Promise<void>;
     startEarnYield: () => void;
     setSession: (session: Session | null) => void;
     signOut: () => Promise<void>;
@@ -118,8 +126,11 @@ const useExchangeStore = create<ExchangeState>()(
             spotSymbols: [],
             futuresSymbols: [],
             history: ['NEWT (Ethereum)', 'JTOUSDT Perp', 'SOLUSDT Perp'],
-            favorites: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT'],
-            favoriteGroups: { 'Group-1': ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT'] },
+            favorites: [
+                'BTCUSDT:spot', 'ETHUSDT:spot', 'SOLUSDT:spot', 'DOGEUSDT:spot', 'XRPUSDT:spot',
+                'BTCUSDT:futures', 'ETHUSDT:futures', 'SOLUSDT:futures', 'DOGEUSDT:futures', 'XRPUSDT:futures'
+            ],
+            favoriteGroups: {},
             hiddenGroups: [],
             balance: 500,
             spotBalance: 500,
@@ -159,24 +170,25 @@ const useExchangeStore = create<ExchangeState>()(
             spotCostBasis: {},
             transactionHistory: [],
             tradeHistory: [],
+            positionHistory: [],
             watchlist: [],
             snapshots: {},
 
-            setMarkets: (data) => set({ markets: data }),
+            setMarkets: (data) => set({ markets: data.map(m => ({ ...m, isFutures: false })) }),
             updateMarkets: (updates) => set((state) => {
                 const map = new Map(state.markets.map(m => [m.symbol, m]));
                 updates.forEach(u => {
                     const existing = map.get(u.symbol);
-                    if (existing) map.set(u.symbol, { ...existing, ...u });
+                    map.set(u.symbol, existing ? { ...existing, ...u, isFutures: false } : { ...u, isFutures: false } as MarketData);
                 });
                 return { markets: Array.from(map.values()) };
             }),
-            setFuturesMarkets: (data) => set({ futuresMarkets: data }),
+            setFuturesMarkets: (data) => set({ futuresMarkets: data.map(m => ({ ...m, isFutures: true })) }),
             updateFuturesMarkets: (updates) => set((state) => {
                 const map = new Map(state.futuresMarkets.map(m => [m.symbol, m]));
                 updates.forEach(u => {
                     const existing = map.get(u.symbol);
-                    if (existing) map.set(u.symbol, { ...existing, ...u });
+                    map.set(u.symbol, existing ? { ...existing, ...u, isFutures: true } : { ...u, isFutures: true } as MarketData);
                 });
                 return { futuresMarkets: Array.from(map.values()) };
             }),
@@ -199,86 +211,120 @@ const useExchangeStore = create<ExchangeState>()(
                 return { history: [query, ...filtered].slice(0, 20) };
             }),
 
-            toggleFavorite: (symbol) => {
+            toggleFavorite: async (symbolWithMarket) => {
                 const favs = get().favorites;
-                const newFavs = favs.includes(symbol) ? favs.filter(s => s !== symbol) : [...favs, symbol];
+                const [symbol, market] = symbolWithMarket.includes(':') ? symbolWithMarket.split(':') : [symbolWithMarket, null];
 
-                // Also update default group
+                // Find existing: either the exact match or the old-style symbol
+                const existingMatch = favs.find(s => s === symbolWithMarket || (market && s === symbol));
+                const isAdding = !existingMatch;
+
+                let newFavs;
+                if (isAdding) {
+                    newFavs = [...favs, symbolWithMarket];
+                } else {
+                    // Remove ALL matches (old style or exact new style)
+                    newFavs = favs.filter(s => s !== symbolWithMarket && s !== symbol);
+                }
+
+                // Update groups
                 const newGroups = { ...get().favoriteGroups };
                 if (newGroups['Group-1']) {
                     newGroups['Group-1'] = newFavs;
                 }
 
+                // If removingGlobally, remove from all custom groups too
+                if (!isAdding) {
+                    Object.keys(newGroups).forEach(groupName => {
+                        if (groupName !== 'Group-1') {
+                            newGroups[groupName] = newGroups[groupName].filter(s => s !== symbolWithMarket && s !== symbol);
+                        }
+                    });
+                }
+
                 set({ favorites: newFavs, favoriteGroups: newGroups });
+                await get().syncFavoritesToSupabase();
             },
 
-            addFavoriteGroup: (name) => set((state) => ({ favoriteGroups: { ...state.favoriteGroups, [name]: [] } })),
+            addFavoriteGroup: async (name) => {
+                set((state) => ({ favoriteGroups: { ...state.favoriteGroups, [name]: [] } }));
+                await get().syncFavoritesToSupabase();
+            },
 
-            deleteFavoriteGroup: (name) => set((state) => {
-                const newGroups = { ...state.favoriteGroups };
-                delete newGroups[name];
-                return { favoriteGroups: newGroups, hiddenGroups: state.hiddenGroups.filter(g => g !== name) };
-            }),
+            deleteFavoriteGroup: async (name) => {
+                set((state) => {
+                    const newGroups = { ...state.favoriteGroups };
+                    delete newGroups[name];
+                    return { favoriteGroups: newGroups, hiddenGroups: state.hiddenGroups.filter(g => g !== name) };
+                });
+                await get().syncFavoritesToSupabase();
+            },
 
-            renameFavoriteGroup: (oldName, newName) => set((state) => {
-                const newGroups = {};
-                // Preserve order of keys while renaming
-                for (const key of Object.keys(state.favoriteGroups)) {
-                    if (key === oldName) {
-                        newGroups[newName] = state.favoriteGroups[oldName];
-                    } else {
-                        newGroups[key] = state.favoriteGroups[key];
+            renameFavoriteGroup: async (oldName, newName) => {
+                set((state) => {
+                    const newGroups = {};
+                    for (const key of Object.keys(state.favoriteGroups)) {
+                        if (key === oldName) {
+                            newGroups[newName] = state.favoriteGroups[oldName];
+                        } else {
+                            newGroups[key] = state.favoriteGroups[key];
+                        }
                     }
-                }
-                const newHidden = state.hiddenGroups.map(g => g === oldName ? newName : g);
-                return { favoriteGroups: newGroups, hiddenGroups: newHidden };
-            }),
+                    const newHidden = state.hiddenGroups.map(g => g === oldName ? newName : g);
+                    return { favoriteGroups: newGroups, hiddenGroups: newHidden };
+                });
+                await get().syncFavoritesToSupabase();
+            },
 
-            toggleGroupVisibility: (name) => set((state) => {
-                const isHidden = state.hiddenGroups.includes(name);
-                return {
-                    hiddenGroups: isHidden
-                        ? state.hiddenGroups.filter(g => g !== name)
-                        : [...state.hiddenGroups, name]
-                };
-            }),
+            toggleGroupVisibility: async (name) => {
+                set((state) => {
+                    const isHidden = state.hiddenGroups.includes(name);
+                    return {
+                        hiddenGroups: isHidden
+                            ? state.hiddenGroups.filter(g => g !== name)
+                            : [...state.hiddenGroups, name]
+                    };
+                });
+                await get().syncFavoritesToSupabase();
+            },
 
-            reorderFavoriteGroups: (newOrder) => set((state) => {
-                const newGroups = {};
-                // newOrder contains all visible and potentially some hidden custom groups?
-                // Actually, newOrder from UI might only contain the reordered subset.
-                // It's safer if newOrder contains all custom groups.
-                // Let's just create a new object in the order provided, and append any missing ones at the end.
-                const existingKeys = Object.keys(state.favoriteGroups);
-                const combinedOrder = [...new Set([...newOrder, ...existingKeys])];
-
-                for (const key of combinedOrder) {
-                    if (state.favoriteGroups[key]) {
-                        newGroups[key] = state.favoriteGroups[key];
+            reorderFavoriteGroups: async (newOrder) => {
+                set((state) => {
+                    const newGroups = {};
+                    const existingKeys = Object.keys(state.favoriteGroups);
+                    const combinedOrder = [...new Set([...newOrder, ...existingKeys])];
+                    for (const key of combinedOrder) {
+                        if (state.favoriteGroups[key]) {
+                            newGroups[key] = state.favoriteGroups[key];
+                        }
                     }
-                }
-                return { favoriteGroups: newGroups };
-            }),
+                    return { favoriteGroups: newGroups };
+                });
+                await get().syncFavoritesToSupabase();
+            },
 
-            reorderGroupCoins: (groupName, newOrder) => set((state) => {
-                if (!state.favoriteGroups[groupName]) return state;
-                return {
-                    favoriteGroups: {
-                        ...state.favoriteGroups,
-                        [groupName]: newOrder
-                    }
-                };
-            }),
+            reorderGroupCoins: async (groupName, newOrder) => {
+                set((state) => {
+                    if (!state.favoriteGroups[groupName]) return state;
+                    return {
+                        favoriteGroups: { ...state.favoriteGroups, [groupName]: newOrder }
+                    };
+                });
+                await get().syncFavoritesToSupabase();
+            },
 
-            removeCoinsFromGroup: (groupName, coinsToRemove) => set((state) => {
-                if (!state.favoriteGroups[groupName]) return state;
-                return {
-                    favoriteGroups: {
-                        ...state.favoriteGroups,
-                        [groupName]: state.favoriteGroups[groupName].filter(c => !coinsToRemove.includes(c))
-                    }
-                };
-            }),
+            removeCoinsFromGroup: async (groupName, coinsToRemove) => {
+                set((state) => {
+                    if (!state.favoriteGroups[groupName]) return state;
+                    return {
+                        favoriteGroups: {
+                            ...state.favoriteGroups,
+                            [groupName]: state.favoriteGroups[groupName].filter(c => !coinsToRemove.includes(c))
+                        }
+                    };
+                });
+                await get().syncFavoritesToSupabase();
+            },
 
             fetchSupabaseWallets: async () => {
                 const { data: { user } } = await supabase.auth.getUser();
@@ -313,7 +359,7 @@ const useExchangeStore = create<ExchangeState>()(
                     });
 
                     set({ wallets: newWallets });
-                    get().updateAssetPrices();
+                    get().updateAssetPrices(true);
                 } else {
                     // If no wallets found in DB, but user is logged in, 
                     // we could seed the default demo 500 USDT to the DB here
@@ -321,12 +367,25 @@ const useExchangeStore = create<ExchangeState>()(
                         await supabase.from('wallets').insert([
                             { user_id: user.id, type: 'funding', coin_symbol: 'USDT', balance: 500 }
                         ]);
+
+                        // Seed the transaction history for this default deposit
+                        await supabase.from('transactions').insert([
+                            {
+                                user_id: user.id,
+                                type: 'deposit',
+                                amount: 500,
+                                currency: 'USDT',
+                                to_wallet: 'funding',
+                                status: 'completed'
+                            }
+                        ]);
+
                         // Refetch after seeding
                         const { data: seededData } = await supabase.from('wallets').select('*').eq('user_id', user.id);
                         if (seededData && seededData.length > 0) {
                             const newWallets = { spot: { USDT: 500 }, futures: {}, earn: {} };
                             set({ wallets: newWallets });
-                            get().updateAssetPrices();
+                            get().updateAssetPrices(true);
                         }
                     } catch (e) {
                         console.error('Wallet seeding failed:', e);
@@ -355,6 +414,47 @@ const useExchangeStore = create<ExchangeState>()(
                 return true;
             },
 
+            syncFavoritesToSupabase: async () => {
+                const { user, favorites, favoriteGroups, hiddenGroups } = get();
+                if (!user) return;
+
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('preferences')
+                    .eq('id', user.id)
+                    .single();
+
+                const updatedPreferences = {
+                    ...(profile?.preferences || {}),
+                    favorites,
+                    favoriteGroups,
+                    hiddenGroups
+                };
+
+                await supabase
+                    .from('profiles')
+                    .update({ preferences: updatedPreferences })
+                    .eq('id', user.id);
+            },
+
+            fetchSupabaseFavorites: async () => {
+                const { user } = get();
+                if (!user) return;
+
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('preferences')
+                    .eq('id', user.id)
+                    .single();
+
+                if (!error && data?.preferences) {
+                    const { favorites, favoriteGroups, hiddenGroups } = data.preferences;
+                    if (favorites) set({ favorites });
+                    if (favoriteGroups) set({ favoriteGroups });
+                    if (hiddenGroups) set({ hiddenGroups });
+                }
+            },
+
             startEarnYield: () => {
                 setInterval(() => {
                     const { wallets } = get();
@@ -373,7 +473,7 @@ const useExchangeStore = create<ExchangeState>()(
 
                     if (hasUpdate) {
                         set({ wallets: { ...wallets, earn: earnWallets } });
-                        get().updateAssetPrices();
+                        get().updateAssetPrices(); // throttled — earn yield is background
                     }
                 }, 1000);
             },
@@ -394,15 +494,23 @@ const useExchangeStore = create<ExchangeState>()(
                 set(s => ({ transactionHistory: [tx, ...s.transactionHistory] }));
                 const { user } = get();
                 if (user) {
-                    await supabase.from('transactions').insert([{
-                        user_id: user.id,
-                        type: tx.type.toLowerCase(),
-                        amount: tx.amount,
-                        currency: tx.currency,
-                        from_wallet: tx.from || null,
-                        to_wallet: tx.to || null,
-                        status: tx.status.toLowerCase()
-                    }]);
+                    // Normalize type to match DB CHECK constraint ('deposit','withdrawal','transfer','trade','stake')
+                    const allowedTypes = ['deposit', 'withdrawal', 'transfer', 'trade', 'stake'];
+                    const typeNorm = tx.type.toLowerCase();
+                    const dbType = allowedTypes.includes(typeNorm) ? typeNorm : 'transfer';
+                    try {
+                        await supabase.from('transactions').insert([{
+                            user_id: user.id,
+                            type: dbType,
+                            amount: tx.amount,
+                            currency: tx.currency,
+                            from_wallet: tx.from || null,
+                            to_wallet: tx.to || null,
+                            status: tx.status.toLowerCase()
+                        }]);
+                    } catch (e) {
+                        console.warn('Transaction DB insert failed (non-critical):', e);
+                    }
                 }
             },
             addTrade: async (tr) => {
@@ -430,7 +538,7 @@ const useExchangeStore = create<ExchangeState>()(
                     supabase.from('orders_spot').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
                 ]);
 
-                if (!txData.error && txData.data) {
+                if (!txData.error && txData.data && txData.data.length > 0) {
                     const mappedTx = txData.data.map(t => ({
                         id: t.id,
                         type: t.type.charAt(0).toUpperCase() + t.type.slice(1),
@@ -441,10 +549,17 @@ const useExchangeStore = create<ExchangeState>()(
                         from: t.from_wallet,
                         to: t.to_wallet
                     }));
-                    set({ transactionHistory: mappedTx });
+                    // Merge with local state (DB is source of truth when available)
+                    // but keep local-only entries the DB doesn't have yet
+                    set(s => {
+                        const dbIds = new Set(mappedTx.map(t => t.id));
+                        const localOnly = s.transactionHistory.filter(t => !dbIds.has(t.id));
+                        return { transactionHistory: [...localOnly, ...mappedTx] };
+                    });
                 }
+                // If DB returns empty, keep local state as-is (don't wipe it)
 
-                if (!tradeData.error && tradeData.data) {
+                if (!tradeData.error && tradeData.data && tradeData.data.length > 0) {
                     const mappedTrades = tradeData.data.map(t => ({
                         id: t.id,
                         symbol: t.pair,
@@ -456,8 +571,13 @@ const useExchangeStore = create<ExchangeState>()(
                         pnl: 0,
                         timestamp: new Date(t.created_at).getTime()
                     }));
-                    set({ tradeHistory: mappedTrades });
+                    set(s => {
+                        const dbIds = new Set(mappedTrades.map(t => t.id));
+                        const localOnly = s.tradeHistory.filter(t => !dbIds.has(t.id));
+                        return { tradeHistory: [...localOnly, ...mappedTrades] };
+                    });
                 }
+                // If DB returns empty, keep local state as-is
             },
             addPosition: (pos) => set(s => ({ positions: [...s.positions, pos] })),
             removePosition: (id) => set(s => ({ positions: s.positions.filter(p => p.id !== id) })),
@@ -537,7 +657,7 @@ const useExchangeStore = create<ExchangeState>()(
                         timestamp: Date.now()
                     });
                 }
-                get().updateAssetPrices();
+                get().updateAssetPrices(true); // user action: trade placed
             },
 
             cancelSpotOrder: (orderId) => {
@@ -619,7 +739,7 @@ const useExchangeStore = create<ExchangeState>()(
                 }
 
                 set({ positions: nextPositions });
-                get().updateAssetPrices();
+                get().updateAssetPrices(true); // user action: futures order placed
 
                 get().addTrade({
                     id: `TR-F-${Date.now()}`,
@@ -643,18 +763,42 @@ const useExchangeStore = create<ExchangeState>()(
                 const newWallets = { ...wallets };
                 newWallets.futures.USDT = (newWallets.futures.USDT || 0) + pos.pnl;
 
+                // Record into positionHistory
+                const newHistoryRecord: PositionHistoryRecord = {
+                    id: pos.id,
+                    pair: pos.pair,
+                    side: pos.side,
+                    size: pos.size,
+                    margin: pos.margin,
+                    entryPrice: pos.entryPrice,
+                    markPrice: pos.markPrice || pos.entryPrice,
+                    leverage: pos.leverage,
+                    pnl: pos.pnl || 0,
+                    pnlPercent: pos.pnlPercent || 0,
+                    timeOpened: Date.now() - 3600000,
+                    timeClosed: Date.now(),
+                    marginMode: pos.marginMode || 'Cross'
+                };
+
                 set({
                     wallets: newWallets,
-                    positions: positions.filter(p => p.id !== id)
+                    positions: positions.filter(p => p.id !== id),
+                    positionHistory: [newHistoryRecord, ...(get().positionHistory || [])]
                 });
 
-                get().updateAssetPrices();
+                get().updateAssetPrices(true); // user action: position closed
             },
 
             resetWallets: () => {
                 const now = Date.now();
+                const todayMidnight = new Date(new Date().toISOString().split('T')[0]).getTime(); // midnight today
                 const initialHistory = [
-                    { id: `INIT-USDT-${now}`, type: 'Deposit', status: 'Completed', amount: 500, currency: 'USDT', timestamp: now, to: 'Spot' },
+                    { id: `INIT-USDT-${now}`, type: 'Deposit', status: 'Completed', amount: 500, currency: 'USDT', timestamp: todayMidnight - 1, to: 'Spot' },
+                ];
+
+                const defaultFavorites = [
+                    'BTCUSDT:spot', 'ETHUSDT:spot', 'SOLUSDT:spot', 'DOGEUSDT:spot', 'XRPUSDT:spot',
+                    'BTCUSDT:futures', 'ETHUSDT:futures', 'SOLUSDT:futures', 'DOGEUSDT:futures', 'XRPUSDT:futures'
                 ];
 
                 set({
@@ -668,6 +812,7 @@ const useExchangeStore = create<ExchangeState>()(
                     tradeHistory: [],
                     positions: [],
                     openOrders: [],
+                    positionHistory: [],
                     snapshots: { [new Date().toISOString().split('T')[0]]: 500 },
                     balance: 500,
                     spotBalance: 500,
@@ -676,14 +821,42 @@ const useExchangeStore = create<ExchangeState>()(
                     todayPnl: 0,
                     todaySpotPnl: 0,
                     pnlPercent: 0,
-                    assets: [{ symbol: 'USDT', amount: 500, valueUsdt: 500 }]
+                    assets: [{ symbol: 'USDT', amount: 500, valueUsdt: 500 }],
+                    favorites: defaultFavorites,
+                    favoriteGroups: {},
+                    hiddenGroups: [],
                 });
-                get().updateAssetPrices();
+
+                // Sync to Supabase
+                const { user } = get();
+                if (user) {
+                    supabase.from('wallets').upsert([
+                        { user_id: user.id, type: 'funding', coin_symbol: 'USDT', balance: 500 },
+                        { user_id: user.id, type: 'trading', coin_symbol: 'USDT', balance: 0 },
+                        { user_id: user.id, type: 'earn', coin_symbol: 'USDT', balance: 0 },
+                    ], { onConflict: 'user_id,type,coin_symbol' }).then();
+
+                    supabase.from('transactions').insert([{
+                        user_id: user.id,
+                        type: 'deposit',
+                        amount: 500,
+                        currency: 'USDT',
+                        to_wallet: 'funding',
+                        status: 'completed'
+                    }]).then();
+                }
+
+                get().updateAssetPrices(true);
             },
 
             // Auto-Calculation: recalculate asset values from latest market prices and wallets
             // Auto-PnL: compute daily PnL from weighted asset × priceChangePercent
-            updateAssetPrices: () => {
+            updateAssetPrices: (force = false) => {
+                // Throttle: skip if called too frequently (e.g. from earn yield every 1s)
+                const now = Date.now();
+                if (!force && now - lastPortfolioCalc < PORTFOLIO_THROTTLE_MS) return;
+                lastPortfolioCalc = now;
+
                 set((state) => {
                     const { wallets, markets, futuresMarkets, openOrders, positions, spotCostBasis, tradeHistory } = state;
 
@@ -925,7 +1098,8 @@ const useExchangeStore = create<ExchangeState>()(
 
                 return {
                     value: currentPnL,
-                    percent: parseFloat(pnlPct.toFixed(2))
+                    percent: parseFloat(pnlPct.toFixed(2)),
+                    hasData: baselineFound
                 };
             },
 
@@ -961,7 +1135,7 @@ const useExchangeStore = create<ExchangeState>()(
                         wallets: newWallets
                     };
                 });
-                get().updateAssetPrices();
+                get().updateAssetPrices(true);
             },
         }),
         { name: 'triv-ultra-storage' }

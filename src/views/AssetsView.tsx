@@ -4,7 +4,7 @@ import useExchangeStore from '../stores/useExchangeStore';
 import CoinIcon from '../components/CoinIcon';
 import CurrencySelector from '../components/CurrencySelector';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { convertAmount } from '../utils/format';
+import { convertAmount, getCurrencySymbol } from '../utils/format';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiCheck as Check, FiChevronRight as ChevronRight, FiSearch as Search,
@@ -17,7 +17,7 @@ import { TbFilter2Cog } from 'react-icons/tb';
 import { GrDocumentTime as History, GrDocumentTime as AlarmClock } from 'react-icons/gr';
 import { RiHistoryLine, RiCustomerService2Line, RiArrowRightSLine, RiEyeLine, RiEyeOffLine, RiCoinLine } from 'react-icons/ri';
 import { BiLogOut } from 'react-icons/bi';
-import { LuTimerReset as TimerReset } from 'react-icons/lu';
+import { LuTimerReset as TimerReset, LuArrowLeftRight } from 'react-icons/lu';
 import { FaCoins as Coins } from 'react-icons/fa';
 import { MdOutlineArrowDropDown as ChevronDown } from 'react-icons/md';
 import { RiPlayListAddFill as MoreHorizontal } from 'react-icons/ri';
@@ -76,7 +76,7 @@ const AssetsView = () => {
             </div>
 
             <div className="p-4">
-                <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+                <div className="bg-white border border-slate-200 rounded-2xl p-5">
                     <div className="flex justify-between items-center mb-3">
                         <div className="flex items-center text-slate-500 text-[13px] font-medium">
                             <span className="mr-1">{activeTab === 'Overview' ? 'Est total value' : activeTab === 'Earn' ? 'Asset Value(est.)' : `${activeTab} Value`} (</span>
@@ -116,7 +116,7 @@ const AssetsView = () => {
                             <span className="text-slate-400 border-b border-dashed border-slate-300 mr-2">Today's PnL</span>
                             {!hideBalance ? (
                                 <div className={`${pnlColor} flex items-center`}>
-                                    <span>{pnlPrefixSymbol}<SlotTicker value={Math.abs(convertedPnl)} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" /></span>
+                                    <span>{pnlPrefixSymbol}{getCurrencySymbol(currency)}<SlotTicker value={Math.abs(convertedPnl)} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" /></span>
                                     <span className="ml-1">({pnlPrefixSymbol}{Math.abs(displayPnlPercent).toFixed(2)}%)</span>
                                 </div>
                             ) : <span className="text-slate-400">******</span>}
@@ -127,7 +127,7 @@ const AssetsView = () => {
                             <span className="text-slate-400 border-b border-dashed border-slate-300 mr-2">Today's PnL</span>
                             {!hideBalance ? (
                                 <div className={`${futuresUnrealizedPnl >= 0 ? 'text-[#00C076]' : 'text-[#FF4D5B]'} flex items-center`}>
-                                    <span>{futuresUnrealizedPnl >= 0 ? '+' : '-'}<SlotTicker value={Math.abs(convertAmount(futuresUnrealizedPnl, currency, rates))} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" /></span>
+                                    <span>{futuresUnrealizedPnl >= 0 ? '+' : '-'}{getCurrencySymbol(currency)}<SlotTicker value={Math.abs(convertAmount(futuresUnrealizedPnl, currency, rates))} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" /></span>
                                     <span className="ml-1">({futuresUnrealizedPnl >= 0 ? '+' : '-'}{Math.abs((futuresUnrealizedPnl / futuresBalance) * 100 || 0).toFixed(2)}%)</span>
                                 </div>
                             ) : <span className="text-slate-400">******</span>}
@@ -136,21 +136,22 @@ const AssetsView = () => {
                     ) : (
                         <div className="flex items-center text-[12px] font-medium inline-flex group">
                             <span className="text-slate-400 mr-2">Yesterday's PnL</span>
-                            {!hideBalance ? <div className="text-slate-500 flex items-center"><span>{currency === 'IDR' ? 'Rp' : '$'}<SlotTicker value={0} decimals={currency === 'IDR' ? 0 : 2} /></span></div> : <span className="text-slate-400">******</span>}
+                            {!hideBalance ? <div className="text-slate-500 flex items-center"><span>{getCurrencySymbol(currency)}<SlotTicker value={0} decimals={currency === 'IDR' ? 0 : 2} /></span></div> : <span className="text-slate-400">******</span>}
                         </div>
                     )}
                 </div>
             </div>
 
             {activeTab === 'Overview' ? (
-                <div className="px-5 py-2"><div className="bg-white rounded-2xl p-4 relative overflow-hidden shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-slate-100 flex justify-between items-center cursor-pointer"><div className="relative z-10"><h3 className="text-[17px] font-bold text-slate-900 mb-1">Earn up to 12% APY</h3><p className="text-slate-500 text-xs font-medium">Auto-invest and grow your portfolio.</p></div><div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 shadow-sm"><ArrowRight size={16} className="text-slate-700" /></div></div></div>
+                <div className="px-5 py-2"><div className="bg-white rounded-2xl p-4 relative overflow-hidden border border-slate-200 flex justify-between items-center cursor-pointer"><div className="relative z-10"><h3 className="text-[17px] font-bold text-slate-900 mb-1">Earn up to 12% APY</h3><p className="text-slate-500 text-xs font-medium">Auto-invest and grow your portfolio.</p></div><div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100 shadow-sm"><ArrowRight size={16} className="text-slate-700" /></div></div></div>
             ) : (
                 <div className={`px-5 py-2 flex ${activeTab === 'Spot' ? 'justify-between' : 'justify-around'} items-start`}>
-                    {(activeTab === 'Spot' ? [{ icon: AlarmClock, label: 'Auto-Invest' }, { icon: ArrowDownToLine, label: 'Deposit' }, { icon: ArrowUpFromLine, label: 'Withdraw' }, { icon: ArrowRightLeft, label: 'Transfer' }, { icon: RefreshCcw, label: 'Convert' }] : activeTab === 'Futures' ? [{ icon: ArrowDownToLine, label: 'Deposit' }, { icon: ArrowRightLeft, label: 'Transfer' }, { icon: LineChart, label: 'PnL Analysis' }, { icon: CalendarDays, label: 'PnL Calendar' }] : [{ icon: ArrowRightLeft, label: 'Transfer' }, { icon: Briefcase, label: 'Earn' }, { icon: CircleDollarSign, label: 'Easy Earn' }, { icon: Coins, label: 'Dual Investment' }]).map((action, idx) => (
+                    {(activeTab === 'Spot' ? [{ icon: AlarmClock, label: 'Auto-Invest' }, { icon: ArrowDownToLine, label: 'Deposit' }, { icon: ArrowUpFromLine, label: 'Withdraw' }, { icon: LuArrowLeftRight, label: 'Transfer' }, { icon: ArrowRightLeft, label: 'Convert' }] : activeTab === 'Futures' ? [{ icon: ArrowDownToLine, label: 'Deposit' }, { icon: LuArrowLeftRight, label: 'Transfer' }, { icon: LineChart, label: 'PnL Analysis' }, { icon: CalendarDays, label: 'PnL Calendar' }] : [{ icon: LuArrowLeftRight, label: 'Transfer' }, { icon: Briefcase, label: 'Earn' }, { icon: CircleDollarSign, label: 'Easy Earn' }, { icon: Coins, label: 'Dual Investment' }]).map((action, idx) => (
                         <div key={idx} onClick={() => {
                             if (action.label === 'Deposit') setDepositOptionOpen(true);
                             if (action.label === 'Withdraw') setActivePage('withdraw');
                             if (action.label === 'Transfer') setActivePage('transfer');
+                            if (action.label === 'Convert') setActivePage('convert');
                         }} className="flex flex-col items-center gap-2 cursor-pointer group"><div className="w-11 h-11 bg-slate-100 rounded-full flex items-center justify-center text-slate-700 group-hover:bg-slate-200 transition-colors"><action.icon size={20} /></div><span className="text-[11px] font-semibold text-slate-700">{action.label}</span></div>
                     ))}
                 </div>
@@ -204,12 +205,14 @@ const AssetsView = () => {
             <AnimatePresence>
                 {toastMessage && (
                     <motion.div
-                        initial={{ opacity: 0, y: 50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 50 }}
-                        className="fixed bottom-[100px] left-1/2 -translate-x-1/2 bg-[#121212] flex items-center gap-2 text-white px-5 py-3 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.15)] z-[1000] text-[13px] font-bold whitespace-nowrap"
+                        initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                        className="fixed top-[max(16px,var(--safe-area-top,16px))] left-4 right-4 bg-white/95 backdrop-blur-md flex items-center gap-3 px-4 py-3.5 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 z-[1000] text-[14px] font-semibold text-slate-800"
                     >
-                        <Check size={16} className="text-[#00C076]" />
+                        <div className="w-8 h-8 rounded-full bg-[#00C076]/10 flex items-center justify-center shrink-0">
+                            <Check size={18} className="text-[#00C076]" strokeWidth={3} />
+                        </div>
                         {toastMessage}
                     </motion.div>
                 )}

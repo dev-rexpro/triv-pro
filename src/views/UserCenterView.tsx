@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import useExchangeStore from '../stores/useExchangeStore';
 import { IoChevronBack } from "react-icons/io5";
 import { LuUserPlus } from "react-icons/lu";
@@ -16,7 +17,13 @@ const UserCenterView = () => {
     };
 
     return (
-        <div className="fixed inset-0 bg-white z-[300] flex flex-col font-sans overflow-hidden">
+        <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
+            className="fixed inset-0 bg-white z-[300] flex flex-col font-sans overflow-hidden"
+        >
             {/* Header */}
             <div className="flex justify-between items-center px-4 pt-[calc(16px+var(--safe-area-top))] pb-3 relative bg-white">
                 <button onClick={() => setActivePage('profile')} className="p-2 -ml-2 text-slate-800 active:scale-95 transition-transform absolute left-4">
@@ -136,7 +143,7 @@ const UserCenterView = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 };
 
