@@ -13,7 +13,6 @@ import {
 } from 'react-icons/lu';
 import { HiOutlineChartBar as BarChart2, HiOutlineChartPie as PieChart } from 'react-icons/hi2';
 import { MdOutlineArrowDropDown as ArrowDropDown } from 'react-icons/md';
-import BottomSheet from '../components/BottomSheet';
 import { formatPrice } from '../utils/format';
 
 const baseUrl = 'https://api.binance.com';
@@ -561,7 +560,7 @@ export default function SpotTradeView() {
                                 className="flex-1 flex items-center justify-between bg-gray-50 border border-gray-100 px-2 h-[26px] rounded-[6px] text-[13px] font-semibold text-gray-600 cursor-pointer"
                                 onClick={() => setIsPrecisionSheetOpen(true)}
                             >
-                                {precision} <ArrowDropDown className="w-6 h-6 text-gray-400" />
+                                {precision} <div className="text-gray-400"><ArrowDropDown size={24} /></div>
                             </div>
                             <div
                                 className="w-[26px] h-[26px] shrink-0 flex flex-col items-center justify-center gap-[4px] border border-gray-100 rounded-[6px] bg-gray-50 cursor-pointer"
@@ -672,6 +671,6 @@ export default function SpotTradeView() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

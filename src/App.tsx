@@ -20,6 +20,8 @@ import TransferView from './views/TransferView';
 import HistoryView from './views/HistoryView';
 import ChartTradeView from './views/ChartTradeView';
 import AuthView from './views/AuthView';
+import ProfileView from './views/ProfileView';
+import UserCenterView from './views/UserCenterView';
 
 // Overlays
 import SearchOverlay from './components/SearchOverlay';
@@ -47,10 +49,17 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session) {
+        useExchangeStore.getState().fetchSupabaseWallets();
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session) {
+        useExchangeStore.getState().fetchSupabaseWallets();
+        useExchangeStore.getState().fetchSupabaseHistory();
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -195,9 +204,11 @@ export default function App() {
         {activePage === 'transfer' && <TransferView />}
         {activePage === 'history' && <HistoryView />}
         {activePage === 'chart-trade' && <ChartTradeView />}
+        {activePage === 'profile' && <ProfileView />}
+        {activePage === 'user-center' && <UserCenterView />}
       </div>
 
-      {activePage !== 'chart-trade' && (
+      {activePage !== 'chart-trade' && activePage !== 'profile' && activePage !== 'user-center' && (
         <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex justify-around items-center pt-2 pb-[calc(10px+var(--safe-area-bottom))] z-[200] px-2">
           <button onClick={() => setActivePage('home')} className={`flex flex-col items-center gap-2 ${activePage === 'home' ? 'text-slate-900' : 'text-slate-400'}`}>
             <img src={homeIcon} alt="Home" className={`w-[24px] h-[24px] ${activePage === 'home' ? 'opacity-100' : 'opacity-40'}`} />

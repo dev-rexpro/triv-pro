@@ -100,31 +100,26 @@ const AuthView = () => {
                             initial="initial"
                             animate="animate"
                             exit="exit"
-                            className="flex-1 flex flex-col"
+                            className="flex-1 flex flex-col pt-2"
                         >
-                            <div className="flex justify-center mt-8 mb-12">
-                                <div className="p-4 bg-slate-50 rounded-2xl shadow-sm border border-slate-100">
-                                    <img src={trivLogo} alt="TRIV" className="w-16 h-16" />
-                                </div>
+                            <div className="flex justify-center mb-1">
+                                <img src={trivLogo} alt="TRIV" className="w-48 h-48" />
                             </div>
 
-                            <h1 className="text-[32px] font-bold leading-tight text-center mb-4">
-                                A New<br />Alternative
+                            <h1 className="text-[26px] font-medium leading-tight text-center mb-4">
+                                Taking the Lead in<br />Crypto Industry
                             </h1>
-                            <p className="text-slate-500 text-center mb-12">
-                                To Your Crypto Journey
-                            </p>
 
-                            <div className="mt-auto space-y-3 mb-10">
+                            <div className="mt-auto flex gap-3 mb-12 px-2">
                                 <button
                                     onClick={() => { setAuthMode('login'); setStep(2); }}
-                                    className="w-full py-4 bg-[#DFFF8F] text-slate-900 font-bold rounded-full text-[17px] active:scale-[0.98] transition-all"
+                                    className="flex-1 py-4 bg-[#3189c6] text-white font-bold rounded-full text-[17px] active:scale-[0.98] transition-all"
                                 >
                                     Log in
                                 </button>
                                 <button
                                     onClick={() => { setAuthMode('signup'); setStep(2); }}
-                                    className="w-full py-4 bg-[#2D6A1F] text-white font-bold rounded-full text-[17px] active:scale-[0.98] transition-all"
+                                    className="flex-1 py-4 bg-black text-white font-bold rounded-full text-[17px] active:scale-[0.98] transition-all"
                                 >
                                     Sign up
                                 </button>
@@ -173,7 +168,7 @@ const AuthView = () => {
                             <button
                                 onClick={() => authMode === 'signup' ? handleNext() : handleAuth()}
                                 disabled={!email.includes('@') || password.length < 6}
-                                className="w-full py-4 bg-[#F5F7F9] text-slate-300 font-bold rounded-full text-[17px] mb-8 disabled:cursor-not-allowed transition-all enabled:bg-[#2D6A1F] enabled:text-white"
+                                className="w-full py-4 bg-[#F5F7F9] text-slate-300 font-bold rounded-full text-[17px] mb-8 disabled:cursor-not-allowed transition-all enabled:bg-[#3189c6] enabled:text-white"
                             >
                                 {authMode === 'login' ? (loading ? 'Logging in...' : 'Log in') : 'Next'}
                             </button>
@@ -236,7 +231,7 @@ const AuthView = () => {
                                 <button
                                     onClick={handleAuth}
                                     disabled={loading}
-                                    className="w-full py-4 bg-[#2D6A1F] text-white font-bold rounded-full text-[17px] active:scale-[0.98] transition-all flex items-center justify-center"
+                                    className="w-full py-4 bg-[#3189c6] text-white font-bold rounded-full text-[17px] active:scale-[0.98] transition-all flex items-center justify-center"
                                 >
                                     {loading ? 'Creating account...' : 'Create account'}
                                 </button>

@@ -103,6 +103,7 @@ interface ExchangeState {
     setShowOrderConfirmation: (val: boolean) => void;
     closeAll: () => void;
     fetchSupabaseWallets: () => Promise<void>;
+    fetchSupabaseHistory: () => Promise<void>;
     performInternalTransfer: (coin: string, from: string, to: string, amount: number) => Promise<boolean>;
     startEarnYield: () => void;
     setSession: (session: Session | null) => void;
@@ -293,18 +294,44 @@ const useExchangeStore = create<ExchangeState>()(
                     return;
                 }
 
-                const newWallets = {
-                    spot: {},
-                    futures: {},
-                    earn: {}
-                };
+                if (data && data.length > 0) {
+                    const newWallets = {
+                        spot: {},
+                        futures: {},
+                        earn: {}
+                    };
 
-                data.forEach((w: any) => {
-                    newWallets[w.type][w.coin_symbol] = parseFloat(w.balance);
-                });
+                    data.forEach((w: any) => {
+                        // Map 'funding' to 'spot' for internal demo logic if needed, 
+                        // but schema says 'funding', 'trading', 'earn'. 
+                        // The store uses 'spot', 'futures', 'earn'.
+                        const typeMap = { 'funding': 'spot', 'trading': 'futures', 'earn': 'earn' };
+                        const storeType = typeMap[w.type] || w.type;
+                        if (newWallets[storeType]) {
+                            newWallets[storeType][w.coin_symbol] = parseFloat(w.balance);
+                        }
+                    });
 
-                set({ wallets: newWallets });
-                get().updateAssetPrices();
+                    set({ wallets: newWallets });
+                    get().updateAssetPrices();
+                } else {
+                    // If no wallets found in DB, but user is logged in, 
+                    // we could seed the default demo 500 USDT to the DB here
+                    try {
+                        await supabase.from('wallets').insert([
+                            { user_id: user.id, type: 'funding', coin_symbol: 'USDT', balance: 500 }
+                        ]);
+                        // Refetch after seeding
+                        const { data: seededData } = await supabase.from('wallets').select('*').eq('user_id', user.id);
+                        if (seededData && seededData.length > 0) {
+                            const newWallets = { spot: { USDT: 500 }, futures: {}, earn: {} };
+                            set({ wallets: newWallets });
+                            get().updateAssetPrices();
+                        }
+                    } catch (e) {
+                        console.error('Wallet seeding failed:', e);
+                    }
+                }
             },
 
             performInternalTransfer: async (coin, from, to, amount) => {
@@ -363,8 +390,75 @@ const useExchangeStore = create<ExchangeState>()(
                 get().updateAssetPrices();
             },
             setDepositOptionOpen: (val) => set({ isDepositOptionOpen: val }),
-            addTransaction: (tx) => set(s => ({ transactionHistory: [tx, ...s.transactionHistory] })),
-            addTrade: (tr) => set(s => ({ tradeHistory: [tr, ...s.tradeHistory] })),
+            addTransaction: async (tx) => {
+                set(s => ({ transactionHistory: [tx, ...s.transactionHistory] }));
+                const { user } = get();
+                if (user) {
+                    await supabase.from('transactions').insert([{
+                        user_id: user.id,
+                        type: tx.type.toLowerCase(),
+                        amount: tx.amount,
+                        currency: tx.currency,
+                        from_wallet: tx.from || null,
+                        to_wallet: tx.to || null,
+                        status: tx.status.toLowerCase()
+                    }]);
+                }
+            },
+            addTrade: async (tr) => {
+                set(s => ({ tradeHistory: [tr, ...s.tradeHistory] }));
+                const { user } = get();
+                if (user) {
+                    await supabase.from('orders_spot').insert([{
+                        user_id: user.id,
+                        pair: tr.symbol,
+                        side: tr.side.toLowerCase(),
+                        type: tr.type.toLowerCase(),
+                        price: tr.price,
+                        amount: tr.amount,
+                        filled: tr.amount,
+                        status: 'filled'
+                    }]);
+                }
+            },
+            fetchSupabaseHistory: async () => {
+                const { user } = get();
+                if (!user) return;
+
+                const [txData, tradeData] = await Promise.all([
+                    supabase.from('transactions').select('*').eq('user_id', user.id).order('timestamp', { ascending: false }),
+                    supabase.from('orders_spot').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+                ]);
+
+                if (!txData.error && txData.data) {
+                    const mappedTx = txData.data.map(t => ({
+                        id: t.id,
+                        type: t.type.charAt(0).toUpperCase() + t.type.slice(1),
+                        status: t.status.charAt(0).toUpperCase() + t.status.slice(1),
+                        amount: parseFloat(t.amount),
+                        currency: t.currency,
+                        timestamp: new Date(t.timestamp).getTime(),
+                        from: t.from_wallet,
+                        to: t.to_wallet
+                    }));
+                    set({ transactionHistory: mappedTx });
+                }
+
+                if (!tradeData.error && tradeData.data) {
+                    const mappedTrades = tradeData.data.map(t => ({
+                        id: t.id,
+                        symbol: t.pair,
+                        side: t.side.charAt(0).toUpperCase() + t.side.slice(1),
+                        type: t.type.charAt(0).toUpperCase() + t.type.slice(1),
+                        price: parseFloat(t.price),
+                        amount: parseFloat(t.amount),
+                        fee: 0,
+                        pnl: 0,
+                        timestamp: new Date(t.created_at).getTime()
+                    }));
+                    set({ tradeHistory: mappedTrades });
+                }
+            },
             addPosition: (pos) => set(s => ({ positions: [...s.positions, pos] })),
             removePosition: (id) => set(s => ({ positions: s.positions.filter(p => p.id !== id) })),
             updatePosition: (id, updates) => set(s => ({

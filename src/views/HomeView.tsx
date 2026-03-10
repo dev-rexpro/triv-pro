@@ -28,6 +28,7 @@ import {
 import { IoTicketOutline as Ticket } from 'react-icons/io5';
 import { PiHeadset as Headphones } from 'react-icons/pi';
 import { LuUser as User, LuChevronUp, LuChevronDown } from 'react-icons/lu';
+import { BiCoinStack } from 'react-icons/bi';
 import {
     RiTelegramFill,
     RiYoutubeFill,
@@ -194,8 +195,8 @@ const HomeView = () => {
                     <div className="text-slate-500 flex items-center"><ChevronDown size={20} /></div>
                 </div>
                 <div className="flex gap-4 text-slate-800">
-                    <Headphones size={24} />
-                    <User size={24} />
+                    <button><Headphones size={24} /></button>
+                    <button className="active:scale-95 transition-transform" onClick={() => setActivePage('profile')}><User size={24} /></button>
                 </div>
             </div>
 
@@ -320,7 +321,7 @@ const HomeView = () => {
 
                 <div className="grid grid-cols-4 gap-4 mb-6">
                     {[
-                        { label: 'Earn', icon: <div className="relative"><div className="w-6 h-6 rounded-full border-2 border-slate-800 flex items-center justify-center text-[10px] font-bold">1</div><div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full border-2 border-slate-800 flex items-center justify-center"><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /></div></div> },
+                        { label: 'Earn', icon: <div className="relative"><span className="text-slate-800"><BiCoinStack size={28} /></span><div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full border-2 border-slate-800 flex items-center justify-center"><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /></div></div> },
                         { label: 'My rewards', icon: <div className="text-slate-800"><Ticket size={28} /></div> },
                         { label: 'Referral', icon: <div className="text-slate-800"><Gift size={28} /></div> },
                         { label: 'More', icon: <div className="text-slate-800"><Grid size={28} /></div> }
@@ -334,7 +335,10 @@ const HomeView = () => {
 
                 <div className="bg-[#F5F7F9] rounded-2xl p-4 flex justify-between items-center mb-6">
                     <div className="flex items-center gap-4">
-                        <div className="relative w-12 h-12 flex items-center justify-center">
+                        <div
+                            className="relative w-12 h-12 flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
+                            onClick={() => setActivePage('profile')}
+                        >
                             <div className="absolute inset-0 border border-slate-200 rounded-full" />
                             <div className="absolute inset-1 border border-slate-200 rounded-full" />
                             <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center z-10">
