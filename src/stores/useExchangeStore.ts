@@ -506,9 +506,6 @@ const useExchangeStore = create<ExchangeState>()(
             hideToast: () => set({ toastMessage: null }),
             toggleTheme: () => {
                 const newTheme = get().theme === 'light' ? 'dark' : 'light';
-                document.documentElement.classList.toggle('dark', newTheme === 'dark');
-                const meta = document.querySelector('meta[name="theme-color"]');
-                if (meta) meta.setAttribute('content', newTheme === 'dark' ? '#0f0f0f' : '#FDFDFD');
                 set({ theme: newTheme });
             },
             addTransaction: async (tx) => {

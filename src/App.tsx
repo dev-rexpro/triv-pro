@@ -45,13 +45,18 @@ export default function App() {
     theme
   } = useExchangeStore();
 
-  // Bootstrap persisted theme on mount
+  // Bootstrap and Sync Theme (DOM + Meta Tags)
   useEffect(() => {
-    const savedTheme = useExchangeStore.getState().theme;
-    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', savedTheme === 'dark' ? '#0f0f0f' : '#FDFDFD');
-  }, []);
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    const metaApple = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (metaTheme) {
+      metaTheme.setAttribute('content', theme === 'dark' ? '#0f0f0f' : '#FDFDFD');
+    }
+    if (metaApple) {
+      metaApple.setAttribute('content', theme === 'dark' ? 'black-translucent' : 'default');
+    }
+  }, [theme]);
 
   const isPopStateRef = useRef(false);
   const hasInitializedRef = useRef(false);
