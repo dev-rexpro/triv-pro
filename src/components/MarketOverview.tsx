@@ -73,7 +73,7 @@ const MarketOverview = () => {
                     <path d={areaD} fill="url(#mcapGradient)" />
                     <path d={d} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <div className="absolute inset-y-0 left-0 flex flex-col justify-between text-[10px] text-slate-300 pointer-events-none pr-2">
+                <div className="absolute inset-y-0 left-0 flex flex-col justify-between text-[10px] text-[var(--text-tertiary)] pointer-events-none pr-2">
                     {chartMode === 'mcap' && (
                         <><span>2.75T</span><span>2.60T</span><span>2.45T</span><span>2.30T</span><span>2.15T</span></>
                     )}
@@ -85,7 +85,7 @@ const MarketOverview = () => {
                     )}
                 </div>
                 {/* Time labels */}
-                <div className="flex justify-between text-[10px] text-slate-300 mt-2 px-1">
+                <div className="flex justify-between text-[10px] text-[var(--text-tertiary)] mt-2 px-1">
                     <span>14:06</span>
                     <span>16:53</span>
                     <span>19:40</span>
@@ -126,13 +126,13 @@ const MarketOverview = () => {
             <motion.section variants={itemVariants}>
                 <div className="flex justify-between items-center mb-1 mt-4">
                     <div className="flex items-center gap-1.5">
-                        <h2 className="text-[20px] font-bold text-slate-900">
+                        <h2 className="text-[20px] font-bold text-[var(--text-primary)]">
                             {chartMode === 'mcap' ? 'Market cap' : chartMode.charAt(0).toUpperCase() + chartMode.slice(1)}
                         </h2>
-                        <span className="text-slate-400"><Info size={16} /></span>
+                        <span className="text-[var(--text-tertiary)]"><Info size={16} /></span>
                     </div>
                     <div className="text-right flex items-center gap-2">
-                        <div className="text-[18px] font-bold text-slate-900">
+                        <div className="text-[18px] font-bold text-[var(--text-primary)]">
                             {chartMode === 'mcap' ? formatCurrency(2.41e12) : chartMode === 'turnover' ? formatCurrency(118.15e12) : '56.0%'}
                         </div>
                         <div className={`inline-block ${chartMode !== 'mcap' ? 'bg-[#20b26c] text-white' : 'bg-[#EF454A] text-white'} text-[12px] font-bold px-1.5 py-[2px] rounded-[4px]`}>
@@ -141,8 +141,8 @@ const MarketOverview = () => {
                     </div>
                 </div>
 
-                <div className="flex justify-between text-[13px] font-semibold text-slate-400 mt-4 mb-6 px-1">
-                    <span className="text-slate-900 bg-slate-100/80 rounded-full px-3 py-0.5 font-bold">24h</span>
+                <div className="flex justify-between text-[13px] font-semibold text-[var(--text-tertiary)] mt-4 mb-6 px-1">
+                    <span className="text-[var(--text-primary)] bg-[var(--bg-secondary)]/80 rounded-full px-3 py-0.5 font-bold">24h</span>
                     <span>7D</span>
                     <span>30D</span>
                     <span>90D</span>
@@ -152,16 +152,16 @@ const MarketOverview = () => {
 
                 {renderMcapChart()}
 
-                <div className="flex p-0.5 bg-slate-100/80 rounded-[10px] mt-6">
-                    <button onClick={() => setChartMode('mcap')} className={`flex-1 text-[13px] py-1.5 rounded-[8px] ${chartMode === 'mcap' ? 'font-medium bg-white shadow-sm text-slate-900' : 'font-medium text-slate-500'}`}>Market cap</button>
-                    <button onClick={() => setChartMode('turnover')} className={`flex-1 text-[13px] py-1.5 rounded-[8px] ${chartMode === 'turnover' ? 'font-medium bg-white shadow-sm text-slate-900' : 'font-medium text-slate-500'}`}>Turnover</button>
-                    <button onClick={() => setChartMode('dominance')} className={`flex-1 text-[13px] py-1.5 rounded-[8px] ${chartMode === 'dominance' ? 'font-medium bg-white shadow-sm text-slate-900' : 'font-medium text-slate-500'}`}>Dominance</button>
+                <div className="flex p-0.5 bg-[var(--bg-secondary)]/80 rounded-[10px] mt-6">
+                    <button onClick={() => setChartMode('mcap')} className={`flex-1 text-[13px] py-1.5 rounded-[8px] ${chartMode === 'mcap' ? 'font-medium bg-[var(--bg-card)] shadow-sm text-[var(--text-primary)]' : 'font-medium text-[var(--text-secondary)]'}`}>Market cap</button>
+                    <button onClick={() => setChartMode('turnover')} className={`flex-1 text-[13px] py-1.5 rounded-[8px] ${chartMode === 'turnover' ? 'font-medium bg-[var(--bg-card)] shadow-sm text-[var(--text-primary)]' : 'font-medium text-[var(--text-secondary)]'}`}>Turnover</button>
+                    <button onClick={() => setChartMode('dominance')} className={`flex-1 text-[13px] py-1.5 rounded-[8px] ${chartMode === 'dominance' ? 'font-medium bg-[var(--bg-card)] shadow-sm text-[var(--text-primary)]' : 'font-medium text-[var(--text-secondary)]'}`}>Dominance</button>
                 </div>
             </motion.section>
 
             {/* Market Flow Section */}
-            <motion.section variants={itemVariants} className="bg-slate-50/50 rounded-xl p-4">
-                <div className="text-[12px] text-slate-500 mb-6">Market flow</div>
+            <motion.section variants={itemVariants} className="bg-[var(--bg-secondary)]/50 rounded-xl p-4">
+                <div className="text-[12px] text-[var(--text-secondary)] mb-6">Market flow</div>
 
                 {/* Bar chart */}
                 <div className="flex items-end justify-between h-[80px] gap-1 mb-2">
@@ -239,7 +239,7 @@ const MarketOverview = () => {
                     <span className="text-[#20b26c] text-[13px] font-bold flex items-center gap-1">
                         <span className="inline-block transform rotate-[-45deg]"><TrendingUp size={14} /></span> 258
                     </span>
-                    <div className="flex-1 flex justify-center text-slate-400">
+                    <div className="flex-1 flex justify-center text-[var(--text-tertiary)]">
                         <span className="inline-block transform rotate-[-90deg]">
                             <ChevronRight size={14} />
                         </span>
@@ -253,8 +253,8 @@ const MarketOverview = () => {
             {/* Trading Calendar Section */}
             <motion.section variants={itemVariants}>
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-[20px] font-bold text-slate-900">Trading calendar</h2>
-                    <span className="text-slate-400"><ChevronRight size={20} /></span>
+                    <h2 className="text-[20px] font-bold text-[var(--text-primary)]">Trading calendar</h2>
+                    <span className="text-[var(--text-tertiary)]"><ChevronRight size={20} /></span>
                 </div>
                 <div className="flex flex-col gap-2">
                     {[
@@ -262,12 +262,12 @@ const MarketOverview = () => {
                         "Inflation Rate MoM (U.S.)",
                         "Core Inflation Rate YoY (U.S.)"
                     ].map((event, i) => (
-                        <div key={i} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
+                        <div key={i} className="flex items-center justify-between p-2.5 bg-[var(--bg-secondary)] rounded-xl">
                             <div className="flex items-center gap-2">
-                                <span className="text-slate-900"><Globe size={18} /></span>
-                                <span className="text-[14px] font-bold text-slate-900">{event}</span>
+                                <span className="text-[var(--text-primary)]"><Globe size={18} /></span>
+                                <span className="text-[14px] font-bold text-[var(--text-primary)]">{event}</span>
                             </div>
-                            <span className="text-[12px] font-medium text-slate-400">03/11, 19:30</span>
+                            <span className="text-[12px] font-medium text-[var(--text-tertiary)]">03/11, 19:30</span>
                         </div>
                     ))}
                 </div>
@@ -276,7 +276,7 @@ const MarketOverview = () => {
             {/* Trending Categories Section */}
             <motion.section variants={itemVariants}>
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-[20px] font-bold text-slate-900">Trending categories</h2>
+                    <h2 className="text-[20px] font-bold text-[var(--text-primary)]">Trending categories</h2>
                 </div>
                 <div className="grid grid-cols-[1fr_1fr_1fr] gap-[2px] h-[220px] rounded-[12px] overflow-hidden">
                     {(() => {
@@ -312,10 +312,10 @@ const MarketOverview = () => {
                                         <div className={`${fanTokens.isPos ? 'text-[#20B26C]' : 'text-[#EF454A]'} text-[13px] font-bold mt-0.5`}>{fanTokens.str}</div>
                                     </div>
                                     <div className="flex items-center -space-x-2 overflow-hidden mb-1">
-                                        <div className="w-8 h-8 rounded-full border border-white z-[3] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="CHZUSDT" size={8} /></div>
-                                        <div className="w-8 h-8 rounded-full border border-white z-[2] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="LAZIOUSDT" size={8} /></div>
-                                        <div className="w-8 h-8 rounded-full border border-white z-[1] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="PORTOUSDT" size={8} /></div>
-                                        <div className="w-6 h-6 flex-shrink-0 bg-white rounded-full flex items-center justify-center border border-slate-100 z-[0] shadow-sm ml-1 text-[9px] font-bold text-slate-600">+5</div>
+                                        <div className="w-8 h-8 rounded-full border border-white z-[3] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="CHZUSDT" size={8} /></div>
+                                        <div className="w-8 h-8 rounded-full border border-white z-[2] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="LAZIOUSDT" size={8} /></div>
+                                        <div className="w-8 h-8 rounded-full border border-white z-[1] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="PORTOUSDT" size={8} /></div>
+                                        <div className="w-6 h-6 flex-shrink-0 bg-[var(--bg-card)] rounded-full flex items-center justify-center border border-[var(--border-color)] z-[0] shadow-sm ml-1 text-[9px] font-bold text-[var(--text-secondary)]">+5</div>
                                     </div>
                                 </div>
 
@@ -327,10 +327,10 @@ const MarketOverview = () => {
                                             <div className={`${pow.isPos ? 'text-[#20B26C]' : 'text-[#EF454A]'} text-[11px] font-bold mt-0.5`}>{pow.str}</div>
                                         </div>
                                         <div className="flex items-center -space-x-1.5 overflow-hidden">
-                                            <div className="w-6 h-6 rounded-full border border-white z-[3] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="LTCUSDT" size={6} /></div>
-                                            <div className="w-6 h-6 rounded-full border border-white z-[2] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="BCHUSDT" size={6} /></div>
-                                            <div className="w-6 h-6 rounded-full border border-white z-[1] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="BTCUSDT" size={6} /></div>
-                                            <div className="w-5 h-5 flex-shrink-0 bg-white rounded-full flex items-center justify-center border border-slate-100 z-[0] shadow-sm ml-1 text-[8px] font-bold text-slate-600">+11</div>
+                                            <div className="w-6 h-6 rounded-full border border-white z-[3] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="LTCUSDT" size={6} /></div>
+                                            <div className="w-6 h-6 rounded-full border border-white z-[2] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="BCHUSDT" size={6} /></div>
+                                            <div className="w-6 h-6 rounded-full border border-white z-[1] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="BTCUSDT" size={6} /></div>
+                                            <div className="w-5 h-5 flex-shrink-0 bg-[var(--bg-card)] rounded-full flex items-center justify-center border border-[var(--border-color)] z-[0] shadow-sm ml-1 text-[8px] font-bold text-[var(--text-secondary)]">+11</div>
                                         </div>
                                     </div>
                                     <div className={`${payment.isPos ? 'bg-[#E5F7ED]' : 'bg-[#FDEAEA]'} p-3.5 pb-4 flex-1 flex flex-col justify-between`}>
@@ -339,10 +339,10 @@ const MarketOverview = () => {
                                             <div className={`${payment.isPos ? 'text-[#20B26C]' : 'text-[#EF454A]'} text-[11px] font-bold mt-0.5`}>{payment.str}</div>
                                         </div>
                                         <div className="flex items-center -space-x-1.5 overflow-hidden">
-                                            <div className="w-6 h-6 rounded-full border border-white z-[3] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="XRPUSDT" size={6} /></div>
-                                            <div className="w-6 h-6 rounded-full border border-white z-[2] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="XLMUSDT" size={6} /></div>
-                                            <div className="w-6 h-6 rounded-full border border-white z-[1] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="DGBUSDT" size={6} /></div>
-                                            <div className="w-5 h-5 flex-shrink-0 bg-white rounded-full flex items-center justify-center border border-slate-100 z-[0] shadow-sm ml-1 text-[8px] font-bold text-slate-600">+4</div>
+                                            <div className="w-6 h-6 rounded-full border border-white z-[3] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="XRPUSDT" size={6} /></div>
+                                            <div className="w-6 h-6 rounded-full border border-white z-[2] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="XLMUSDT" size={6} /></div>
+                                            <div className="w-6 h-6 rounded-full border border-white z-[1] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="DGBUSDT" size={6} /></div>
+                                            <div className="w-5 h-5 flex-shrink-0 bg-[var(--bg-card)] rounded-full flex items-center justify-center border border-[var(--border-color)] z-[0] shadow-sm ml-1 text-[8px] font-bold text-[var(--text-secondary)]">+4</div>
                                         </div>
                                     </div>
                                 </div>
@@ -355,10 +355,10 @@ const MarketOverview = () => {
                                             <div className={`${top.isPos ? 'text-[#20B26C]' : 'text-[#EF454A]'} text-[11px] font-bold mt-0.5`}>{top.str}</div>
                                         </div>
                                         <div className="flex items-center -space-x-1.5 overflow-hidden">
-                                            <div className="w-6 h-6 rounded-full border border-white z-[3] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="BNBUSDT" size={6} /></div>
-                                            <div className="w-6 h-6 rounded-full border border-white z-[2] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="ADAUSDT" size={6} /></div>
-                                            <div className="w-6 h-6 rounded-full border border-white z-[1] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="SOLUSDT" size={6} /></div>
-                                            <div className="w-5 h-5 flex-shrink-0 bg-white rounded-full flex items-center justify-center border border-slate-100 z-[0] shadow-sm ml-1 text-[8px] font-bold text-slate-600">+5</div>
+                                            <div className="w-6 h-6 rounded-full border border-white z-[3] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="BNBUSDT" size={6} /></div>
+                                            <div className="w-6 h-6 rounded-full border border-white z-[2] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="ADAUSDT" size={6} /></div>
+                                            <div className="w-6 h-6 rounded-full border border-white z-[1] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="SOLUSDT" size={6} /></div>
+                                            <div className="w-5 h-5 flex-shrink-0 bg-[var(--bg-card)] rounded-full flex items-center justify-center border border-[var(--border-color)] z-[0] shadow-sm ml-1 text-[8px] font-bold text-[var(--text-secondary)]">+5</div>
                                         </div>
                                     </div>
                                     <div className={`${l1.isPos ? 'bg-[#E5F7ED]' : 'bg-[#FDEAEA]'} p-3.5 pb-4 flex-1 flex flex-col justify-between`}>
@@ -367,14 +367,14 @@ const MarketOverview = () => {
                                             <div className={`${l1.isPos ? 'text-[#20B26C]' : 'text-[#EF454A]'} text-[11px] font-bold mt-0.5`}>{l1.str}</div>
                                         </div>
                                         <div className="flex items-center -space-x-1.5 overflow-hidden">
-                                            <div className="w-6 h-6 rounded-full border border-white z-[3] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="ETHUSDT" size={6} /></div>
-                                            <div className="w-6 h-6 rounded-full border border-white z-[2] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="SOLUSDT" size={6} /></div>
-                                            <div className="w-6 h-6 rounded-full border border-white z-[1] bg-white flex items-center justify-center overflow-hidden"><CoinIcon symbol="AVAXUSDT" size={6} /></div>
-                                            <div className="w-5 h-5 flex-shrink-0 bg-white rounded-full flex items-center justify-center border border-slate-100 z-[0] shadow-sm ml-1 text-[8px] font-bold text-slate-600">+50</div>
+                                            <div className="w-6 h-6 rounded-full border border-white z-[3] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="ETHUSDT" size={6} /></div>
+                                            <div className="w-6 h-6 rounded-full border border-white z-[2] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="SOLUSDT" size={6} /></div>
+                                            <div className="w-6 h-6 rounded-full border border-white z-[1] bg-[var(--bg-card)] flex items-center justify-center overflow-hidden"><CoinIcon symbol="AVAXUSDT" size={6} /></div>
+                                            <div className="w-5 h-5 flex-shrink-0 bg-[var(--bg-card)] rounded-full flex items-center justify-center border border-[var(--border-color)] z-[0] shadow-sm ml-1 text-[8px] font-bold text-[var(--text-secondary)]">+50</div>
                                         </div>
                                     </div>
-                                    <div className="bg-[#F0F2F5] h-[50px] flex items-center justify-center cursor-pointer hover:bg-slate-200 transition-colors">
-                                        <span className="text-slate-900 font-bold text-[14px]">Others</span>
+                                    <div className="bg-[#F0F2F5] h-[50px] flex items-center justify-center cursor-pointer hover:bg-[var(--bg-hover)] transition-colors">
+                                        <span className="text-[var(--text-primary)] font-bold text-[14px]">Others</span>
                                     </div>
                                 </div>
                             </>
@@ -386,21 +386,21 @@ const MarketOverview = () => {
             {/* Trade Radar Section */}
             <motion.section variants={itemVariants} className="mt-4">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-[20px] font-bold text-slate-900">Trade radar</h2>
-                    <span className="text-slate-400"><ChevronRight size={20} /></span>
+                    <h2 className="text-[20px] font-bold text-[var(--text-primary)]">Trade radar</h2>
+                    <span className="text-[var(--text-tertiary)]"><ChevronRight size={20} /></span>
                 </div>
                 <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
                     {[
                         { symbol: "ADA", change: "+1.76%", text: "400K ADA sold at 0.2595, totaling Rp 1.75B.", time: "49s ago", tag: "Whale", tagBg: "#E7ECFE", tagColor: "#6974E7" },
                         { symbol: "BTC", change: "+2.51%", text: "9.58 BTC sold at 54,000, totaling Rp 8.4B.", time: "49s ago", tag: "Whale", tagBg: "#FFF4E5", tagColor: "#FF9800" }
                     ].map((alert, i) => (
-                        <div key={i} className="min-w-[280px] bg-white border border-slate-200/60 rounded-2xl p-4 shrink-0">
+                        <div key={i} className="min-w-[280px] bg-[var(--bg-card)] border border-slate-200/60 rounded-2xl p-4 shrink-0">
                             <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2">
                                     <CoinIcon symbol={alert.symbol === "ADA" ? "ADAUSDT" : "BTCUSDT"} size={8} />
                                     <div>
                                         <div className="flex items-center gap-1.5">
-                                            <span className="text-[15px] font-bold text-slate-900">{alert.symbol}</span>
+                                            <span className="text-[15px] font-bold text-[var(--text-primary)]">{alert.symbol}</span>
                                             <span className="text-[#20b26c] text-[13px] font-bold">{alert.change}</span>
                                         </div>
                                     </div>
@@ -409,8 +409,8 @@ const MarketOverview = () => {
                                     {alert.tag}
                                 </div>
                             </div>
-                            <p className="text-[14px] font-medium text-slate-900 mb-2">{alert.text}</p>
-                            <div className="flex items-center justify-between text-[12px] text-slate-400">
+                            <p className="text-[14px] font-medium text-[var(--text-primary)] mb-2">{alert.text}</p>
+                            <div className="flex items-center justify-between text-[12px] text-[var(--text-tertiary)]">
                                 <span>{alert.time}</span>
                             </div>
                         </div>

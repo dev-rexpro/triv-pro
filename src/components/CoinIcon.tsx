@@ -30,7 +30,7 @@ const CoinIcon = React.memo(({ symbol, size = 10, iconUrl }: CoinIconProps) => {
 
     return (
         <div
-            className="flex items-center justify-center shrink-0 overflow-hidden rounded-full bg-slate-50"
+            className="flex items-center justify-center shrink-0 overflow-hidden rounded-full bg-[var(--bg-secondary)]"
             style={{ width: `${pixelSize}px`, height: `${pixelSize}px` }}
         >
             {src ? (
@@ -41,7 +41,7 @@ const CoinIcon = React.memo(({ symbol, size = 10, iconUrl }: CoinIconProps) => {
                     alt={symbol}
                 />
             ) : (
-                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-400 uppercase">
+                <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-[var(--text-tertiary)] uppercase">
                     {clean?.substring(0, 2)}
                 </div>
             )}

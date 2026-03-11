@@ -121,18 +121,18 @@ const ConvertView = () => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
-            className="fixed inset-0 bg-white z-[300] flex flex-col px-4 pb-0 overflow-hidden"
+            className="fixed inset-0 bg-[var(--bg-primary)] z-[300] flex flex-col px-4 pb-0 overflow-hidden"
         >
             {/* Header */}
-            <div className="flex items-center justify-between py-6 bg-white z-10 sticky pt-safe top-0">
-                <button onClick={() => window.history.back()} className="p-1 -ml-1 text-slate-900">
+            <div className="flex items-center justify-between py-6 bg-[var(--bg-primary)] z-10 sticky pt-safe top-0">
+                <button onClick={() => window.history.back()} className="p-1 -ml-1 text-[var(--text-primary)]">
                     <ChevronLeft size={28} />
                 </button>
                 <div className="flex items-center gap-2">
-                    <span className="font-bold text-[19px] text-slate-900">Convert</span>
+                    <span className="font-bold text-[19px] text-[var(--text-primary)]">Convert</span>
                     <span className="bg-[#EBF3FA] text-[#3189C6] text-[11px] font-bold px-1.5 py-0.5 rounded">0 Fees</span>
                 </div>
-                <button className="p-1 text-slate-900">
+                <button className="p-1 text-[var(--text-primary)]">
                     <FiHelpCircle size={24} />
                 </button>
             </div>
@@ -141,17 +141,17 @@ const ConvertView = () => {
             <div className="flex gap-8 mb-6 px-1">
                 <button
                     onClick={() => setActiveTab('Instant')}
-                    className={`text-[17px] font-bold transition-all relative pb-2 ${activeTab === 'Instant' ? 'text-slate-900' : 'text-gray-300'}`}
+                    className={`text-[17px] font-bold transition-all relative pb-2 ${activeTab === 'Instant' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}
                 >
                     Instant
-                    {activeTab === 'Instant' && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[3.5px] bg-slate-900 rounded-full" />}
+                    {activeTab === 'Instant' && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[3.5px] bg-[var(--text-primary)] rounded-full" />}
                 </button>
                 <button
                     onClick={() => setActiveTab('Limit')}
-                    className={`text-[17px] font-bold transition-all relative pb-2 ${activeTab === 'Limit' ? 'text-slate-900' : 'text-gray-300'}`}
+                    className={`text-[17px] font-bold transition-all relative pb-2 ${activeTab === 'Limit' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}
                 >
                     Limit
-                    {activeTab === 'Limit' && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[3.5px] bg-slate-900 rounded-full" />}
+                    {activeTab === 'Limit' && <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[3.5px] bg-[var(--text-primary)] rounded-full" />}
                 </button>
             </div>
 
@@ -159,16 +159,16 @@ const ConvertView = () => {
                 <div className="relative mb-6">
                     <div className="space-y-1">
                         {/* From Section */}
-                        <div className="bg-[#F5F7F9] rounded-xl p-4 pl-5">
+                        <div className="bg-[var(--bg-secondary)] rounded-xl p-4 pl-5">
                             <div className="flex justify-between items-center mb-1">
-                                <span className="text-[13px] text-gray-400 font-medium">From</span>
-                                <span className="text-[12px] text-gray-400 font-medium">Available {fromBalance.toFixed(8).replace(/\.?0+$/, '')} {fromAsset}</span>
+                                <span className="text-[13px] text-[var(--text-tertiary)] font-medium">From</span>
+                                <span className="text-[12px] text-[var(--text-tertiary)] font-medium">Available {fromBalance.toFixed(8).replace(/\.?0+$/, '')} {fromAsset}</span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <div onClick={() => setIsFromDrawerOpen(true)} className="flex items-center gap-2 cursor-pointer active:scale-95 transition-transform">
                                     <CoinIcon symbol={fromAsset} size={6} />
-                                    <span className="text-[18px] font-bold text-slate-900">{fromAsset}</span>
-                                    <div className="text-gray-400 mt-0.5"><ChevronDown size={22} /></div>
+                                    <span className="text-[18px] font-bold text-[var(--text-primary)]">{fromAsset}</span>
+                                    <div className="text-[var(--text-tertiary)] mt-0.5"><ChevronDown size={22} /></div>
                                 </div>
                                 <div className="flex flex-col items-end">
                                     <input
@@ -176,27 +176,27 @@ const ConvertView = () => {
                                         value={fromAmount}
                                         onChange={(e) => handleFromAmountChange(e.target.value)}
                                         placeholder="0"
-                                        className="bg-transparent border-none text-right outline-none text-[20px] font-bold text-slate-900 placeholder:text-gray-300 w-32"
+                                        className="bg-transparent border-none text-right outline-none text-[20px] font-bold text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] w-32"
                                     />
-                                    <button onClick={handleMax} className="text-slate-900 text-[13px] font-extrabold mt-0.5 whitespace-nowrap">Max.</button>
+                                    <button onClick={handleMax} className="text-[var(--text-primary)] text-[13px] font-extrabold mt-0.5 whitespace-nowrap">Max.</button>
                                 </div>
                             </div>
                         </div>
 
                         {/* To Section */}
-                        <div className="bg-[#F5F7F9] rounded-xl p-4 pl-5">
+                        <div className="bg-[var(--bg-secondary)] rounded-xl p-4 pl-5">
                             <div className="flex justify-between items-center mb-1">
-                                <span className="text-[13px] text-gray-400 font-medium">To</span>
-                                <span className="text-[12px] text-gray-400 font-medium">Available {toBalance.toFixed(8).replace(/\.?0+$/, '')} {toAsset}</span>
+                                <span className="text-[13px] text-[var(--text-tertiary)] font-medium">To</span>
+                                <span className="text-[12px] text-[var(--text-tertiary)] font-medium">Available {toBalance.toFixed(8).replace(/\.?0+$/, '')} {toAsset}</span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <div onClick={() => setIsToDrawerOpen(true)} className="flex items-center gap-2 cursor-pointer active:scale-95 transition-transform">
                                     <CoinIcon symbol={toAsset} size={6} />
-                                    <span className="text-[18px] font-bold text-slate-900">{toAsset}</span>
-                                    <div className="text-gray-400 mt-0.5"><ChevronDown size={22} /></div>
+                                    <span className="text-[18px] font-bold text-[var(--text-primary)]">{toAsset}</span>
+                                    <div className="text-[var(--text-tertiary)] mt-0.5"><ChevronDown size={22} /></div>
                                 </div>
                                 <div className="flex flex-col items-end pt-1">
-                                    <span className={`text-[20px] font-bold ${toAmount ? 'text-slate-900' : 'text-gray-300'}`}>
+                                    <span className={`text-[20px] font-bold ${toAmount ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
                                         {toAmount || '0'}
                                     </span>
                                 </div>
@@ -207,7 +207,7 @@ const ConvertView = () => {
                     {/* Centric Swap Button */}
                     <button
                         onClick={handleSwapAssets}
-                        className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-10 h-10 bg-slate-900 text-white rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all hover:scale-105 z-20"
+                        className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-10 h-10 bg-[var(--text-primary)] text-[var(--bg-primary)] rounded-full flex items-center justify-center shadow-xl active:scale-95 transition-all hover:scale-105 z-20"
                     >
                         <SwapIcon size={22} />
                     </button>
@@ -215,24 +215,24 @@ const ConvertView = () => {
 
                 {/* Conversion Rate */}
                 <div className="mt-8 text-center px-4">
-                    <p className="text-[13px] text-gray-400 font-medium tracking-tight">
+                    <p className="text-[13px] text-[var(--text-tertiary)] font-medium tracking-tight">
                         Rate: 1 {fromAsset} ≈ {conversionRate ? conversionRate.toFixed(8).replace(/\.?0+$/, '') : '--'} {toAsset}
                     </p>
                 </div>
             </div>
 
             {/* Bottom Section */}
-            <div className="p-4 bg-white pb-10 flex flex-col items-center gap-4">
+            <div className="p-4 bg-[var(--bg-primary)] pb-10 flex flex-col items-center gap-4">
                 <button
                     onClick={() => setActivePage('trade-history')}
-                    className="flex items-center gap-2 text-gray-400 font-bold text-[14px] mb-2"
+                    className="flex items-center gap-2 text-[var(--text-tertiary)] font-bold text-[14px] mb-2"
                 >
                     <HistoryIcon size={18} />
                     Convert Orders
                 </button>
 
                 {fromAmount && parseFloat(fromAmount) > fromBalance ? (
-                    <button className="w-full h-14 rounded-full bg-slate-100 text-gray-300 font-bold text-[17px] cursor-not-allowed">
+                    <button className="w-full h-14 rounded-full bg-[var(--bg-secondary)] text-[var(--text-tertiary)] font-bold text-[17px] cursor-not-allowed">
                         Insufficient balance
                     </button>
                 ) : (
@@ -240,8 +240,8 @@ const ConvertView = () => {
                         onClick={handleConvert}
                         disabled={!fromAmount || isSimulating || parseFloat(fromAmount) <= 0}
                         className={`w-full h-14 rounded-full font-bold text-[17px] transition-all ${(fromAmount && parseFloat(fromAmount) > 0)
-                            ? 'bg-slate-900 text-white active:scale-[0.98]'
-                            : 'bg-[#F5F7F9] text-gray-300'
+                            ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] active:scale-[0.98]'
+                            : 'bg-[var(--bg-secondary)] text-[var(--text-tertiary)]'
                             }`}
                     >
                         {isSimulating ? 'Converting...' : 'Preview Conversion'}
@@ -297,20 +297,20 @@ const AssetSelectorOverlay = ({ onClose, onSelect, selectedAsset, assets, showPr
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.25, ease: 'easeOut' }}
-            className="fixed inset-0 bg-white z-[500] flex flex-col pt-safe overflow-hidden"
+            className="fixed inset-0 bg-[var(--bg-card)] z-[500] flex flex-col pt-safe overflow-hidden"
         >
             {/* Header */}
             <div className="flex items-center px-4 py-4 gap-4">
-                <button onClick={onClose} className="p-1 -ml-1 text-slate-900">
+                <button onClick={onClose} className="p-1 -ml-1 text-[var(--text-primary)]">
                     <ChevronLeft size={28} />
                 </button>
-                <h2 className="text-[19px] font-bold text-slate-900">Select Asset</h2>
+                <h2 className="text-[19px] font-bold text-[var(--text-primary)]">Select Asset</h2>
             </div>
 
             {/* Search Bar */}
             <div className="px-4 mb-4">
                 <div className="relative">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     </div>
                     <input
@@ -319,7 +319,7 @@ const AssetSelectorOverlay = ({ onClose, onSelect, selectedAsset, assets, showPr
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search asset"
-                        className="w-full bg-[#F5F7F9] rounded-full py-3.5 pl-11 pr-4 text-[15px] font-medium placeholder:text-gray-400 outline-none"
+                        className="w-full bg-[var(--bg-secondary)] rounded-full py-3.5 pl-11 pr-4 text-[15px] font-medium placeholder:text-[var(--text-tertiary)] outline-none"
                     />
                 </div>
             </div>
@@ -334,23 +334,23 @@ const AssetSelectorOverlay = ({ onClose, onSelect, selectedAsset, assets, showPr
                     return (
                         <div
                             key={asset}
-                            className={`p-4 px-3 cursor-pointer flex items-center justify-between rounded-2xl transition-colors ${selectedAsset === asset ? 'bg-[#F5F7F9]' : 'active:bg-gray-50'}`}
+                            className={`p-4 px-3 cursor-pointer flex items-center justify-between rounded-2xl transition-colors ${selectedAsset === asset ? 'bg-[var(--bg-secondary)]' : 'active:bg-[var(--bg-hover)]'}`}
                             onClick={() => onSelect(asset)}
                         >
                             <div className="flex items-center gap-3.5">
                                 <CoinIcon symbol={asset} size={10} />
                                 <div className="flex flex-col">
-                                    <span className="font-bold text-[16px] text-slate-900 leading-none mb-1">{asset}</span>
-                                    <span className="text-[12px] text-gray-400 font-medium">Spot</span>
+                                    <span className="font-bold text-[16px] text-[var(--text-primary)] leading-none mb-1">{asset}</span>
+                                    <span className="text-[12px] text-[var(--text-tertiary)] font-medium">Spot</span>
                                 </div>
                             </div>
                             <div className="flex items-center gap-4">
                                 {showPrices && price !== null && (
                                     <div className="text-right">
-                                        <div className="font-bold text-[15px] text-slate-900 leading-none mb-1">
+                                        <div className="font-bold text-[15px] text-[var(--text-primary)] leading-none mb-1">
                                             {price >= 1 ? price.toLocaleString() : price.toFixed(6)}
                                         </div>
-                                        <div className={`text-[12px] font-bold ${change >= 0 ? 'text-[#00C076]' : 'text-[#FF4D5B]'}`}>
+                                        <div className={`text-[12px] font-bold ${change >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
                                             {change >= 0 ? '+' : ''}{change.toFixed(2)}%
                                         </div>
                                     </div>
@@ -359,7 +359,7 @@ const AssetSelectorOverlay = ({ onClose, onSelect, selectedAsset, assets, showPr
                         </div>
                     );
                 }) : (
-                    <div className="text-center py-20 text-gray-400 font-medium text-[15px]">No assets found</div>
+                    <div className="text-center py-20 text-[var(--text-tertiary)] font-medium text-[15px]">No assets found</div>
                 )}
             </div>
         </motion.div>

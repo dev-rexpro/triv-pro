@@ -56,7 +56,7 @@ const AnimatedPlaceholder = ({ className = "" }) => {
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: -20, opacity: 0 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
-                    className="absolute inset-0 flex items-center whitespace-nowrap text-slate-400 text-sm font-medium"
+                    className="absolute inset-0 flex items-center whitespace-nowrap text-[var(--text-tertiary)] text-sm font-medium"
                 >
                     {items[index]}
                 </motion.div>

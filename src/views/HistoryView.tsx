@@ -126,7 +126,7 @@ const HistoryView = () => {
         if (!selectedTx) return null;
 
         const isPositive = selectedTx.type === 'Deposit';
-        const colorClass = isPositive ? 'text-[#00C076]' : 'text-slate-900';
+        const colorClass = isPositive ? 'text-[var(--green)]' : 'text-[var(--text-primary)]';
         const symbolPrefix = isPositive ? '+' : '';
 
         return (
@@ -135,60 +135,60 @@ const HistoryView = () => {
                 animate={{ x: 0 }}
                 exit={{ x: '100%' }}
                 transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
-                className="fixed inset-0 bg-[#FDFDFD] z-[310] flex flex-col pt-safe px-4"
+                className="fixed inset-0 bg-[var(--bg-primary)] z-[310] flex flex-col pt-safe px-4"
             >
-                <div className="flex items-center justify-between py-4 sticky top-0 bg-[#FDFDFD] z-10">
-                    <button onClick={() => setSelectedTx(null)} className="p-1 -ml-1 text-slate-900"><ChevronLeft size={28} /></button>
+                <div className="flex items-center justify-between py-4 sticky top-0 bg-[var(--bg-primary)] z-10">
+                    <button onClick={() => setSelectedTx(null)} className="p-1 -ml-1 text-[var(--text-primary)]"><ChevronLeft size={28} /></button>
                     <div className="w-8"></div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto no-scrollbar pt-6 flex flex-col items-center">
                     <CoinIcon symbol={selectedTx.currency} size={10} />
-                    <div className="mt-4 text-[20px] font-bold text-slate-900 text-center">
+                    <div className="mt-4 text-[20px] font-bold text-[var(--text-primary)] text-center">
                         {selectedTx.type === 'Transfer' ? 'Transferred' : selectedTx.type === 'Deposit' ? 'Deposited' : 'Withdrawal'} {selectedTx.amount} {selectedTx.currency}
                     </div>
                     {/* Dummy USD equivalent */}
-                    <div className="text-slate-400 text-sm font-medium mt-1 mb-8">~${(selectedTx.amount * 1.0).toFixed(2)}</div>
+                    <div className="text-[var(--text-tertiary)] text-sm font-medium mt-1 mb-8">~${(selectedTx.amount * 1.0).toFixed(2)}</div>
 
-                    <div className="w-full flex items-center justify-between py-4 border-b border-slate-100">
+                    <div className="w-full flex items-center justify-between py-4 border-b border-[var(--border-color)]">
                         <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-[#00C076] text-white flex items-center justify-center"><Check size={14} /></div>
-                            <span className="font-bold text-[15px] text-slate-900">Status</span>
+                            <span className="font-bold text-[15px] text-[var(--text-primary)]">Status</span>
                         </div>
-                        <span className="text-[15px] text-slate-500 font-medium">{selectedTx.status}</span>
+                        <span className="text-[15px] text-[var(--text-secondary)] font-medium">{selectedTx.status}</span>
                     </div>
 
                     <div className="w-full space-y-6 py-6 pb-24">
                         <div className="flex justify-between items-start">
-                            <span className="text-[14px] font-bold text-slate-900 flex items-center gap-1">Price <div className="w-3.5 h-3.5 rounded-full border border-slate-300 flex items-center justify-center text-[10px] text-slate-500 font-normal">i</div></span>
-                            <span className="text-[14px] text-slate-500 font-medium text-right">$--- / {selectedTx.currency}</span>
+                            <span className="text-[14px] font-bold text-[var(--text-primary)] flex items-center gap-1">Price <div className="w-3.5 h-3.5 rounded-full border border-[var(--border-strong)] flex items-center justify-center text-[10px] text-[var(--text-secondary)] font-normal">i</div></span>
+                            <span className="text-[14px] text-[var(--text-secondary)] font-medium text-right">$--- / {selectedTx.currency}</span>
                         </div>
                         {(selectedTx.type === 'Deposit' || selectedTx.type === 'Withdrawal') && selectedTx.network && (
                             <div className="flex justify-between items-start">
-                                <span className="text-[14px] font-bold text-slate-900">Network</span>
-                                <span className="text-[14px] text-slate-500 font-medium flex items-center gap-1.5"><CoinIcon symbol={selectedTx.currency} size={4} /> {selectedTx.network}</span>
+                                <span className="text-[14px] font-bold text-[var(--text-primary)]">Network</span>
+                                <span className="text-[14px] text-[var(--text-secondary)] font-medium flex items-center gap-1.5"><CoinIcon symbol={selectedTx.currency} size={4} /> {selectedTx.network}</span>
                             </div>
                         )}
                         <div className="flex justify-between items-start">
-                            <span className="text-[14px] font-bold text-slate-900">Transaction ID</span>
-                            <span className="text-[14px] text-slate-500 font-medium flex items-center gap-2">{selectedTx.id} <span className="cursor-pointer"><Copy size={14} /></span></span>
+                            <span className="text-[14px] font-bold text-[var(--text-primary)]">Transaction ID</span>
+                            <span className="text-[14px] text-[var(--text-secondary)] font-medium flex items-center gap-2">{selectedTx.id} <span className="cursor-pointer"><Copy size={14} /></span></span>
                         </div>
                         {(selectedTx.type === 'Deposit' || selectedTx.type === 'Withdrawal') && selectedTx.network && (
                             <div className="flex justify-between items-start">
-                                <span className="text-[14px] font-bold text-slate-900">Address</span>
-                                <span className="text-[14px] text-slate-500 font-medium flex items-start gap-2 max-w-[200px] text-right break-all">
+                                <span className="text-[14px] font-bold text-[var(--text-primary)]">Address</span>
+                                <span className="text-[14px] text-[var(--text-secondary)] font-medium flex items-start gap-2 max-w-[200px] text-right break-all">
                                     0x5567925e4ed98eb37aefe5fd608c16fc9ec3ed03 <span className="cursor-pointer shrink-0 mt-0.5"><Copy size={14} /></span>
                                 </span>
                             </div>
                         )}
                         <div className="flex justify-between items-start">
-                            <span className="text-[14px] font-bold text-slate-900">Time</span>
-                            <span className="text-[14px] text-slate-500 font-medium">{formatDateTime(selectedTx.timestamp)}</span>
+                            <span className="text-[14px] font-bold text-[var(--text-primary)]">Time</span>
+                            <span className="text-[14px] text-[var(--text-secondary)] font-medium">{formatDateTime(selectedTx.timestamp)}</span>
                         </div>
                     </div>
                 </div>
 
-                <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#FDFDFD] border-t border-slate-100 z-20 pb-safe">
+                <div className="fixed bottom-0 left-0 right-0 p-4 bg-[var(--bg-primary)] border-t border-[var(--border-color)] z-20 pb-safe">
                     <button className="w-full py-4 rounded-full font-bold text-[16px] text-center bg-[#1E4D2B] text-white active:bg-[#15341d]">
                         View on blockchain explorer
                     </button>
@@ -203,34 +203,34 @@ const HistoryView = () => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
-            className="fixed inset-0 bg-[#FDFDFD] z-[300] flex flex-col pt-safe pb-0 overflow-hidden"
+            className="fixed inset-0 bg-[var(--bg-primary)] z-[300] flex flex-col pt-safe pb-0 overflow-hidden"
         >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-4 sticky top-0 bg-[#FDFDFD] z-10 border-b border-transparent">
+            <div className="flex items-center justify-between px-4 py-4 sticky top-0 bg-[var(--bg-primary)] z-10 border-b border-transparent">
                 <button
                     onClick={() => window.history.back()}
-                    className="p-1 -ml-1 flex items-center justify-center text-slate-900"
+                    className="p-1 -ml-1 flex items-center justify-center text-[var(--text-primary)]"
                 >
                     <ChevronLeft size={28} />
                 </button>
-                <div className="font-bold text-[17px] text-slate-900 absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
+                <div className="font-bold text-[17px] text-[var(--text-primary)] absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
                     Transaction History
                 </div>
                 <div className="w-8"></div>
             </div>
 
             {/* Tabs */}
-            <div className="flex px-4 border-b border-slate-100">
+            <div className="flex px-4 border-b border-[var(--border-color)]">
                 <button
                     onClick={() => setActiveTab('Crypto')}
-                    className={`py-3 px-2 font-bold text-[15px] mr-6 relative ${activeTab === 'Crypto' ? 'text-slate-900' : 'text-slate-400 font-medium'}`}
+                    className={`py-3 px-2 font-bold text-[15px] mr-6 relative ${activeTab === 'Crypto' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)] font-medium'}`}
                 >
                     Crypto
                     {activeTab === 'Crypto' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900 rounded-t-full"></div>}
                 </button>
                 <button
                     onClick={() => setActiveTab('Fiat')}
-                    className={`py-3 px-2 font-bold text-[15px] relative ${activeTab === 'Fiat' ? 'text-slate-900' : 'text-slate-400 font-medium'}`}
+                    className={`py-3 px-2 font-bold text-[15px] relative ${activeTab === 'Fiat' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)] font-medium'}`}
                 >
                     Fiat
                     {activeTab === 'Fiat' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900 rounded-t-full"></div>}
@@ -240,27 +240,27 @@ const HistoryView = () => {
             {/* Filters */}
             <div className="flex justify-between items-center py-4 px-4 shrink-0 relative z-20">
                 <div className="flex gap-2">
-                    <div onClick={() => setOpenSheet('coin')} className="bg-[#F5F7F9] px-3 py-1.5 rounded-full flex items-center gap-1.5 text-[13px] font-medium text-slate-800 cursor-pointer active:scale-95 transition-transform">
-                        {coinFilter} <span className="text-slate-500"><ChevronDown size={14} /></span>
+                    <div onClick={() => setOpenSheet('coin')} className="bg-[var(--bg-secondary)] px-3 py-1.5 rounded-full flex items-center gap-1.5 text-[13px] font-medium text-[var(--text-primary)] cursor-pointer active:scale-95 transition-transform">
+                        {coinFilter} <span className="text-[var(--text-secondary)]"><ChevronDown size={14} /></span>
                     </div>
 
-                    <div onClick={() => setOpenSheet('type')} className="bg-[#F5F7F9] px-3 py-1.5 rounded-full flex items-center gap-1.5 text-[13px] font-medium text-slate-800 cursor-pointer active:scale-95 transition-transform">
-                        {typeFilter} <span className="text-slate-500"><ChevronDown size={14} /></span>
+                    <div onClick={() => setOpenSheet('type')} className="bg-[var(--bg-secondary)] px-3 py-1.5 rounded-full flex items-center gap-1.5 text-[13px] font-medium text-[var(--text-primary)] cursor-pointer active:scale-95 transition-transform">
+                        {typeFilter} <span className="text-[var(--text-secondary)]"><ChevronDown size={14} /></span>
                     </div>
                 </div>
                 <div onClick={() => {
                     setTempStartDate(startDate || new Date().toISOString().split('T')[0]);
                     setTempEndDate(endDate || new Date().toISOString().split('T')[0]);
                     setOpenSheet('date');
-                }} className="cursor-pointer text-slate-400 hover:text-slate-600 transition-colors bg-[#F5F7F9] p-1.5 rounded">
+                }} className="cursor-pointer text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors bg-[var(--bg-secondary)] p-1.5 rounded">
                     <TbFilter2Cog size={18} />
                 </div>
             </div>
 
             <div className="flex-1 pb-10 px-4">
                 {Object.keys(grouped).length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-[50vh] text-slate-400 text-sm">
-                        <div className="text-slate-300 mb-4 opacity-70">
+                    <div className="flex flex-col items-center justify-center h-[50vh] text-[var(--text-tertiary)] text-sm">
+                        <div className="text-[var(--text-tertiary)] mb-4 opacity-70">
                             <FileSearch size={48} />
                         </div>
                         <span className="font-medium text-[14px]">No data available</span>
@@ -268,7 +268,7 @@ const HistoryView = () => {
                 ) : (
                     Object.keys(grouped).map(monthStr => (
                         <div key={monthStr} className="mb-6">
-                            <div className="font-bold text-[17px] text-slate-900 mb-4">{monthStr}</div>
+                            <div className="font-bold text-[17px] text-[var(--text-primary)] mb-4">{monthStr}</div>
                             <div className="space-y-6">
                                 {grouped[monthStr].map((tx: TransactionRecord, idx: number) => {
                                     const isInflow = tx.type === 'Deposit'
@@ -280,12 +280,12 @@ const HistoryView = () => {
                                             tx.from === 'spot' || tx.from === 'funding'
                                         ));
                                     const amountColor = isInflow
-                                        ? 'text-[#00C076]'
+                                        ? 'text-[var(--green)]'
                                         : isOutflow
-                                            ? 'text-[#FF4D5B]'
-                                            : 'text-slate-500';
+                                            ? 'text-[var(--red)]'
+                                            : 'text-[var(--text-secondary)]';
                                     return (
-                                        <div key={idx} onClick={() => setSelectedTx(tx)} className="flex justify-between items-center cursor-pointer active:bg-slate-50 -mx-4 px-4 py-1">
+                                        <div key={idx} onClick={() => setSelectedTx(tx)} className="flex justify-between items-center cursor-pointer active:bg-[var(--bg-hover)] -mx-4 px-4 py-1">
                                             <div className="flex items-center gap-3">
                                                 <div className="relative">
                                                     <CoinIcon symbol={tx.currency} size={10} />
@@ -294,11 +294,11 @@ const HistoryView = () => {
                                                     </div>
                                                 </div>
                                                 <div className="flex flex-col">
-                                                    <div className="font-bold text-[15px] text-slate-900 line-clamp-1 break-all max-w-[150px]">
+                                                    <div className="font-bold text-[15px] text-[var(--text-primary)] line-clamp-1 break-all max-w-[150px]">
                                                         {tx.type === 'Deposit' ? 'Deposit' : tx.type === 'Withdrawal' ? 'Withdrawal' : `Transferred to ${tx.to}`}
                                                     </div>
-                                                    <div className="text-[13px] text-slate-400 font-medium leading-tight mt-0.5">{formatDateTime(tx.timestamp)}</div>
-                                                    <div className="text-[13px] text-slate-400 font-medium leading-tight">{tx.status}</div>
+                                                    <div className="text-[13px] text-[var(--text-tertiary)] font-medium leading-tight mt-0.5">{formatDateTime(tx.timestamp)}</div>
+                                                    <div className="text-[13px] text-[var(--text-tertiary)] font-medium leading-tight">{tx.status}</div>
                                                 </div>
                                             </div>
                                             <div className={`font-medium text-[15px] flex items-center justify-end gap-1 ${amountColor}`}>
@@ -306,7 +306,7 @@ const HistoryView = () => {
                                                     <span>{isInflow ? '+' : isOutflow ? '-' : ''}{tx.amount}</span>
                                                     <span>{tx.currency === 'USDT' || tx.currency === 'FIAT' ? 'USDT' : tx.currency}</span>
                                                 </div>
-                                                <span className="-rotate-90 text-slate-400 mt-0.5"><ChevronDown size={16} /></span>
+                                                <span className="-rotate-90 text-[var(--text-tertiary)] mt-0.5"><ChevronDown size={16} /></span>
                                             </div>
                                         </div>
                                     );
@@ -323,20 +323,20 @@ const HistoryView = () => {
                 {/* Coin Bottom Sheet */}
                 {openSheet === 'coin' && (
                     <>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/40 z-[500]" onClick={() => setOpenSheet('')} />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[var(--overlay-bg)] z-[500]" onClick={() => setOpenSheet('')} />
                         <motion.div
                             initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
                             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[501] flex flex-col pt-3 pb-safe max-h-[70vh] overflow-y-auto"
+                            className="fixed bottom-0 left-0 right-0 bg-[var(--bg-card)] rounded-t-3xl z-[501] flex flex-col pt-3 pb-safe max-h-[70vh] overflow-y-auto"
                         >
-                            <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4"></div>
+                            <div className="w-12 h-1.5 bg-[var(--bg-secondary)] rounded-full mx-auto mb-4"></div>
                             <div className="flex justify-center items-center mb-4 px-6 relative">
-                                <h3 className="text-[18px] font-bold text-slate-900">Filter by assets</h3>
-                                <button onClick={() => setOpenSheet('')} className="text-slate-400 hover:text-slate-600 p-1 absolute right-6 text-xl font-light">&times;</button>
+                                <h3 className="text-[18px] font-bold text-[var(--text-primary)]">Filter by assets</h3>
+                                <button onClick={() => setOpenSheet('')} className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] p-1 absolute right-6 text-xl font-light">&times;</button>
                             </div>
                             <div className="flex-1 overflow-y-auto px-4 pb-6">
                                 {availableCoins.map(coin => (
-                                    <div key={coin} onClick={() => { setCoinFilter(coin); setOpenSheet(''); }} className={`px-4 py-4 text-[15px] text-slate-900 border-b border-slate-50 active:bg-slate-50 rounded-xl cursor-pointer flex justify-between items-center ${coinFilter === coin ? 'font-bold' : 'font-medium'}`}>
+                                    <div key={coin} onClick={() => { setCoinFilter(coin); setOpenSheet(''); }} className={`px-4 py-4 text-[15px] text-[var(--text-primary)] border-b border-[var(--border-color)] active:bg-[var(--bg-hover)] rounded-xl cursor-pointer flex justify-between items-center ${coinFilter === coin ? 'font-bold' : 'font-medium'}`}>
                                         {coin}
                                         {coinFilter === coin && <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center"><Check size={12} /></div>}
                                     </div>
@@ -349,20 +349,20 @@ const HistoryView = () => {
                 {/* Type Bottom Sheet */}
                 {openSheet === 'type' && (
                     <>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/40 z-[500]" onClick={() => setOpenSheet('')} />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[var(--overlay-bg)] z-[500]" onClick={() => setOpenSheet('')} />
                         <motion.div
                             initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
                             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[501] flex flex-col pt-3 pb-safe max-h-[70vh] overflow-y-auto"
+                            className="fixed bottom-0 left-0 right-0 bg-[var(--bg-card)] rounded-t-3xl z-[501] flex flex-col pt-3 pb-safe max-h-[70vh] overflow-y-auto"
                         >
-                            <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4"></div>
+                            <div className="w-12 h-1.5 bg-[var(--bg-secondary)] rounded-full mx-auto mb-4"></div>
                             <div className="flex justify-center items-center mb-4 px-6 relative">
-                                <h3 className="text-[18px] font-bold text-slate-900">Filter by type</h3>
-                                <button onClick={() => setOpenSheet('')} className="text-slate-400 hover:text-slate-600 p-1 absolute right-6 text-xl font-light">&times;</button>
+                                <h3 className="text-[18px] font-bold text-[var(--text-primary)]">Filter by type</h3>
+                                <button onClick={() => setOpenSheet('')} className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] p-1 absolute right-6 text-xl font-light">&times;</button>
                             </div>
                             <div className="flex-1 overflow-y-auto px-4 pb-6">
                                 {availableTypes.map(type => (
-                                    <div key={type} onClick={() => { setTypeFilter(type); setOpenSheet(''); }} className={`px-4 py-4 text-[15px] text-slate-900 border-b border-slate-50 active:bg-slate-50 rounded-xl cursor-pointer flex justify-between items-center ${typeFilter === type ? 'font-bold' : 'font-medium'}`}>
+                                    <div key={type} onClick={() => { setTypeFilter(type); setOpenSheet(''); }} className={`px-4 py-4 text-[15px] text-[var(--text-primary)] border-b border-[var(--border-color)] active:bg-[var(--bg-hover)] rounded-xl cursor-pointer flex justify-between items-center ${typeFilter === type ? 'font-bold' : 'font-medium'}`}>
                                         {type}
                                         {typeFilter === type && <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center"><Check size={12} /></div>}
                                     </div>
@@ -375,16 +375,16 @@ const HistoryView = () => {
                 {/* Date Filter Bottom Sheet */}
                 {openSheet === 'date' && (
                     <>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/40 z-[80]" onClick={() => setOpenSheet('')} />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[var(--overlay-bg)] z-[80]" onClick={() => setOpenSheet('')} />
                         <motion.div
                             initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
                             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[501] flex flex-col pt-3 pb-12 px-6 px-safe min-h-[50vh]"
+                            className="fixed bottom-0 left-0 right-0 bg-[var(--bg-card)] rounded-t-3xl z-[501] flex flex-col pt-3 pb-12 px-6 px-safe min-h-[50vh]"
                         >
-                            <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4"></div>
+                            <div className="w-12 h-1.5 bg-[var(--bg-secondary)] rounded-full mx-auto mb-4"></div>
                             <div className="flex justify-center items-center mb-6 relative">
-                                <h3 className="text-[18px] font-bold text-slate-900">Filter by time period</h3>
-                                <button onClick={() => setOpenSheet('')} className="text-slate-400 hover:text-slate-600 text-2xl font-light absolute right-0">&times;</button>
+                                <h3 className="text-[18px] font-bold text-[var(--text-primary)]">Filter by time period</h3>
+                                <button onClick={() => setOpenSheet('')} className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] text-2xl font-light absolute right-0">&times;</button>
                             </div>
 
                             <div className="flex gap-2 mb-6">
@@ -397,7 +397,7 @@ const HistoryView = () => {
                                         <button
                                             key={days}
                                             onClick={() => { setTempStartDate(val); setTempEndDate(new Date().toISOString().split('T')[0]); }}
-                                            className={`flex-1 py-2 rounded-full border ${isActive ? 'border-slate-900 text-slate-900 font-bold border-2' : 'border-slate-200 text-slate-400 font-medium hover:border-slate-300'} text-[13px]`}
+                                            className={`flex-1 py-2 rounded-full border ${isActive ? 'border-slate-900 text-[var(--text-primary)] font-bold border-2' : 'border-slate-200 text-[var(--text-tertiary)] font-medium hover:border-[var(--border-strong)]'} text-[13px]`}
                                         >
                                             Last {days} days
                                         </button>
@@ -408,14 +408,14 @@ const HistoryView = () => {
                             <div className="flex items-center gap-4 mb-8">
                                 <div
                                     onClick={() => setActiveDateInput('start')}
-                                    className={`flex-1 rounded-lg py-3 text-center font-medium text-sm cursor-pointer border ${activeDateInput === 'start' ? 'border-slate-900 text-slate-900' : 'border-transparent bg-[#F5F7F9] text-slate-500'}`}
+                                    className={`flex-1 rounded-lg py-3 text-center font-medium text-sm cursor-pointer border ${activeDateInput === 'start' ? 'border-slate-900 text-[var(--text-primary)]' : 'border-transparent bg-[var(--bg-secondary)] text-[var(--text-secondary)]'}`}
                                 >
                                     {tempStartDate ? tempStartDate : 'YYYY-MM-DD'}
                                 </div>
-                                <span className="text-slate-900 font-bold text-sm">To</span>
+                                <span className="text-[var(--text-primary)] font-bold text-sm">To</span>
                                 <div
                                     onClick={() => setActiveDateInput('end')}
-                                    className={`flex-1 rounded-lg py-3 text-center font-medium text-sm cursor-pointer border ${activeDateInput === 'end' ? 'border-slate-900 text-slate-900' : 'border-transparent bg-[#F5F7F9] text-slate-500'}`}
+                                    className={`flex-1 rounded-lg py-3 text-center font-medium text-sm cursor-pointer border ${activeDateInput === 'end' ? 'border-slate-900 text-[var(--text-primary)]' : 'border-transparent bg-[var(--bg-secondary)] text-[var(--text-secondary)]'}`}
                                 >
                                     {tempEndDate ? tempEndDate : 'YYYY-MM-DD'}
                                 </div>
@@ -423,7 +423,7 @@ const HistoryView = () => {
 
                             {/* Custom Date Scroll Picker */}
                             <div className="flex h-36 relative mb-8">
-                                <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-10 border-y border-slate-100 pointer-events-none -mx-6 px-6 z-0"></div>
+                                <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-10 border-y border-[var(--border-color)] pointer-events-none -mx-6 px-6 z-0"></div>
                                 <div className="absolute inset-0 pointer-events-none z-10 bg-gradient-to-b from-white via-transparent to-white" style={{ background: 'linear-gradient(to bottom, white 0%, transparent 40%, transparent 60%, white 100%)' }}></div>
 
                                 {/* A real native feel picker is hard to simulate perfectly without a library, but we map simple lists that auto update the date */}
@@ -435,8 +435,8 @@ const HistoryView = () => {
                                     <div className="h-[52px] shrink-0"></div>
                                     {[2024, 2025, 2026, 2027].map(y => (
                                         <div key={y}
-                                            className={`h-10 shrink-0 snap-center flex items-center justify-center font-bold text-[16px] cursor-pointer w-full text-center hover:bg-slate-50 
-                                                ${(activeDateInput === 'start' ? tempStartDate : tempEndDate)?.startsWith(y.toString()) ? 'text-slate-900 text-[18px]' : 'text-slate-300'}`}
+                                            className={`h-10 shrink-0 snap-center flex items-center justify-center font-bold text-[16px] cursor-pointer w-full text-center hover:bg-[var(--bg-hover)] 
+                                                ${(activeDateInput === 'start' ? tempStartDate : tempEndDate)?.startsWith(y.toString()) ? 'text-[var(--text-primary)] text-[18px]' : 'text-[var(--text-tertiary)]'}`}
                                             onClick={() => {
                                                 const current = activeDateInput === 'start' ? tempStartDate : tempEndDate;
                                                 const parts = current ? current.split('-') : ['2026', '01', '01'];
@@ -458,8 +458,8 @@ const HistoryView = () => {
                                     <div className="h-[52px] shrink-0"></div>
                                     {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(m => (
                                         <div key={m}
-                                            className={`h-10 shrink-0 snap-center flex items-center justify-center font-bold text-[16px] cursor-pointer w-full text-center hover:bg-slate-50 
-                                                ${(activeDateInput === 'start' ? tempStartDate : tempEndDate)?.split('-')[1] === m ? 'text-slate-900 text-[18px]' : 'text-slate-300'}`}
+                                            className={`h-10 shrink-0 snap-center flex items-center justify-center font-bold text-[16px] cursor-pointer w-full text-center hover:bg-[var(--bg-hover)] 
+                                                ${(activeDateInput === 'start' ? tempStartDate : tempEndDate)?.split('-')[1] === m ? 'text-[var(--text-primary)] text-[18px]' : 'text-[var(--text-tertiary)]'}`}
                                             onClick={() => {
                                                 const current = activeDateInput === 'start' ? tempStartDate : tempEndDate;
                                                 const parts = current ? current.split('-') : ['2026', '01', '01'];
@@ -481,8 +481,8 @@ const HistoryView = () => {
                                     <div className="h-[52px] shrink-0"></div>
                                     {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0')).map(d => (
                                         <div key={d}
-                                            className={`h-10 shrink-0 snap-center flex items-center justify-center font-bold text-[16px] cursor-pointer w-full text-center hover:bg-slate-50 
-                                                ${(activeDateInput === 'start' ? tempStartDate : tempEndDate)?.split('-')[2] === d ? 'text-slate-900 text-[18px]' : 'text-slate-300'}`}
+                                            className={`h-10 shrink-0 snap-center flex items-center justify-center font-bold text-[16px] cursor-pointer w-full text-center hover:bg-[var(--bg-hover)] 
+                                                ${(activeDateInput === 'start' ? tempStartDate : tempEndDate)?.split('-')[2] === d ? 'text-[var(--text-primary)] text-[18px]' : 'text-[var(--text-tertiary)]'}`}
                                             onClick={() => {
                                                 const current = activeDateInput === 'start' ? tempStartDate : tempEndDate;
                                                 const parts = current ? current.split('-') : ['2026', '01', '01'];
@@ -497,9 +497,9 @@ const HistoryView = () => {
                                 </div>
                             </div>
 
-                            <div className="flex gap-3 pt-6 border-t border-slate-100">
-                                <button onClick={() => { setTempStartDate(''); setTempEndDate(''); setStartDate(''); setEndDate(''); setOpenSheet(''); }} className="flex-[0.8] py-4 bg-[#F5F7F9] text-slate-900 font-bold rounded-full active:bg-slate-200 transition-colors">Reset</button>
-                                <button onClick={() => { setStartDate(tempStartDate); setEndDate(tempEndDate); setOpenSheet(''); }} className="flex-[1.2] py-4 bg-[#121212] text-white font-bold rounded-full active:bg-black transition-colors">Confirm</button>
+                            <div className="flex gap-3 pt-6 border-t border-[var(--border-color)]">
+                                <button onClick={() => { setTempStartDate(''); setTempEndDate(''); setStartDate(''); setEndDate(''); setOpenSheet(''); }} className="flex-[0.8] py-4 bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold rounded-full active:bg-[var(--bg-hover)] transition-colors">Reset</button>
+                                <button onClick={() => { setStartDate(tempStartDate); setEndDate(tempEndDate); setOpenSheet(''); }} className="flex-[1.2] py-4 bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] font-bold rounded-full active:scale-95 transition-colors">Confirm</button>
                             </div>
                         </motion.div>
                     </>

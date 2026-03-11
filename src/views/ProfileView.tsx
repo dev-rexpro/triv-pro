@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import useExchangeStore from '../stores/useExchangeStore';
 import { IoChevronBack } from "react-icons/io5";
-import { FiMoon } from 'react-icons/fi';
+import { FiMoon, FiSun } from 'react-icons/fi';
 import { PiHeadset } from 'react-icons/pi';
 import { LuUser } from "react-icons/lu";
 import { IoIosArrowForward } from "react-icons/io";
@@ -15,7 +15,7 @@ import { BiCoinStack } from "react-icons/bi";
 import { HiOutlineExternalLink } from "react-icons/hi";
 
 const ProfileView = () => {
-    const { setActivePage, session } = useExchangeStore();
+    const { setActivePage, session, theme, toggleTheme } = useExchangeStore();
     const email = session?.user?.email || "fdr***@gmail.com";
 
     // Mask email for display
@@ -32,15 +32,17 @@ const ProfileView = () => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
-            className="fixed inset-0 bg-[#FDFDFD] z-[300] flex flex-col font-sans overflow-hidden"
+            className="fixed inset-0 bg-[var(--bg-primary)] z-[300] flex flex-col font-sans overflow-hidden"
         >
             {/* Header */}
-            <div className="flex justify-between items-center px-4 pt-[calc(16px+var(--safe-area-top))] pb-4 bg-[#FDFDFD]">
-                <button onClick={() => setActivePage('home')} className="p-2 -ml-2 text-slate-800 active:scale-95 transition-transform">
+            <div className="flex justify-between items-center px-4 pt-[calc(16px+var(--safe-area-top))] pb-4 bg-[var(--bg-primary)]">
+                <button onClick={() => setActivePage('home')} className="p-2 -ml-2 text-[var(--text-primary)] active:scale-95 transition-transform">
                     <IoChevronBack size={24} />
                 </button>
-                <div className="flex items-center gap-4 text-slate-800">
-                    <button className="active:scale-95 transition-transform"><FiMoon size={24} /></button>
+                <div className="flex items-center gap-4 text-[var(--text-primary)]">
+                    <button onClick={toggleTheme} className="active:scale-95 transition-transform">
+                        {theme === 'dark' ? <FiSun size={24} /> : <FiMoon size={24} />}
+                    </button>
                     <button className="active:scale-95 transition-transform"><PiHeadset size={24} /></button>
                     <button className="active:scale-95 transition-transform"><LuUser size={24} /></button>
                 </div>
@@ -53,30 +55,27 @@ const ProfileView = () => {
                     onClick={() => setActivePage('user-center')}
                 >
                     <div className="flex items-center gap-3">
-                        {/* Avatar placeholder with noise/gradient style from mockup */}
-                        <div className="w-16 h-16 rounded-full bg-slate-200 overflow-hidden relative">
+                        <div className="w-16 h-16 rounded-full bg-[var(--bg-secondary)] overflow-hidden relative">
                             <div className="absolute inset-0 bg-[url('https://api.dicebear.com/7.x/shapes/svg?seed=wave')] bg-cover opacity-80 mix-blend-multiply grayscale contrast-125"></div>
-                            {/* Fallback if external image fails */}
                             <div className="absolute inset-0 w-full h-full object-cover grayscale mix-blend-overlay opacity-50 bg-gradient-to-tr from-black to-transparent" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 1px, rgba(0,0,0,0.1) 1px, rgba(0,0,0,0.1) 2px)' }}></div>
                         </div>
                         <div className="flex flex-col">
-                            <h2 className="text-[22px] font-bold text-slate-900 leading-tight tracking-tight">{maskedEmail}</h2>
-                            <span className="text-[14px] text-slate-500 font-medium">Profile and settings</span>
+                            <h2 className="text-[22px] font-bold text-[var(--text-primary)] leading-tight tracking-tight">{maskedEmail}</h2>
+                            <span className="text-[14px] text-[var(--text-secondary)] font-medium">Profile and settings</span>
                             <div className="flex gap-2 mt-1.5">
-                                <span className="px-2 py-0.5 rounded border border-[#00C076] text-[#00C076] text-[11px] font-medium bg-[#f0fbf6]">Verified</span>
-                                <span className="px-2 py-0.5 rounded border border-slate-300 text-slate-600 text-[11px] font-medium">Regular user</span>
+                                <span className="px-2 py-0.5 rounded border border-[var(--tag-border)] text-[var(--green)] text-[11px] font-medium bg-[var(--tag-bg)]">Verified</span>
+                                <span className="px-2 py-0.5 rounded border border-[var(--border-strong)] text-[var(--text-secondary)] text-[11px] font-medium">Regular user</span>
                             </div>
                         </div>
                     </div>
-                    <div className="text-slate-400">
+                    <div className="text-[var(--text-tertiary)]">
                         <IoIosArrowForward size={20} />
                     </div>
                 </div>
 
                 {/* VIP Banner */}
-                <div className="bg-[#fcfaf7] border border-[#f0e8d5] rounded-2xl p-4 mb-8 relative overflow-hidden">
+                <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl p-4 mb-8 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at top right, #c19a6b, transparent 70%)' }}></div>
-                    {/* Abstract background lines */}
                     <div className="absolute inset-0 opacity-20 pointer-events-none">
                         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
                             <path d="M0,50 Q100,0 200,50 T400,50" fill="none" stroke="#c19a6b" strokeWidth="1" />
@@ -89,7 +88,7 @@ const ProfileView = () => {
                             <span className="text-[17px] font-normal tracking-wide">Unlock TRIV VIP</span>
                             <div className="mt-0.5 ml-0.5"><IoIosArrowForward /></div>
                         </div>
-                        <button className="text-slate-400 p-1 -mr-1 -mt-1"><MdClose size={18} /></button>
+                        <button className="text-[var(--text-tertiary)] p-1 -mr-1 -mt-1"><MdClose size={18} /></button>
                     </div>
                     <div className="flex justify-between text-[#8c6b36] relative z-10 text-[13px] font-medium pr-4 mt-4">
                         <div className="flex items-start gap-1.5 flex-1">
@@ -110,24 +109,24 @@ const ProfileView = () => {
                 {/* Shortcuts */}
                 <div>
                     <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-[20px] font-bold text-slate-900">Shortcuts</h3>
-                        <button className="p-1 text-slate-400">
+                        <h3 className="text-[20px] font-bold text-[var(--text-primary)]">Shortcuts</h3>
+                        <button className="p-1 text-[var(--text-tertiary)]">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         </button>
                     </div>
 
                     <div className="grid grid-cols-4 gap-4">
                         {[
-                            { label: 'Earn', icon: <div className="relative"><span className="text-slate-800"><BiCoinStack size={28} /></span><div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full border-2 border-slate-800 flex items-center justify-center"><div className="w-1.5 h-1.5 bg-slate-800 rounded-full" /></div></div> },
-                            { label: 'Rewards', icon: <span className="text-slate-800"><IoTicketOutline size={28} /></span> },
-                            { label: 'Referral', icon: <span className="text-slate-800"><FiGift size={28} /></span> },
-                            { label: 'Campaign', icon: <span className="text-slate-800"><BsMegaphone size={28} /></span> }
+                            { label: 'Earn', icon: <div className="relative"><span className="text-[var(--text-primary)]"><BiCoinStack size={28} /></span><div className="absolute -top-1 -right-1 w-4 h-4 bg-[var(--bg-card)] rounded-full border-2 border-[var(--text-primary)] flex items-center justify-center"><div className="w-1.5 h-1.5 bg-[var(--text-primary)] rounded-full" /></div></div> },
+                            { label: 'Rewards', icon: <span className="text-[var(--text-primary)]"><IoTicketOutline size={28} /></span> },
+                            { label: 'Referral', icon: <span className="text-[var(--text-primary)]"><FiGift size={28} /></span> },
+                            { label: 'Campaign', icon: <span className="text-[var(--text-primary)]"><BsMegaphone size={28} /></span> }
                         ].map((item, idx) => (
                             <div key={idx} className="flex flex-col items-center cursor-pointer active:scale-95 transition-transform">
                                 <div className="h-12 w-12 flex items-center justify-center mb-1">
                                     {item.icon}
                                 </div>
-                                <span className="text-[12px] font-medium text-slate-700 text-center leading-tight whitespace-pre-line">{item.label}</span>
+                                <span className="text-[12px] font-medium text-[var(--text-secondary)] text-center leading-tight whitespace-pre-line">{item.label}</span>
                             </div>
                         ))}
                     </div>

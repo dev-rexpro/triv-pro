@@ -111,17 +111,17 @@ const CryptoDepositView = () => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
-            className="fixed inset-0 bg-white z-[300] flex flex-col pt-safe px-4 pb-0 overflow-hidden"
+            className="fixed inset-0 bg-[var(--bg-primary)] z-[300] flex flex-col pt-safe px-4 pb-0 overflow-hidden"
         >
             {/* Header */}
-            <div className="flex items-center justify-between py-4 sticky top-0 bg-white z-10">
+            <div className="flex items-center justify-between py-4 sticky top-0 bg-[var(--bg-primary)] z-10">
                 <button
                     onClick={() => step > 1 ? setStep(step - 1 as 1 | 2) : window.history.back()}
-                    className="p-1 -ml-1 flex items-center justify-center text-slate-900"
+                    className="p-1 -ml-1 flex items-center justify-center text-[var(--text-primary)]"
                 >
                     <ChevronLeft size={28} />
                 </button>
-                <div className="font-bold text-[17px] text-slate-900 absolute left-1/2 -translate-x-1/2">
+                <div className="font-bold text-[17px] text-[var(--text-primary)] absolute left-1/2 -translate-x-1/2">
                     {step === 1 ? 'Deposit Crypto' : step === 2 ? 'Select network' : `Deposit ${selectedCoin}`}
                 </div>
                 <div className="w-8"></div>
@@ -131,42 +131,42 @@ const CryptoDepositView = () => {
             {step === 1 && (
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 mt-2">
                     <div className="relative mb-6">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"><Search size={18} /></div>
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none"><Search size={18} /></div>
                         <input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-[#F5F7F9] border-none rounded-2xl py-3.5 pl-12 pr-4 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
+                            className="w-full bg-[var(--bg-secondary)] border-none rounded-2xl py-3.5 pl-12 pr-4 text-sm font-medium text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
                             placeholder="Search coin"
                         />
                     </div>
 
-                    <div className="font-bold text-[15px] text-slate-900 mb-4">Trending</div>
+                    <div className="font-bold text-[15px] text-[var(--text-primary)] mb-4">Trending</div>
                     <div className="grid grid-cols-3 gap-3">
                         {['USDT', 'USDC', 'BTC', 'ETH', 'SOL', 'XRP'].map((coin) => (
                             <button
                                 key={coin}
                                 onClick={() => { setSelectedCoin(coin); setStep(2); }}
-                                className="flex items-center justify-center gap-2 bg-[#F5F7F9] py-2.5 rounded-full font-bold text-slate-900 text-sm"
+                                className="flex items-center justify-center gap-2 bg-[var(--bg-secondary)] py-2.5 rounded-full font-bold text-[var(--text-primary)] text-sm"
                             >
                                 <CoinIcon symbol={coin} size={5} /> {coin}
                             </button>
                         ))}
                     </div>
 
-                    <div className="font-bold text-[15px] text-slate-900 mt-8 mb-4">Coin list</div>
+                    <div className="font-bold text-[15px] text-[var(--text-primary)] mt-8 mb-4">Coin list</div>
                     <div className="space-y-1 pb-10">
                         {depositCoins.map((coin) => (
                             <div
                                 key={coin.symbol}
                                 onClick={() => { setSelectedCoin(coin.symbol); setStep(2); }}
-                                className="flex items-center justify-between py-3 cursor-pointer active:bg-slate-50"
+                                className="flex items-center justify-between py-3 cursor-pointer active:bg-[var(--bg-hover)]"
                             >
                                 <div className="flex items-center gap-3">
                                     <CoinIcon symbol={coin.symbol} size={8} />
                                     <div>
-                                        <div className="font-bold text-[15px] text-slate-900">{coin.symbol}</div>
-                                        <div className="text-[13px] text-slate-500 font-medium">{coin.name}</div>
+                                        <div className="font-bold text-[15px] text-[var(--text-primary)]">{coin.symbol}</div>
+                                        <div className="text-[13px] text-[var(--text-secondary)] font-medium">{coin.name}</div>
                                     </div>
                                 </div>
                             </div>
@@ -178,17 +178,17 @@ const CryptoDepositView = () => {
             {/* Step 2: Select Network */}
             {step === 2 && (
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 mt-2">
-                    <div className="bg-[#F5F7F9] rounded-2xl p-4 mb-6">
+                    <div className="bg-[var(--bg-secondary)] rounded-2xl p-4 mb-6">
                         <div className="flex items-start gap-3">
-                            <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] shrink-0 mt-0.5 font-bold">i</div>
+                            <div className="w-5 h-5 rounded-full bg-[var(--text-primary)] text-[var(--bg-primary)] flex items-center justify-center text-[10px] shrink-0 mt-0.5 font-bold">i</div>
                             <div>
-                                <h3 className="font-bold text-slate-900 text-sm">Not sure which network to choose?</h3>
-                                <p className="text-xs text-slate-500 mt-1 leading-relaxed">Make sure it matches the network on the platform or wallet you are withdrawing from.</p>
+                                <h3 className="font-bold text-[var(--text-primary)] text-sm">Not sure which network to choose?</h3>
+                                <p className="text-xs text-[var(--text-secondary)] mt-1 leading-relaxed">Make sure it matches the network on the platform or wallet you are withdrawing from.</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex justify-between items-center text-xs font-medium text-slate-400 mb-4 px-1">
+                    <div className="flex justify-between items-center text-xs font-medium text-[var(--text-tertiary)] mb-4 px-1">
                         <span>Network</span>
                         <span>Arrival time/Min deposit</span>
                     </div>
@@ -198,17 +198,17 @@ const CryptoDepositView = () => {
                             <div
                                 key={net.id}
                                 onClick={() => { setSelectedNetwork(net.id); setStep(3); }}
-                                className="flex justify-between items-center bg-white p-3 rounded-2xl border border-slate-100 cursor-pointer active:bg-slate-50 shadow-sm"
+                                className="flex justify-between items-center bg-[var(--bg-card)] p-3 rounded-2xl border border-[var(--border-color)] cursor-pointer active:bg-[var(--bg-hover)] shadow-sm"
                             >
                                 <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-xs">
+                                    <div className="w-8 h-8 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center text-[var(--text-secondary)] font-bold text-xs">
                                         {net.id.slice(0, 2)}
                                     </div>
-                                    <span className="font-bold text-[15px] text-slate-900">{net.name}</span>
+                                    <span className="font-bold text-[15px] text-[var(--text-primary)]">{net.name}</span>
                                 </div>
                                 <div className="text-right">
-                                    <div className="font-bold text-[13px] text-slate-900">{net.time}</div>
-                                    <div className="text-[11px] text-slate-400 font-medium">{net.min} {selectedCoin}</div>
+                                    <div className="font-bold text-[13px] text-[var(--text-primary)]">{net.time}</div>
+                                    <div className="text-[11px] text-[var(--text-tertiary)] font-medium">{net.min} {selectedCoin}</div>
                                 </div>
                             </div>
                         ))}
@@ -221,63 +221,63 @@ const CryptoDepositView = () => {
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 mt-6 flex flex-col h-full relative pb-safe">
                     <div className="flex-1 pb-32">
                         {/* QR Code Graphic */}
-                        <div className="bg-[#F5F7F9] w-64 h-64 mx-auto rounded-3xl mb-8 flex items-center justify-center relative shadow-sm border border-slate-100">
+                        <div className="bg-[var(--bg-secondary)] w-64 h-64 mx-auto rounded-3xl mb-8 flex items-center justify-center relative shadow-sm border border-[var(--border-color)]">
                             {/* Dummy QR Pattern */}
                             <div className="w-48 h-48 bg-white p-2 flex flex-wrap gap-1 content-start justify-center overflow-hidden">
                                 {qrPattern.map((isDark, i) => (
-                                    <div key={i} className={`w-3 h-3 ${isDark ? 'bg-slate-900' : 'bg-transparent'} ${i === 0 || i === 11 || i === 132 || i === 143 ? 'rounded-md scale-150 bg-slate-900' : ''}`} />
+                                    <div key={i} className={`w-3 h-3 ${isDark ? 'bg-black' : 'bg-transparent'} ${i === 0 || i === 11 || i === 132 || i === 143 ? 'rounded-md scale-150 bg-black' : ''}`} />
                                 ))}
                             </div>
-                            <div className="absolute w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md">
+                            <div className="absolute w-12 h-12 bg-[var(--bg-card)] rounded-full flex items-center justify-center shadow-md">
                                 <CoinIcon symbol={selectedCoin || 'USDT'} size={8} />
                             </div>
                         </div>
 
-                        <div className="text-[13px] font-medium text-slate-400 mb-2">Address</div>
+                        <div className="text-[13px] font-medium text-[var(--text-tertiary)] mb-2">Address</div>
                         <div className="flex items-center justify-between mb-8">
-                            <div className="font-bold text-[16px] text-slate-900 break-all pr-4">{depositAddress}</div>
-                            <button className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 shrink-0 shadow-sm">
+                            <div className="font-bold text-[16px] text-[var(--text-primary)] break-all pr-4">{depositAddress}</div>
+                            <button className="w-8 h-8 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center text-[var(--text-secondary)] shrink-0 shadow-sm">
                                 <Copy size={14} />
                             </button>
                         </div>
 
                         <div className="space-y-6">
                             <div className="flex justify-between items-center">
-                                <span className="text-[15px] font-medium text-slate-500">Network</span>
-                                <span className="font-bold text-[15px] text-slate-900 flex items-center gap-1.5">{selectedNetwork} <span className="text-slate-400"><ChevronDown size={18} /></span></span>
+                                <span className="text-[15px] font-medium text-[var(--text-secondary)]">Network</span>
+                                <span className="font-bold text-[15px] text-[var(--text-primary)] flex items-center gap-1.5">{selectedNetwork} <span className="text-[var(--text-tertiary)]"><ChevronDown size={18} /></span></span>
                             </div>
 
                             <div className="flex justify-between items-center cursor-pointer" onClick={() => setIsAccountSheetOpen(true)}>
-                                <span className="text-[15px] font-medium text-slate-500">Deposit account</span>
-                                <span className="font-bold text-[15px] text-slate-900 flex items-center gap-1.5">{depositAccount} account <span className="text-slate-400"><ChevronDown size={18} /></span></span>
+                                <span className="text-[15px] font-medium text-[var(--text-secondary)]">Deposit account</span>
+                                <span className="font-bold text-[15px] text-[var(--text-primary)] flex items-center gap-1.5">{depositAccount} account <span className="text-[var(--text-tertiary)]"><ChevronDown size={18} /></span></span>
                             </div>
 
                             <div className="flex justify-between items-center">
-                                <span className="text-[15px] font-medium text-slate-500">Deposit Amount</span>
+                                <span className="text-[15px] font-medium text-[var(--text-secondary)]">Deposit Amount</span>
                                 <div className="flex items-center gap-2">
                                     <input
                                         type="number"
                                         value={amount}
                                         onChange={(e) => setAmount(e.target.value)}
-                                        className="bg-[#F5F7F9] rounded-lg px-3 py-1.5 text-right font-bold text-[15px] text-slate-900 outline-none placeholder:text-slate-300 w-28"
+                                        className="bg-[var(--bg-secondary)] rounded-lg px-3 py-1.5 text-right font-bold text-[15px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)] w-28"
                                         placeholder="0.00"
                                     />
-                                    <span className="font-bold text-[15px] text-slate-900">{selectedCoin}</span>
+                                    <span className="font-bold text-[15px] text-[var(--text-primary)]">{selectedCoin}</span>
                                 </div>
                             </div>
 
                             <div className="flex justify-between items-center">
-                                <span className="text-[15px] font-medium text-slate-500 flex items-center gap-1">Arrival time <div className="w-3.5 h-3.5 rounded-full border border-slate-300 flex items-center justify-center text-[8px]">i</div></span>
-                                <span className="font-bold text-[15px] text-slate-900">{networks.find(n => n.id === selectedNetwork)?.time}</span>
+                                <span className="text-[15px] font-medium text-[var(--text-secondary)] flex items-center gap-1">Arrival time <div className="w-3.5 h-3.5 rounded-full border border-[var(--border-strong)] flex items-center justify-center text-[8px]">i</div></span>
+                                <span className="font-bold text-[15px] text-[var(--text-primary)]">{networks.find(n => n.id === selectedNetwork)?.time}</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-100 pb-8 z-20">
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-[var(--bg-primary)] border-t border-[var(--border-color)] pb-8 z-20">
                         <button
                             onClick={handleSimulateDeposit}
                             disabled={!amount || isSimulating || parseFloat(amount) <= 0}
-                            className={`w-full py-4 rounded-full font-bold text-[16px] text-center transition-opacity ${(!amount || isSimulating || parseFloat(amount) <= 0) ? 'bg-slate-200 text-slate-400' : 'bg-[#00C076] text-white active:bg-[#00a666]'}`}
+                            className={`w-full py-4 rounded-full font-bold text-[16px] text-center transition-opacity ${(!amount || isSimulating || parseFloat(amount) <= 0) ? 'bg-[var(--bg-secondary)] text-[var(--text-tertiary)]' : 'bg-[#00C076] text-white active:bg-[var(--green)]'}`}
                         >
                             {isSimulating ? 'Processing...' : 'Simulate Deposit'}
                         </button>
@@ -289,30 +289,30 @@ const CryptoDepositView = () => {
             <AnimatePresence>
                 {isAccountSheetOpen && (
                     <>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/40 z-[500]" onClick={() => setIsAccountSheetOpen(false)} />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[var(--overlay-bg)] z-[500]" onClick={() => setIsAccountSheetOpen(false)} />
                         <motion.div
                             initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
                             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-[501] overflow-hidden flex flex-col"
+                            className="fixed bottom-0 left-0 right-0 bg-[var(--bg-card)] rounded-t-3xl z-[501] overflow-hidden flex flex-col"
                         >
-                            <div className="flex items-center justify-center py-4 border-b border-slate-100 font-bold text-[17px] text-slate-900">
+                            <div className="flex items-center justify-center py-4 border-b border-[var(--border-color)] font-bold text-[17px] text-[var(--text-primary)]">
                                 Deposit {networks.find(n => n.id === selectedNetwork)?.name}
                             </div>
 
                             <div className="p-2 pb-8">
-                                <div className="p-4 cursor-pointer active:bg-slate-50 rounded-2xl flex justify-between items-center" onClick={() => { setDepositAccount('Funding'); setIsAccountSheetOpen(false); }}>
+                                <div className="p-4 cursor-pointer active:bg-[var(--bg-hover)] rounded-2xl flex justify-between items-center" onClick={() => { setDepositAccount('Funding'); setIsAccountSheetOpen(false); }}>
                                     <div>
-                                        <div className="font-bold text-[16px] text-slate-900 mb-1">Funding account</div>
-                                        <div className="text-[13px] text-slate-400 font-medium">Keep your funds that are not used for trading here</div>
+                                        <div className="font-bold text-[16px] text-[var(--text-primary)] mb-1">Funding account</div>
+                                        <div className="text-[13px] text-[var(--text-tertiary)] font-medium">Keep your funds that are not used for trading here</div>
                                     </div>
-                                    {depositAccount === 'Funding' && <div className="w-5 h-5 rounded-full bg-slate-900 flex items-center justify-center text-white"><Check size={14} /></div>}
+                                    {depositAccount === 'Funding' && <div className="w-5 h-5 rounded-full bg-[var(--text-primary)] flex items-center justify-center text-[var(--bg-primary)]"><Check size={14} /></div>}
                                 </div>
-                                <div className="p-4 cursor-pointer active:bg-slate-50 rounded-2xl flex justify-between items-center" onClick={() => { setDepositAccount('Trading'); setIsAccountSheetOpen(false); }}>
+                                <div className="p-4 cursor-pointer active:bg-[var(--bg-hover)] rounded-2xl flex justify-between items-center" onClick={() => { setDepositAccount('Trading'); setIsAccountSheetOpen(false); }}>
                                     <div>
-                                        <div className="font-bold text-[16px] text-slate-900 mb-1">Trading account</div>
-                                        <div className="text-[13px] text-slate-400 font-medium">Funds available for trading activities</div>
+                                        <div className="font-bold text-[16px] text-[var(--text-primary)] mb-1">Trading account</div>
+                                        <div className="text-[13px] text-[var(--text-tertiary)] font-medium">Funds available for trading activities</div>
                                     </div>
-                                    {depositAccount === 'Trading' && <div className="w-5 h-5 rounded-full bg-slate-900 flex items-center justify-center text-white"><Check size={14} /></div>}
+                                    {depositAccount === 'Trading' && <div className="w-5 h-5 rounded-full bg-[var(--text-primary)] flex items-center justify-center text-[var(--bg-primary)]"><Check size={14} /></div>}
                                 </div>
                             </div>
                         </motion.div>

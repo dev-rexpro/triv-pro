@@ -10,25 +10,25 @@ const ReorderableRow = ({ opt, isDefault, onToggleVisibility, onEditClick, onRow
     const controls = useDragControls();
 
     return (
-        <Reorder.Item value={opt} dragListener={false} dragControls={controls} className="flex justify-between items-center bg-white py-3 relative z-10 w-full" style={{ touchAction: 'none' }}>
+        <Reorder.Item value={opt} dragListener={false} dragControls={controls} className="flex justify-between items-center bg-[var(--bg-card)] py-3 relative z-10 w-full" style={{ touchAction: 'none' }}>
             <div
                 className={`flex-1 flex items-center h-full ${!isDefault ? 'cursor-pointer' : ''}`}
                 onClick={() => !isDefault && onRowClick(opt)}
             >
-                <span className="text-[16px] font-medium text-slate-900">{opt}</span>
+                <span className="text-[16px] font-medium text-[var(--text-primary)]">{opt}</span>
             </div>
             <div className="flex items-center gap-6 justify-end w-32">
                 {!isDefault ? (
-                    <MdOutlineMoreHoriz size={20} className="text-slate-900 cursor-pointer" onClick={() => onEditClick(opt)} />
+                    <MdOutlineMoreHoriz size={20} className="text-[var(--text-primary)] cursor-pointer" onClick={() => onEditClick(opt)} />
                 ) : (
                     <div className="w-[20px]" />
                 )}
-                <LuEye size={20} className="text-slate-900 cursor-pointer" onClick={() => onToggleVisibility(opt)} />
+                <LuEye size={20} className="text-[var(--text-primary)] cursor-pointer" onClick={() => onToggleVisibility(opt)} />
                 <div
                     className="p-2 -mr-2 cursor-grab touch-none"
                     onPointerDown={(e) => controls.start(e)}
                 >
-                    <LuMenu size={20} className="text-slate-900" />
+                    <LuMenu size={20} className="text-[var(--text-primary)]" />
                 </div>
             </div>
         </Reorder.Item>
@@ -105,16 +105,16 @@ const ManageGroupsView = () => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-0 bg-white z-[300] flex flex-col"
+            className="fixed inset-0 bg-[var(--bg-primary)] z-[300] flex flex-col"
         >
             <div className="flex justify-between items-center px-4 py-4">
-                <LuChevronLeft size={24} className="text-slate-900 cursor-pointer" onClick={() => window.history.back()} />
-                <h2 className="text-[18px] font-bold text-slate-900">Manage groups</h2>
+                <LuChevronLeft size={24} className="text-[var(--text-primary)] cursor-pointer" onClick={() => window.history.back()} />
+                <h2 className="text-[18px] font-bold text-[var(--text-primary)]">Manage groups</h2>
                 <div className="w-[24px]" /> {/* Empty div to balance header instead of plus icon */}
             </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar pb-32"> {/* Increased padding for bottom button */}
-                <div className="px-4 py-4 flex justify-between text-xs font-medium text-slate-400">
+                <div className="px-4 py-4 flex justify-between text-xs font-medium text-[var(--text-tertiary)]">
                     <span>Name</span>
                     <div className="flex justify-end gap-5 w-32 pr-1">
                         <span>Edit</span>
@@ -141,7 +141,7 @@ const ManageGroupsView = () => {
                 {hiddenList.length > 0 && (
                     <>
                         <div className="px-4 mt-8 mb-4">
-                            <span className="text-xs font-medium text-slate-400">Hidden</span>
+                            <span className="text-xs font-medium text-[var(--text-tertiary)]">Hidden</span>
                         </div>
 
                         <div className="px-4 space-y-0 pb-8">
@@ -149,12 +149,12 @@ const ManageGroupsView = () => {
                                 {hiddenList.map(opt => {
                                     const isDefault = defaultTabs.includes(opt);
                                     return (
-                                        <motion.div layout key={opt} className="flex justify-between items-center py-3 opacity-50 bg-white relative z-0">
-                                            <span className="text-[16px] font-medium text-slate-900">{opt}</span>
+                                        <motion.div layout key={opt} className="flex justify-between items-center py-3 opacity-50 bg-[var(--bg-card)] relative z-0">
+                                            <span className="text-[16px] font-medium text-[var(--text-primary)]">{opt}</span>
                                             <div className="flex items-center gap-6 justify-end w-32">
                                                 <div className="w-[20px]" />
-                                                <LuEyeOff size={20} className="text-slate-900 cursor-pointer" onClick={() => toggleGroupVisibility(opt)} />
-                                                <LuMenu size={20} className="text-slate-900 cursor-not-allowed" />
+                                                <LuEyeOff size={20} className="text-[var(--text-primary)] cursor-pointer" onClick={() => toggleGroupVisibility(opt)} />
+                                                <LuMenu size={20} className="text-[var(--text-primary)] cursor-not-allowed" />
                                             </div>
                                         </motion.div>
                                     );
@@ -166,13 +166,13 @@ const ManageGroupsView = () => {
             </div>
 
             {/* Bottom Button */}
-            <div className="absolute bottom-0 left-0 w-full p-4 bg-white z-50 rounded-t-xl" style={{ paddingBottom: 'calc(16px + var(--safe-area-bottom))' }}>
+            <div className="absolute bottom-0 left-0 w-full p-4 bg-[var(--bg-primary)] z-50 rounded-t-xl" style={{ paddingBottom: 'calc(16px + var(--safe-area-bottom))' }}>
                 <button
                     onClick={() => {
                         setNewGroupName('');
                         setIsAddGroupOpen(true);
                     }}
-                    className="w-full bg-[#111] text-white py-3.5 rounded-full font-bold text-[16px]"
+                    className="w-full bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] py-3.5 rounded-full font-bold text-[16px]"
                 >
                     New group
                 </button>
@@ -186,7 +186,7 @@ const ManageGroupsView = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 0.5 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black z-[310]"
+                            className="fixed inset-0 bg-black/50 z-[310]"
                             onClick={() => setEditSheetGroup(null)}
                         />
                         <motion.div
@@ -194,31 +194,31 @@ const ManageGroupsView = () => {
                             animate={{ y: 0 }}
                             exit={{ y: '100%' }}
                             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[24px] z-[320] px-6 pt-2 pb-10 flex flex-col"
+                            className="fixed bottom-0 left-0 right-0 bg-[var(--bg-card)] rounded-t-[24px] z-[320] px-6 pt-2 pb-10 flex flex-col"
                             style={{ paddingBottom: 'calc(40px + var(--safe-area-bottom))' }}
                         >
                             <div className="flex justify-center mb-6">
-                                <div className="w-10 h-1 bg-slate-200 rounded-full" />
+                                <div className="w-10 h-1 bg-[var(--bg-secondary)] rounded-full" />
                             </div>
 
                             <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-[20px] font-semibold text-slate-900">Edit group</h2>
+                                <h2 className="text-[20px] font-semibold text-[var(--text-primary)]">Edit group</h2>
                             </div>
 
                             <div className="flex flex-col gap-4">
                                 <div className="flex justify-between items-center py-2 cursor-pointer" onClick={handleRename}>
                                     <div className="flex items-center gap-3">
-                                        <LuPencil size={20} className="text-slate-900" />
-                                        <span className="text-[17px] text-slate-900 font-medium">Edit group name</span>
+                                        <LuPencil size={20} className="text-[var(--text-primary)]" />
+                                        <span className="text-[17px] text-[var(--text-primary)] font-medium">Edit group name</span>
                                     </div>
-                                    <LuChevronRight size={20} className="text-slate-400" />
+                                    <LuChevronRight size={20} className="text-[var(--text-tertiary)]" />
                                 </div>
                                 <div className="flex justify-between items-center py-2 cursor-pointer" onClick={handleDelete}>
                                     <div className="flex items-center gap-3">
-                                        <LuTrash2 size={20} className="text-slate-900" />
-                                        <span className="text-[17px] text-slate-900 font-medium">Delete group</span>
+                                        <LuTrash2 size={20} className="text-[var(--text-primary)]" />
+                                        <span className="text-[17px] text-[var(--text-primary)] font-medium">Delete group</span>
                                     </div>
-                                    <LuChevronRight size={20} className="text-slate-400" />
+                                    <LuChevronRight size={20} className="text-[var(--text-tertiary)]" />
                                 </div>
                             </div>
                         </motion.div>
@@ -234,7 +234,7 @@ const ManageGroupsView = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 0.5 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black z-[310]"
+                            className="fixed inset-0 bg-black/50 z-[310]"
                             onClick={() => {
                                 setIsEditNameOpen(false);
                                 setEditSheetGroup(null);
@@ -245,15 +245,15 @@ const ManageGroupsView = () => {
                             animate={{ y: 0 }}
                             exit={{ y: '100%' }}
                             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[24px] z-[320] px-6 pt-2 pb-10 flex flex-col"
+                            className="fixed bottom-0 left-0 right-0 bg-[var(--bg-card)] rounded-t-[24px] z-[320] px-6 pt-2 pb-10 flex flex-col"
                             style={{ paddingBottom: 'calc(40px + var(--safe-area-bottom))' }}
                         >
                             <div className="flex justify-center mb-6">
-                                <div className="w-10 h-1 bg-slate-200 rounded-full" />
+                                <div className="w-10 h-1 bg-[var(--bg-secondary)] rounded-full" />
                             </div>
 
                             <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-[20px] font-semibold text-slate-900">Edit group name</h2>
+                                <h2 className="text-[20px] font-semibold text-[var(--text-primary)]">Edit group name</h2>
                             </div>
 
                             <div className="flex flex-col gap-4">
@@ -263,7 +263,7 @@ const ManageGroupsView = () => {
                                     value={editGroupName}
                                     onChange={(e) => setEditGroupName(e.target.value)}
                                     autoFocus
-                                    className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none focus:border-slate-900 transition-colors"
+                                    className="w-full border border-[var(--border-strong)] rounded-xl px-4 py-3 outline-none focus:border-slate-900 transition-colors"
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
                                             handleEditGroupSubmit();
@@ -273,7 +273,7 @@ const ManageGroupsView = () => {
                                 <button
                                     onClick={handleEditGroupSubmit}
                                     disabled={!editGroupName.trim()}
-                                    className="w-full bg-[#111] disabled:bg-slate-200 disabled:text-slate-400 text-white py-3.5 rounded-full font-bold text-[16px] transition-colors"
+                                    className="w-full bg-[var(--btn-primary-bg)] disabled:bg-[var(--bg-secondary)] disabled:text-[var(--text-tertiary)] text-[var(--btn-primary-text)] py-3.5 rounded-full font-bold text-[16px] transition-colors"
                                 >
                                     Save
                                 </button>
@@ -291,7 +291,7 @@ const ManageGroupsView = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 0.5 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black z-[310]"
+                            className="fixed inset-0 bg-black/50 z-[310]"
                             onClick={() => setIsAddGroupOpen(false)}
                         />
                         <motion.div
@@ -299,15 +299,15 @@ const ManageGroupsView = () => {
                             animate={{ y: 0 }}
                             exit={{ y: '100%' }}
                             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                            className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[24px] z-[320] px-6 pt-2 pb-10 flex flex-col"
+                            className="fixed bottom-0 left-0 right-0 bg-[var(--bg-card)] rounded-t-[24px] z-[320] px-6 pt-2 pb-10 flex flex-col"
                             style={{ paddingBottom: 'calc(40px + var(--safe-area-bottom))' }}
                         >
                             <div className="flex justify-center mb-6">
-                                <div className="w-10 h-1 bg-slate-200 rounded-full" />
+                                <div className="w-10 h-1 bg-[var(--bg-secondary)] rounded-full" />
                             </div>
 
                             <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-[20px] font-semibold text-slate-900">New group</h2>
+                                <h2 className="text-[20px] font-semibold text-[var(--text-primary)]">New group</h2>
                             </div>
 
                             <div className="flex flex-col gap-4">
@@ -317,7 +317,7 @@ const ManageGroupsView = () => {
                                     value={newGroupName}
                                     onChange={(e) => setNewGroupName(e.target.value)}
                                     autoFocus
-                                    className="w-full border border-slate-300 rounded-xl px-4 py-3 outline-none focus:border-slate-900 transition-colors"
+                                    className="w-full border border-[var(--border-strong)] rounded-xl px-4 py-3 outline-none focus:border-slate-900 transition-colors"
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
                                             handleAddGroupSubmit();
@@ -327,7 +327,7 @@ const ManageGroupsView = () => {
                                 <button
                                     onClick={handleAddGroupSubmit}
                                     disabled={!newGroupName.trim()}
-                                    className="w-full bg-[#111] disabled:bg-slate-200 disabled:text-slate-400 text-white py-3.5 rounded-full font-bold text-[16px] transition-colors"
+                                    className="w-full bg-[var(--btn-primary-bg)] disabled:bg-[var(--bg-secondary)] disabled:text-[var(--text-tertiary)] text-[var(--btn-primary-text)] py-3.5 rounded-full font-bold text-[16px] transition-colors"
                                 >
                                     Create group
                                 </button>

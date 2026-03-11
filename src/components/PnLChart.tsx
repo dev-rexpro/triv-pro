@@ -56,7 +56,7 @@ export const PnLChart: React.FC<PnLChartProps> = ({
     const filterId = `glow-${id}`;
 
     if (!data || data.length < 2) {
-        return <div style={{ width, height }} className="flex items-center justify-center text-slate-400 text-xs italic">Insufficient data</div>;
+        return <div style={{ width, height }} className="flex items-center justify-center text-[var(--text-tertiary)] text-xs italic">Insufficient data</div>;
     }
 
     return (

@@ -19,7 +19,7 @@ const CurrencySelector = ({ className = '' }: CurrencySelectorProps) => {
         <div className={`relative inline-block ${className}`}>
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="text-sm font-bold text-slate-900 flex items-center"
+                className="text-sm font-bold text-[var(--text-primary)] flex items-center"
             >
                 {currency} <ChevronDown size={16} />
             </button>
@@ -27,12 +27,12 @@ const CurrencySelector = ({ className = '' }: CurrencySelectorProps) => {
             {isOpen && (
                 <>
                     <div className="fixed inset-0 z-[80]" onClick={() => setIsOpen(false)} />
-                    <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-lg border border-slate-100 z-[90] py-1 min-w-[80px]">
+                    <div className="absolute top-full right-0 mt-1 bg-[var(--bg-card)] rounded-xl shadow-lg border border-[var(--border-color)] z-[90] py-1 min-w-[80px]">
                         {CURRENCIES.map(c => (
                             <button
                                 key={c}
                                 onClick={() => { setCurrency(c); setIsOpen(false); }}
-                                className={`w-full text-left px-4 py-2 text-sm font-medium hover:bg-slate-50 transition-colors ${currency === c ? 'text-slate-900 font-bold bg-slate-50' : 'text-slate-600'
+                                className={`w-full text-left px-4 py-2 text-sm font-medium hover:bg-[var(--bg-hover)] transition-colors ${currency === c ? 'text-[var(--text-primary)] font-bold bg-[var(--bg-secondary)]' : 'text-[var(--text-secondary)]'
                                     }`}
                             >
                                 {c}

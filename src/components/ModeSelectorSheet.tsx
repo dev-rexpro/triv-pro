@@ -17,24 +17,24 @@ const ModeSelectorSheet: React.FC<ModeSelectorSheetProps> = ({ isOpen, onClose, 
             name: 'Pay',
             description: 'The new money app',
             icon: FiDollarSign,
-            color: 'text-slate-900',
-            bgColor: 'bg-white'
+            color: 'text-[var(--text-primary)]',
+            bgColor: 'bg-[var(--bg-card)]'
         },
         {
             id: 'exchange',
             name: 'Exchange',
             description: 'Advanced trading tools',
             icon: FiActivity,
-            color: 'text-slate-900',
-            bgColor: 'bg-white'
+            color: 'text-[var(--text-primary)]',
+            bgColor: 'bg-[var(--bg-card)]'
         },
         {
             id: 'web3',
             name: 'Web3',
             description: 'Decentralized trading and marketplace',
             icon: FiCreditCard,
-            color: 'text-slate-900',
-            bgColor: 'bg-white'
+            color: 'text-[var(--text-primary)]',
+            bgColor: 'bg-[var(--bg-card)]'
         }
     ];
 
@@ -48,7 +48,7 @@ const ModeSelectorSheet: React.FC<ModeSelectorSheetProps> = ({ isOpen, onClose, 
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-black/40 z-[1000]"
+                        className="fixed inset-0 bg-[var(--overlay-bg)] z-[1000]"
                     />
 
                     {/* Sheet */}
@@ -57,15 +57,15 @@ const ModeSelectorSheet: React.FC<ModeSelectorSheetProps> = ({ isOpen, onClose, 
                         animate={{ y: 0 }}
                         exit={{ y: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[24px] z-[1001] px-6 pt-2 pb-10"
+                        className="fixed bottom-0 left-0 right-0 bg-[var(--bg-card)] rounded-t-[24px] z-[1001] px-6 pt-2 pb-10"
                     >
                         {/* Handle */}
                         <div className="flex justify-center mb-6">
-                            <div className="w-10 h-1 bg-slate-200 rounded-full" />
+                            <div className="w-10 h-1 bg-[var(--bg-secondary)] rounded-full" />
                         </div>
 
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-[20px] font-semibold text-slate-900 leading-tight">Select your mode</h2>
+                            <h2 className="text-[20px] font-semibold text-[var(--text-primary)] leading-tight">Select your mode</h2>
                         </div>
 
                         <div className="flex flex-col gap-4">
@@ -79,16 +79,16 @@ const ModeSelectorSheet: React.FC<ModeSelectorSheetProps> = ({ isOpen, onClose, 
                                             onClose();
                                         }}
                                         className={`flex items-center gap-4 py-2.5 px-4 rounded-lg border-2 transition-all text-left ${isSelected
-                                            ? 'border-slate-900 bg-white shadow-sm'
-                                            : 'border-slate-100 bg-white hover:border-slate-200'
+                                            ? 'border-slate-900 bg-[var(--bg-card)] shadow-sm'
+                                            : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-slate-200'
                                             }`}
                                     >
                                         <div className={`${mode.color} flex items-center justify-center`}>
                                             <mode.icon size={26} />
                                         </div>
                                         <div className="flex-1">
-                                            <div className="text-[17px] font-medium text-slate-900">{mode.name}</div>
-                                            <div className="text-sm text-slate-500 font-normal">{mode.description}</div>
+                                            <div className="text-[17px] font-medium text-[var(--text-primary)]">{mode.name}</div>
+                                            <div className="text-sm text-[var(--text-secondary)] font-normal">{mode.description}</div>
                                         </div>
                                         {isSelected && (
                                             <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center">

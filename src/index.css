@@ -33,13 +33,72 @@
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
+
+  /* === Light Theme (default) === */
+  --bg-primary: #FDFDFD;
+  --bg-secondary: #F5F7F9;
+  --bg-card: #FFFFFF;
+  --bg-hover: #F0F2F5;
+  --input-bg: #f5f5f5;
+  --text-primary: #0F172A;
+  --text-secondary: #64748B;
+  --text-tertiary: #94A3B8;
+  --border-color: #F1F5F9;
+  --home-icon-filter: none;
+  --border-strong: #E2E8F0;
+  --input-bg: #F5F7F9;
+  --nav-bg: #FFFFFF;
+  --nav-border: #F1F5F9;
+  --overlay-bg: rgba(0, 0, 0, 0.4);
+  --shadow-toast: 0 12px 32px rgba(0, 0, 0, 0.08);
+  --green: #00C076;
+  --red: #FF4D5B;
+  --accent: #3189C6;
+  --tag-bg: #f0fbf6;
+  --tag-border: #00C076;
+  --green-bg: rgba(32, 178, 108, 0.12);
+  --red-bg: rgba(239, 68, 74, 0.12);
+  /* Button Colors (Theme Responsive) */
+  --btn-primary-bg: #121212;
+  --btn-primary-text: #FFFFFF;
+}
+
+.dark {
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #1c1d1f;
+  --bg-card: #181A20;
+  --bg-hover: #2B3139;
+  --input-bg: #2B3139;
+  --text-primary: #EAECEF;
+  --text-secondary: #979797;
+  --text-tertiary: #9c9c9c;
+  --border-color: #232323;
+  --home-icon-filter: invert(1);
+  --border-strong: #212121;
+  --input-bg: #1c1d1f;
+  --nav-bg: #0f0f0f;
+  --nav-border: #232323;
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+  --shadow-toast: 0 12px 32px rgba(0, 0, 0, 0.4);
+  --green: #0ECB81;
+  --red: #F6465D;
+  --accent: #3189C6;
+  --tag-bg: #0d2e1e;
+  --tag-border: #0ECB81;
+  --logo-filter: grayscale(1) brightness(10);
+  --green-bg: rgba(14, 203, 129, 0.15);
+  --red-bg: rgba(246, 70, 93, 0.15);
+  /* Button Colors (Theme Responsive) */
+  --btn-primary-bg: #FFFFFF;
+  --btn-primary-text: #121212;
 }
 
 html {
   height: -webkit-fill-available;
-  background-color: #FDFDFD;
+  background-color: var(--bg-primary);
   margin: 0;
   padding: 0;
+  transition: background-color 0.2s ease;
 }
 
 body {
@@ -53,6 +112,7 @@ body {
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #root {

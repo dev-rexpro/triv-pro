@@ -189,7 +189,7 @@ const MarketView = () => {
             }
         }
 
-        return list.slice(0, 50).map(m => m.symbol);
+        return list.slice(0, 50).map(m => m.isFutures ? `${m.symbol}:futures` : `${m.symbol}:spot`);
     }, [markets, futuresMarkets, favorites, favoriteGroups, mainTab, subTab, filter, manualSort]);
 
     const stableSymbols = useThrottledOrder(sortedSymbols, isInteracting, [mainTab, subTab, filter, manualSort], 30000);
@@ -225,25 +225,25 @@ const MarketView = () => {
     }, [setActivePage]);
 
     return (
-        <div className="pb-24 bg-[#FDFDFD] min-h-screen font-sans">
+        <div className="pb-24 bg-[var(--bg-primary)] min-h-screen font-sans">
             <div className="p-4 pt-[calc(16px+var(--safe-area-top))] flex gap-4 items-center">
-                <div className="relative flex-1 flex items-center bg-[#F5F7F9] rounded-full px-4 py-2.5 cursor-pointer h-[44px]" onClick={() => setSearchOpen(true)}>
-                    <Search className="text-slate-400 mr-2" size={18} />
+                <div className="relative flex-1 flex items-center bg-[var(--bg-secondary)] rounded-full px-4 py-2.5 cursor-pointer h-[44px]" onClick={() => setSearchOpen(true)}>
+                    <Search className="text-[var(--text-tertiary)] mr-2" size={18} />
                     <AnimatedPlaceholder className="ml-0" />
                 </div>
                 <div className="relative">
-                    <AlarmClock size={24} strokeWidth={1.5} className="text-slate-900" />
-                    <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+                    <AlarmClock size={24} strokeWidth={1.5} className="text-[var(--text-primary)]" />
+                    <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-[var(--bg-primary)]" />
                 </div>
             </div>
 
             <div className="px-4 pt-1 flex items-center mb-4">
-                <div className="flex gap-5 text-[18px] font-medium text-slate-400 overflow-x-auto no-scrollbar">
+                <div className="flex gap-5 text-[18px] font-medium text-[var(--text-tertiary)] overflow-x-auto no-scrollbar">
                     {['Favorites', 'Marketplace', 'Overview'].map((t) => (
                         <span
                             key={t}
                             onClick={() => setMainTab(t)}
-                            className={`cursor-pointer whitespace-nowrap transition-colors ${mainTab === t ? 'text-slate-900 font-bold' : ''}`}
+                            className={`cursor-pointer whitespace-nowrap transition-colors ${mainTab === t ? 'text-[var(--text-primary)] font-bold' : ''}`}
                         >
                             {t}
                         </span>
@@ -253,13 +253,13 @@ const MarketView = () => {
 
             {mainTab !== 'Overview' && (
                 <div className="px-4 flex items-center justify-between mb-4">
-                    <div className="flex gap-6 text-[15px] font-bold text-slate-400 overflow-x-auto no-scrollbar">
+                    <div className="flex gap-6 text-[15px] font-bold text-[var(--text-tertiary)] overflow-x-auto no-scrollbar">
                         {mainTab === 'Favorites' ? (
                             ['All', 'Futures', 'Spot', ...Object.keys(favoriteGroups)].filter(g => !hiddenGroups.includes(g)).map(g => (
                                 <span
                                     key={g}
                                     onClick={() => setSubTab(g)}
-                                    className={`cursor-pointer pb-2 whitespace-nowrap transition-all ${subTab === g ? 'text-slate-900 border-b-2 border-slate-900 font-bold' : ''}`}
+                                    className={`cursor-pointer pb-2 whitespace-nowrap transition-all ${subTab === g ? 'text-[var(--text-primary)] border-b-2 border-[var(--text-primary)] font-bold' : ''}`}
                                 >
                                     {g}
                                 </span>
@@ -269,7 +269,7 @@ const MarketView = () => {
                                 <span
                                     key={t}
                                     onClick={() => setSubTab(t)}
-                                    className={`cursor-pointer pb-2 ${subTab === t ? 'text-slate-900 border-b-2 border-slate-900' : ''}`}
+                                    className={`cursor-pointer pb-2 ${subTab === t ? 'text-[var(--text-primary)] border-b-2 border-[var(--text-primary)]' : ''}`}
                                 >
                                     {t}
                                 </span>
@@ -278,7 +278,7 @@ const MarketView = () => {
                     </div>
                     {mainTab === 'Favorites' && (
                         <div className="flex items-center gap-2">
-                            <MdEditNote size={24} className="text-slate-400 mb-2 cursor-pointer" onClick={() => setManageGroupsOpen(true)} />
+                            <MdEditNote size={24} className="text-[var(--text-tertiary)] mb-2 cursor-pointer" onClick={() => setManageGroupsOpen(true)} />
                         </div>
                     )}
                 </div>
@@ -291,12 +291,12 @@ const MarketView = () => {
                             <button
                                 key={f}
                                 onClick={() => updateFilter(f)}
-                                className={`relative text-[13px] whitespace-nowrap px-3 py-0.5 transition-all outline-none ${filter === f ? 'text-slate-900 font-bold' : 'text-slate-500 font-medium'}`}
+                                className={`relative text-[13px] whitespace-nowrap px-3 py-0.5 transition-all outline-none ${filter === f ? 'text-[var(--text-primary)] font-bold' : 'text-[var(--text-secondary)] font-medium'}`}
                             >
                                 {filter === f && (
                                     <motion.div
                                         layoutId="activeFilter"
-                                        className="absolute inset-0 bg-[#EBEEF2] rounded-full border border-slate-200"
+                                        className="absolute inset-0 bg-[var(--bg-secondary)] rounded-full border border-[var(--border-strong)]"
                                         transition={{ type: "spring", bounce: 0.1, duration: 0.25 }}
                                     />
                                 )}
@@ -304,8 +304,8 @@ const MarketView = () => {
                             </button>
                         ))}
                     </div>
-                    <div className="absolute right-0 top-0 bottom-0 bg-gradient-to-l from-[#FDFDFD] via-[#FDFDFD] to-transparent pl-6 flex items-center justify-center shrink-0 pr-4">
-                        <TbFilter2Cog size={18} className="text-slate-900" />
+                    <div className="absolute right-0 top-0 bottom-0 bg-gradient-to-l from-[var(--bg-primary)] via-[var(--bg-primary)] to-transparent pl-6 flex items-center justify-center shrink-0 pr-4">
+                        <TbFilter2Cog size={18} className="text-[var(--text-primary)]" />
                     </div>
                 </div>
             )}
@@ -314,37 +314,37 @@ const MarketView = () => {
                 <MarketOverview />
             ) : (
                 <>
-                    <div className="px-4 flex justify-between items-center text-[12px] font-bold text-slate-400 mb-2 mt-4 select-none">
+                    <div className="px-4 flex justify-between items-center text-[12px] font-bold text-[var(--text-tertiary)] mb-2 mt-4 select-none">
                         <div className="flex items-center gap-1">
-                            <div className="flex items-center gap-1 cursor-pointer hover:text-slate-600 transition-colors" onClick={() => handleSortClick('name')}>
-                                <span className={manualSort?.column === 'name' ? 'text-slate-900' : ''}>Name</span>
+                            <div className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-secondary)] transition-colors" onClick={() => handleSortClick('name')}>
+                                <span className={manualSort?.column === 'name' ? 'text-[var(--text-primary)]' : ''}>Name</span>
                                 <div className="flex flex-col -space-y-3 opacity-50">
-                                    <ArrowDropUp size={18} className={manualSort?.column === 'name' && manualSort.order === 'asc' ? 'text-slate-900 opacity-100' : 'text-slate-400'} />
-                                    <ArrowDropDown size={18} className={manualSort?.column === 'name' && manualSort.order === 'desc' ? 'text-slate-900 opacity-100' : 'text-slate-400'} />
+                                    <ArrowDropUp size={18} className={manualSort?.column === 'name' && manualSort.order === 'asc' ? 'text-[var(--text-primary)] opacity-100' : 'text-[var(--text-tertiary)]'} />
+                                    <ArrowDropDown size={18} className={manualSort?.column === 'name' && manualSort.order === 'desc' ? 'text-[var(--text-primary)] opacity-100' : 'text-[var(--text-tertiary)]'} />
                                 </div>
                             </div>
-                            <span className="text-slate-200 mx-0.5">/</span>
-                            <div className="flex items-center gap-1 cursor-pointer hover:text-slate-600 transition-colors" onClick={() => handleSortClick('turnover')}>
-                                <span className={manualSort?.column === 'turnover' ? 'text-slate-900' : ''}>Turnover</span>
+                            <span className="text-[var(--text-tertiary)] mx-0.5">/</span>
+                            <div className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-secondary)] transition-colors" onClick={() => handleSortClick('turnover')}>
+                                <span className={manualSort?.column === 'turnover' ? 'text-[var(--text-primary)]' : ''}>Turnover</span>
                                 <div className="flex flex-col -space-y-3 opacity-50">
-                                    <ArrowDropUp size={18} className={manualSort?.column === 'turnover' && manualSort.order === 'asc' ? 'text-slate-900 opacity-100' : 'text-slate-400'} />
-                                    <ArrowDropDown size={18} className={manualSort?.column === 'turnover' && manualSort.order === 'desc' ? 'text-slate-900 opacity-100' : 'text-slate-400'} />
+                                    <ArrowDropUp size={18} className={manualSort?.column === 'turnover' && manualSort.order === 'asc' ? 'text-[var(--text-primary)] opacity-100' : 'text-[var(--text-tertiary)]'} />
+                                    <ArrowDropDown size={18} className={manualSort?.column === 'turnover' && manualSort.order === 'desc' ? 'text-[var(--text-primary)] opacity-100' : 'text-[var(--text-tertiary)]'} />
                                 </div>
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-1 cursor-pointer hover:text-slate-600 transition-colors" onClick={() => handleSortClick('price')}>
-                                <span className={manualSort?.column === 'price' ? 'text-slate-900' : ''}>Last price</span>
+                            <div className="flex items-center gap-1 cursor-pointer hover:text-[var(--text-secondary)] transition-colors" onClick={() => handleSortClick('price')}>
+                                <span className={manualSort?.column === 'price' ? 'text-[var(--text-primary)]' : ''}>Last price</span>
                                 <div className="flex flex-col -space-y-3 opacity-50">
-                                    <ArrowDropUp size={18} className={manualSort?.column === 'price' && manualSort.order === 'asc' ? 'text-slate-900 opacity-100' : 'text-slate-400'} />
-                                    <ArrowDropDown size={18} className={manualSort?.column === 'price' && manualSort.order === 'desc' ? 'text-slate-900 opacity-100' : 'text-slate-400'} />
+                                    <ArrowDropUp size={18} className={manualSort?.column === 'price' && manualSort.order === 'asc' ? 'text-[var(--text-primary)] opacity-100' : 'text-[var(--text-tertiary)]'} />
+                                    <ArrowDropDown size={18} className={manualSort?.column === 'price' && manualSort.order === 'desc' ? 'text-[var(--text-primary)] opacity-100' : 'text-[var(--text-tertiary)]'} />
                                 </div>
                             </div>
-                            <div className="w-[72px] flex items-center justify-center gap-1 cursor-pointer hover:text-slate-600 transition-colors" onClick={() => handleSortClick('change')}>
-                                <span className={manualSort?.column === 'change' ? 'text-slate-900' : ''}>Change</span>
+                            <div className="w-[72px] flex items-center justify-center gap-1 cursor-pointer hover:text-[var(--text-secondary)] transition-colors" onClick={() => handleSortClick('change')}>
+                                <span className={manualSort?.column === 'change' ? 'text-[var(--text-primary)]' : ''}>Change</span>
                                 <div className="flex flex-col -space-y-3 opacity-50">
-                                    <ArrowDropUp size={18} className={manualSort?.column === 'change' && manualSort.order === 'asc' ? 'text-slate-900 opacity-100' : 'text-slate-400'} />
-                                    <ArrowDropDown size={18} className={manualSort?.column === 'change' && manualSort.order === 'desc' ? 'text-slate-900 opacity-100' : 'text-slate-400'} />
+                                    <ArrowDropUp size={18} className={manualSort?.column === 'change' && manualSort.order === 'asc' ? 'text-[var(--text-primary)] opacity-100' : 'text-[var(--text-tertiary)]'} />
+                                    <ArrowDropDown size={18} className={manualSort?.column === 'change' && manualSort.order === 'desc' ? 'text-[var(--text-primary)] opacity-100' : 'text-[var(--text-tertiary)]'} />
                                 </div>
                             </div>
                         </div>

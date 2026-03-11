@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useEffect, useRef } from 'react';
 import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
+import useExchangeStore from '../stores/useExchangeStore';
 
 interface RealChartProps {
     data: any[];
@@ -12,11 +13,13 @@ const RealChart: React.FC<RealChartProps> = ({ data, height, pricePrecision = 2 
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<any>(null);
     const seriesRef = useRef<any>(null);
+    const { theme } = useExchangeStore();
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
 
         const container = chartContainerRef.current;
+        const isDark = theme === 'dark';
 
         // Initial size detection
         const getInitialSize = () => {
@@ -30,13 +33,13 @@ const RealChart: React.FC<RealChartProps> = ({ data, height, pricePrecision = 2 
         const chart = createChart(container, {
             layout: {
                 background: { type: ColorType.Solid, color: 'transparent' },
-                textColor: '#999999',
+                textColor: isDark ? '#979797' : '#999999',
                 fontSize: 10,
                 fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
             },
             grid: {
-                vertLines: { color: 'rgba(240, 240, 240, 0.5)' },
-                horzLines: { color: 'rgba(240, 240, 240, 0.5)' },
+                vertLines: { color: isDark ? 'rgba(43, 49, 57, 0.5)' : 'rgba(240, 240, 240, 0.5)' },
+                horzLines: { color: isDark ? 'rgba(43, 49, 57, 0.5)' : 'rgba(240, 240, 240, 0.5)' },
             },
             rightPriceScale: {
                 borderVisible: false,
@@ -48,8 +51,8 @@ const RealChart: React.FC<RealChartProps> = ({ data, height, pricePrecision = 2 
                 secondsVisible: false,
             },
             crosshair: {
-                vertLine: { labelBackgroundColor: '#111111' },
-                horzLine: { labelBackgroundColor: '#111111' },
+                vertLine: { labelBackgroundColor: isDark ? '#2B3139' : '#111111' },
+                horzLine: { labelBackgroundColor: isDark ? '#2B3139' : '#111111' },
             },
             handleScale: { axisPressedMouseMove: true },
             handleScroll: { axisPressedMouseMove: true },
@@ -111,6 +114,25 @@ const RealChart: React.FC<RealChartProps> = ({ data, height, pricePrecision = 2 
             }
         };
     }, []);
+
+    // Theme effect
+    useEffect(() => {
+        if (!chartRef.current) return;
+        const isDark = theme === 'dark';
+        chartRef.current.applyOptions({
+            layout: {
+                textColor: isDark ? '#979797' : '#999999',
+            },
+            grid: {
+                vertLines: { color: isDark ? 'rgba(43, 49, 57, 0.5)' : 'rgba(240, 240, 240, 0.5)' },
+                horzLines: { color: isDark ? 'rgba(43, 49, 57, 0.5)' : 'rgba(240, 240, 240, 0.5)' },
+            },
+            crosshair: {
+                vertLine: { labelBackgroundColor: isDark ? '#2B3139' : '#111111' },
+                horzLine: { labelBackgroundColor: isDark ? '#2B3139' : '#111111' },
+            },
+        });
+    }, [theme]);
 
     useEffect(() => {
         if (seriesRef.current && data && data.length > 0) {

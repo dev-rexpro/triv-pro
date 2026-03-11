@@ -53,7 +53,7 @@ const LeverageBottomSheet: React.FC<LeverageBottomSheetProps> = ({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/40 z-[1000]"
+                        className="fixed inset-0 bg-[var(--overlay-bg)] z-[1000]"
                         onClick={onClose}
                     />
                     <motion.div
@@ -61,11 +61,11 @@ const LeverageBottomSheet: React.FC<LeverageBottomSheetProps> = ({
                         animate={{ y: 0 }}
                         exit={{ y: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[24px] z-[1001] px-6 pt-2 pb-10"
+                        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-[var(--bg-card)] rounded-t-[24px] z-[1001] px-6 pt-2 pb-10"
                     >
                         {/* Handle */}
                         <div className="flex justify-center mb-6">
-                            <div className="w-10 h-1 bg-slate-200 rounded-full" />
+                            <div className="w-10 h-1 bg-[var(--bg-secondary)] rounded-full" />
                         </div>
                         {/* Header */}
                         <div className="flex items-center justify-between mb-6">
@@ -86,7 +86,7 @@ const LeverageBottomSheet: React.FC<LeverageBottomSheetProps> = ({
                             <div className="flex items-center gap-6">
                                 <button
                                     onClick={() => handleAdjust(-1)}
-                                    className="w-10 h-10 rounded-[12px] bg-[#f5f5f5] flex items-center justify-center text-[#111111] active:scale-95 transition-transform"
+                                    className="w-10 h-10 rounded-[12px] bg-[var(--input-bg)] flex items-center justify-center text-[var(--text-primary)] active:scale-95 transition-transform"
                                 >
                                     <span className="flex items-center justify-center">
                                         <FiMinus size={20} style={{ strokeWidth: '2.5px' }} />
@@ -102,7 +102,7 @@ const LeverageBottomSheet: React.FC<LeverageBottomSheetProps> = ({
 
                                 <button
                                     onClick={() => handleAdjust(1)}
-                                    className="w-10 h-10 rounded-[12px] bg-[#f5f5f5] flex items-center justify-center text-[#111111] active:scale-95 transition-transform"
+                                    className="w-10 h-10 rounded-[12px] bg-[var(--input-bg)] flex items-center justify-center text-[var(--text-primary)] active:scale-95 transition-transform"
                                 >
                                     <span className="flex items-center justify-center">
                                         <FiPlus size={20} style={{ strokeWidth: '2.5px' }} />
@@ -112,14 +112,14 @@ const LeverageBottomSheet: React.FC<LeverageBottomSheetProps> = ({
                         </div>
 
                         {/* Presets Grid */}
-                        <div className="flex items-center justify-between bg-white border border-[#eeeeee] rounded-full p-1 mb-8 overflow-hidden">
+                        <div className="flex items-center justify-between bg-[var(--bg-card)] border border-[#eeeeee] rounded-full p-1 mb-8 overflow-hidden">
                             {presets.map((p) => (
                                 <button
                                     key={p}
                                     onClick={() => setTempLeverage(p)}
                                     className={`flex-1 py-2 text-[14px] font-bold rounded-full transition-all duration-200 ${tempLeverage === p
                                         ? 'bg-[#111111] text-white shadow-sm'
-                                        : 'text-[#111111] hover:bg-gray-50'
+                                        : 'text-[#111111] hover:bg-[var(--bg-hover)]'
                                         }`}
                                 >
                                     {p}x

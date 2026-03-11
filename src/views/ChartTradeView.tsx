@@ -200,19 +200,19 @@ const ChartTradeView = () => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
-            className="flex flex-col min-h-screen bg-white pb-20 relative overflow-x-hidden"
+            className="flex flex-col min-h-screen bg-[var(--bg-primary)] pb-20 relative overflow-x-hidden"
         >
             {/* Header */}
-            <div className={`px-4 pt-4 pb-2 sticky top-0 bg-white ${isChartExpanded ? 'z-[80]' : 'z-20'}`}>
+            <div className={`px-4 pt-4 pb-2 sticky top-0 bg-[var(--bg-primary)] ${isChartExpanded ? 'z-[80]' : 'z-20'}`}>
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                        <ChevronLeft className="w-6 h-6 text-gray-800 cursor-pointer" onClick={() => isChartExpanded ? setIsChartExpanded(false) : window.history.back()} />
+                        <ChevronLeft className="w-6 h-6 text-[var(--text-primary)] cursor-pointer" onClick={() => isChartExpanded ? setIsChartExpanded(false) : window.history.back()} />
                         <div>
                             <div className="flex items-center gap-2 cursor-pointer" onClick={() => setSearchOpen(true)}>
-                                <h1 className="text-xl font-bold text-gray-900 tracking-tight">{selectedCoin.replace('USDT', '/USDT')}</h1>
-                                <span className="text-[11px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Spot</span>
-                                <span className="text-[11px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">10x</span>
-                                <ArrowDropDown className="w-6 h-6 text-slate-500 mt-0.5" />
+                                <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">{selectedCoin.replace('USDT', '/USDT')}</h1>
+                                <span className="text-[11px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded">Spot</span>
+                                <span className="text-[11px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded">10x</span>
+                                <ArrowDropDown className="w-6 h-6 text-[var(--text-secondary)] mt-0.5" />
                             </div>
                             <div className="flex items-center gap-2 mt-0.5">
                                 <span className={`text-[12px] font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
@@ -226,21 +226,21 @@ const ChartTradeView = () => {
                     </div>
                     <div className="flex items-center gap-4">
                         <Star
-                            className={`w-5 h-5 cursor-pointer ${isFav ? 'text-yellow-500' : 'text-gray-800'}`}
+                            className={`w-5 h-5 cursor-pointer ${isFav ? 'text-yellow-500' : 'text-[var(--text-primary)]'}`}
                             fill={isFav ? 'currentColor' : 'none'}
                             onClick={() => toggleFavorite(`${selectedCoin}:${isFutures ? 'futures' : 'spot'}`)}
                         />
-                        <Share2 className="w-5 h-5 text-gray-800 cursor-pointer" />
+                        <Share2 className="w-5 h-5 text-[var(--text-primary)] cursor-pointer" />
                     </div>
                 </div>
 
                 {!isChartExpanded && (
-                    <div className="flex gap-6 overflow-x-auto no-scrollbar border-b border-gray-200">
+                    <div className="flex gap-6 overflow-x-auto no-scrollbar border-b border-[var(--border-color)]">
                         {['Chart', 'Info', 'Data'].map(tab => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
-                                className={`pb-2 whitespace-nowrap text-[14px] font-semibold transition-colors ${activeTab === tab ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-500'}`}
+                                className={`pb-2 whitespace-nowrap text-[14px] font-semibold transition-colors ${activeTab === tab ? 'text-[var(--text-primary)] border-b-2 border-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}
                             >
                                 {tab}
                             </button>
@@ -256,22 +256,22 @@ const ChartTradeView = () => {
                         {/* Price Info Bar */}
                         {!isChartExpanded && (
                             <>
-                                <div className="px-4 py-3 pb-4 border-b border-slate-50 flex justify-between items-start w-full">
+                                <div className="px-4 py-3 pb-4 border-b border-[var(--border-color)] flex justify-between items-start w-full">
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <span className={`text-[28px] font-bold tracking-tight leading-none ${isPositive ? 'text-[#00C076]' : 'text-[#FF4D5B]'}`}>
+                                            <span className={`text-[28px] font-bold tracking-tight leading-none ${isPositive ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
                                                 {formatPrice(lastPrice)}
                                             </span>
                                         </div>
-                                        <div className="text-slate-500 text-[12px] mt-1.5 flex items-center gap-2 font-medium">
+                                        <div className="text-[var(--text-secondary)] text-[12px] mt-1.5 flex items-center gap-2 font-medium">
                                             <span>≈${formatPrice(lastPrice)}</span>
-                                            <span className={isPositive ? 'text-[#00C076]' : 'text-[#FF4D5B]'}>
+                                            <span className={isPositive ? 'text-[var(--green)]' : 'text-[var(--red)]'}>
                                                 {isPositive ? '+' : ''}{priceChange.toFixed(2)}%
                                             </span>
                                         </div>
                                         {isFutures && (
-                                            <div className="text-slate-500 text-[11px] mt-0.5 font-medium">
-                                                Mark price <span className="text-slate-700">{formatPrice(lastPrice)}</span>
+                                            <div className="text-[var(--text-secondary)] text-[11px] mt-0.5 font-medium">
+                                                Mark price <span className="text-[var(--text-secondary)]">{formatPrice(lastPrice)}</span>
                                             </div>
                                         )}
                                         {cgMcapRank && (
@@ -281,34 +281,34 @@ const ChartTradeView = () => {
                                         )}
                                     </div>
                                     <div className="grid grid-cols-2 gap-x-5 gap-y-1.5 text-[10px] text-right mt-1">
-                                        <div className="text-slate-400">24h high</div>
-                                        <div className="text-slate-800 font-bold">{formatPrice(high24)}</div>
-                                        <div className="text-slate-400">24h low</div>
-                                        <div className="text-slate-800 font-bold">{formatPrice(low24)}</div>
-                                        <div className="text-slate-400">24h vol ({baseAsset})</div>
-                                        <div className="text-slate-800 font-bold">{formatVol(vol24)}</div>
-                                        <div className="text-slate-400">24h vol (USDT)</div>
-                                        <div className="text-slate-800 font-bold">{formatVol(turnover24)}</div>
+                                        <div className="text-[var(--text-tertiary)]">24h high</div>
+                                        <div className="text-[var(--text-primary)] font-bold">{formatPrice(high24)}</div>
+                                        <div className="text-[var(--text-tertiary)]">24h low</div>
+                                        <div className="text-[var(--text-primary)] font-bold">{formatPrice(low24)}</div>
+                                        <div className="text-[var(--text-tertiary)]">24h vol ({baseAsset})</div>
+                                        <div className="text-[var(--text-primary)] font-bold">{formatVol(vol24)}</div>
+                                        <div className="text-[var(--text-tertiary)]">24h vol (USDT)</div>
+                                        <div className="text-[var(--text-primary)] font-bold">{formatVol(turnover24)}</div>
                                     </div>
                                 </div>
 
-                                <div className="px-4 py-2 bg-slate-50/50 flex items-center justify-between text-[11px] text-slate-600 border-y border-slate-100">
+                                <div className="px-4 py-2 bg-[var(--bg-secondary)]/50 flex items-center justify-between text-[11px] text-[var(--text-secondary)] border-y border-[var(--border-color)]">
                                     <div className="flex items-center gap-2 truncate pr-4 font-medium">
-                                        <Volume2 className="w-4 h-4 text-slate-400 shrink-0" />
+                                        <Volume2 className="w-4 h-4 text-[var(--text-tertiary)] shrink-0" />
                                         <span className="truncate">Explosions were heard from many countries where US military..</span>
                                     </div>
-                                    <XIcon className="w-3.5 h-3.5 text-slate-400 shrink-0 cursor-pointer" />
+                                    <XIcon className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0 cursor-pointer" />
                                 </div>
 
-                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-slate-100 text-[12px] text-slate-500 font-medium">
+                                <div className="px-4 py-2.5 flex items-center justify-between border-b border-[var(--border-color)] text-[12px] text-[var(--text-secondary)] font-medium">
                                     <div className="flex gap-4">
                                         {INTERVALS.map((iv) => (
-                                            <button key={iv} onClick={() => setInterval_(iv)} className={interval === iv ? 'text-slate-900 font-bold bg-slate-100 px-2 py-0.5 rounded-full' : ''}>{iv}</button>
+                                            <button key={iv} onClick={() => setInterval_(iv)} className={interval === iv ? 'text-[var(--text-primary)] font-bold bg-[var(--bg-secondary)] px-2 py-0.5 rounded-full' : ''}>{iv}</button>
                                         ))}
                                         <button className="flex items-center gap-0.5">More <ArrowDropDown className="w-7 h-7 mt-0.5" /></button>
                                         <button>Mcap</button>
                                     </div>
-                                    <div className="flex gap-4 text-slate-700">
+                                    <div className="flex gap-4 text-[var(--text-secondary)]">
                                         <Activity className="w-4 h-4 cursor-pointer" />
                                         <Settings className="w-4 h-4 cursor-pointer" />
                                     </div>
@@ -323,7 +323,7 @@ const ChartTradeView = () => {
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.98, y: 10 }}
                                     transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                                    className="fixed top-[72px] bottom-[calc(70px+var(--safe-area-bottom))] left-0 right-0 z-[60] bg-white flex flex-col"
+                                    className="fixed top-[72px] bottom-[calc(70px+var(--safe-area-bottom))] left-0 right-0 z-[60] bg-[var(--bg-primary)] flex flex-col"
                                 >
                                     {/* Chart Area */}
                                     <div className="flex-1 relative w-full overflow-hidden min-h-0">
@@ -341,17 +341,17 @@ const ChartTradeView = () => {
 
                                         <button
                                             onClick={() => setIsChartExpanded(false)}
-                                            className="absolute bottom-4 left-4 p-1.5 bg-white/80 border border-slate-200 rounded shadow-sm z-20 hover:bg-white transition-colors"
+                                            className="absolute bottom-4 left-4 p-1.5 bg-[var(--bg-card)]/80 border border-[var(--border-color)] rounded shadow-sm z-20 hover:bg-[var(--bg-card)] transition-colors"
                                         >
-                                            <Minimize2 className="w-4 h-4 text-gray-600" />
+                                            <Minimize2 className="w-4 h-4 text-[var(--text-secondary)]" />
                                         </button>
                                     </div>
 
                                     {/* Interval Selector (Fixed Height) */}
-                                    <div className="h-[48px] bg-white border-t border-gray-100 flex items-center justify-between px-4 text-[12px] text-gray-500 font-bold shrink-0">
+                                    <div className="h-[48px] bg-[var(--bg-primary)] border-t border-[var(--border-color)] flex items-center justify-between px-4 text-[12px] text-[var(--text-secondary)] font-bold shrink-0">
                                         <div className="flex gap-5">
                                             {INTERVALS.map((iv) => (
-                                                <button key={iv} onClick={() => setInterval_(iv)} className={interval === iv ? 'text-gray-900 bg-gray-100 px-2 py-1 rounded-[6px]' : ''}>{iv}</button>
+                                                <button key={iv} onClick={() => setInterval_(iv)} className={interval === iv ? 'text-[var(--text-primary)] bg-[var(--bg-secondary)] px-2 py-1 rounded-[6px]' : ''}>{iv}</button>
                                             ))}
                                             <button className="flex items-center gap-0.5">More <ArrowDropDown className="w-7 h-7" /></button>
                                             <button>Mcap</button>
@@ -378,9 +378,9 @@ const ChartTradeView = () => {
 
                                 <button
                                     onClick={() => setIsChartExpanded(true)}
-                                    className="absolute bottom-4 left-4 p-1.5 bg-white/80 border border-slate-200 rounded shadow-sm z-10 hover:bg-white transition-colors"
+                                    className="absolute bottom-4 left-4 p-1.5 bg-[var(--bg-card)]/80 border border-[var(--border-color)] rounded shadow-sm z-10 hover:bg-[var(--bg-card)] transition-colors"
                                 >
-                                    <Maximize2 className="w-4 h-4 text-gray-600" />
+                                    <Maximize2 className="w-4 h-4 text-[var(--text-secondary)]" />
                                 </button>
                             </div>
                         )}
@@ -388,10 +388,10 @@ const ChartTradeView = () => {
                         {!isChartExpanded && (
                             <>
                                 {/* Order Book Section Header */}
-                                <div className="px-4 py-3 flex gap-4 overflow-x-auto no-scrollbar border-b border-slate-100 text-[11px] text-slate-500 font-medium whitespace-nowrap">
+                                <div className="px-4 py-3 flex gap-4 overflow-x-auto no-scrollbar border-b border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] font-medium whitespace-nowrap">
                                     <button>VOL</button>
                                     <button>MA</button>
-                                    <button className="text-slate-900 font-bold border-b border-slate-900 -mb-3 pb-3">EMA</button>
+                                    <button className="text-[var(--text-primary)] font-bold border-b border-[var(--text-primary)] -mb-3 pb-3">EMA</button>
                                     <button>BOLL</button>
                                     <button>SAR</button>
                                     <button>RESIST</button>
@@ -401,20 +401,20 @@ const ChartTradeView = () => {
 
                                 {/* Order Book */}
                                 <div className="px-4 mt-2">
-                                    <div className="flex gap-6 border-b border-slate-100">
+                                    <div className="flex gap-6 border-b border-[var(--border-color)]">
                                         {['Order book', 'Depth', 'Last trades', 'Market events'].map(tab => (
                                             <button
                                                 key={tab}
-                                                className={`pb-2 text-[14px] font-semibold transition-colors ${tab === 'Order book' ? 'text-slate-900 border-b-2 border-slate-900' : 'text-slate-500'}`}
+                                                className={`pb-2 text-[14px] font-semibold transition-colors ${tab === 'Order book' ? 'text-[var(--text-primary)] border-b-2 border-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}
                                             >
                                                 {tab}
                                             </button>
                                         ))}
                                     </div>
 
-                                    <div className="flex justify-between text-[11px] text-slate-400 py-3 font-medium">
+                                    <div className="flex justify-between text-[11px] text-[var(--text-tertiary)] py-3 font-medium">
                                         <div>Buy ({baseAsset})</div>
-                                        <div className="flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-slate-700">0.1 <ArrowDropDown className="w-7 h-7" /></div>
+                                        <div className="flex items-center gap-1 bg-[var(--bg-secondary)] px-2 py-0.5 rounded text-[var(--text-secondary)]">0.1 <ArrowDropDown className="w-7 h-7" /></div>
                                         <div>Sell ({baseAsset})</div>
                                     </div>
 
@@ -426,8 +426,8 @@ const ChartTradeView = () => {
                                                 return (
                                                     <div key={i} className="flex justify-between relative h-5 items-center">
                                                         <div className="absolute right-0 top-0 h-full bg-[#00C076] opacity-[0.12]" style={{ width: `${pct}%` }}></div>
-                                                        <span className="text-slate-600 relative z-10">{parseFloat(qty).toFixed(3)}</span>
-                                                        <span className="text-[#00C076] font-medium relative z-10">{formatPrice(parseFloat(price))}</span>
+                                                        <span className="text-[var(--text-secondary)] relative z-10">{parseFloat(qty).toFixed(3)}</span>
+                                                        <span className="text-[var(--green)] font-medium relative z-10">{formatPrice(parseFloat(price))}</span>
                                                     </div>
                                                 );
                                             })}
@@ -439,8 +439,8 @@ const ChartTradeView = () => {
                                                 return (
                                                     <div key={i} className="flex justify-between relative h-5 items-center">
                                                         <div className="absolute left-0 top-0 h-full bg-[#FF4D5B] opacity-[0.12]" style={{ width: `${pct}%` }}></div>
-                                                        <span className="text-[#FF4D5B] font-medium relative z-10">{formatPrice(parseFloat(price))}</span>
-                                                        <span className="text-slate-600 relative z-10">{parseFloat(qty).toFixed(3)}</span>
+                                                        <span className="text-[var(--red)] font-medium relative z-10">{formatPrice(parseFloat(price))}</span>
+                                                        <span className="text-[var(--text-secondary)] relative z-10">{parseFloat(qty).toFixed(3)}</span>
                                                     </div>
                                                 );
                                             })}
@@ -454,9 +454,9 @@ const ChartTradeView = () => {
 
                 {activeTab === 'Info' && !isChartExpanded && (
                     <div className="px-4 py-4">
-                        <div className="flex gap-4 border-b border-slate-100 pb-2 mb-5">
+                        <div className="flex gap-4 border-b border-[var(--border-color)] pb-2 mb-5">
                             {['Crypto info', 'Trading rules', 'Funding rate'].map((t, i) => (
-                                <span key={t} className={`text-[13px] font-bold cursor-pointer ${infoTab === t ? 'text-slate-900 bg-slate-100/80 px-3 py-1 rounded-full' : 'text-slate-400 py-1'}`}
+                                <span key={t} className={`text-[13px] font-bold cursor-pointer ${infoTab === t ? 'text-[var(--text-primary)] bg-[var(--bg-secondary)]/80 px-3 py-1 rounded-full' : 'text-[var(--text-tertiary)] py-1'}`}
                                     onClick={() => setInfoTab(t)}>{t}</span>
                             ))}
                         </div>
@@ -464,7 +464,7 @@ const ChartTradeView = () => {
                         {coinInfoLoading ? (
                             <div className="flex flex-col gap-3 animate-pulse">
                                 {[...Array(6)].map((_, i) => (
-                                    <div key={i} className="h-4 bg-slate-100 rounded w-full" />
+                                    <div key={i} className="h-4 bg-[var(--bg-secondary)] rounded w-full" />
                                 ))}
                             </div>
                         ) : (
@@ -478,8 +478,8 @@ const ChartTradeView = () => {
                                         </div>
                                     )}
                                     <div>
-                                        <span className="font-bold text-[18px] text-slate-900 tracking-tight">{baseAsset}</span>
-                                        <span className="text-[14px] text-slate-500 ml-1.5 font-medium">{cgFullName !== baseAsset ? cgFullName : ''}</span>
+                                        <span className="font-bold text-[18px] text-[var(--text-primary)] tracking-tight">{baseAsset}</span>
+                                        <span className="text-[14px] text-[var(--text-secondary)] ml-1.5 font-medium">{cgFullName !== baseAsset ? cgFullName : ''}</span>
                                     </div>
                                 </div>
 
@@ -495,30 +495,30 @@ const ChartTradeView = () => {
                                         { label: 'Fully diluted valuation', value: coinInfo?.market_data?.fully_diluted_valuation?.usd ? formatMcap(coinInfo.market_data.fully_diluted_valuation.usd) : '--' },
                                     ].map((item, i) => (
                                         <div key={i}>
-                                            <div className="text-[11px] text-slate-500 mb-0.5">{item.label}</div>
-                                            <div className="text-[13px] font-bold text-slate-900 whitespace-pre-line leading-tight">{item.value}</div>
+                                            <div className="text-[11px] text-[var(--text-secondary)] mb-0.5">{item.label}</div>
+                                            <div className="text-[13px] font-bold text-[var(--text-primary)] whitespace-pre-line leading-tight">{item.value}</div>
                                         </div>
                                     ))}
                                 </div>
 
                                 {cgDesc && (
                                     <div className="mt-8">
-                                        <h3 className="font-bold text-[18px] text-slate-900 mb-2">About {cgFullName}</h3>
-                                        <p className="text-[13px] text-slate-600 leading-relaxed mb-1 line-clamp-5">
+                                        <h3 className="font-bold text-[18px] text-[var(--text-primary)] mb-2">About {cgFullName}</h3>
+                                        <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed mb-1 line-clamp-5">
                                             {cgDesc}
                                         </p>
-                                        <span className="text-[13px] text-slate-900 font-bold cursor-pointer">Show more <ArrowDropDown size={14} className="inline align-middle" /></span>
+                                        <span className="text-[13px] text-[var(--text-primary)] font-bold cursor-pointer">Show more <ArrowDropDown size={14} className="inline align-middle" /></span>
                                     </div>
                                 )}
 
                                 <div className="mt-6 flex flex-wrap gap-2 pb-6">
-                                    {cgTwitter && <a href={cgTwitter} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">𝕏 X</a>}
-                                    {cgExplorer && <a href={cgExplorer} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">🌐 Block explorer</a>}
-                                    {cgGithub && <a href={cgGithub} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">⌨️ GitHub</a>}
-                                    {cgWhitepaper && <a href={cgWhitepaper} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">📄 Whitepaper</a>}
-                                    {cgWebsite && <a href={cgWebsite} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">🖥️ Official website</a>}
+                                    {cgTwitter && <a href={cgTwitter} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-[var(--bg-secondary)] rounded-full text-[12px] font-bold text-[var(--text-secondary)]">𝕏 X</a>}
+                                    {cgExplorer && <a href={cgExplorer} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-[var(--bg-secondary)] rounded-full text-[12px] font-bold text-[var(--text-secondary)]">🌐 Block explorer</a>}
+                                    {cgGithub && <a href={cgGithub} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-[var(--bg-secondary)] rounded-full text-[12px] font-bold text-[var(--text-secondary)]">⌨️ GitHub</a>}
+                                    {cgWhitepaper && <a href={cgWhitepaper} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-[var(--bg-secondary)] rounded-full text-[12px] font-bold text-[var(--text-secondary)]">📄 Whitepaper</a>}
+                                    {cgWebsite && <a href={cgWebsite} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-[var(--bg-secondary)] rounded-full text-[12px] font-bold text-[var(--text-secondary)]">🖥️ Official website</a>}
                                     {!cgTwitter && !cgExplorer && !cgGithub && !cgWhitepaper && !cgWebsite && (
-                                        <span className="text-slate-400 text-[12px]">No links available</span>
+                                        <span className="text-[var(--text-tertiary)] text-[12px]">No links available</span>
                                     )}
                                 </div>
                             </>
@@ -527,18 +527,18 @@ const ChartTradeView = () => {
                 )}
 
                 {activeTab === 'Data' && !isChartExpanded && (
-                    <div className="px-4 py-4 bg-slate-50 min-h-full">
+                    <div className="px-4 py-4 bg-[var(--bg-secondary)] min-h-full">
                         {isFutures ? (
                             <div className="space-y-4 pb-8">
                                 {/* Open Interest */}
-                                <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm relative overflow-hidden">
+                                <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] shadow-sm relative overflow-hidden">
                                     <div className="flex items-center gap-1.5 mb-4">
-                                        <h3 className="font-bold text-[16px] text-slate-900 tracking-tight">Open interest</h3>
-                                        <Info size={14} className="text-slate-400" />
+                                        <h3 className="font-bold text-[16px] text-[var(--text-primary)] tracking-tight">Open interest</h3>
+                                        <Info size={14} className="text-[var(--text-tertiary)]" />
                                     </div>
                                     <div className="flex gap-2.5 mb-6">
                                         {['5m', '15m', '1h', '4h', '1D'].map((t, i) => (
-                                            <span key={t} className={`text-[12px] font-bold px-2.5 py-1 rounded-full ${i === 0 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>{t}</span>
+                                            <span key={t} className={`text-[12px] font-bold px-2.5 py-1 rounded-full ${i === 0 ? 'bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)]' : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)]'}`}>{t}</span>
                                         ))}
                                     </div>
                                     <div className="h-[140px] flex items-end justify-between gap-[2px] mt-2 relative">
@@ -550,23 +550,23 @@ const ChartTradeView = () => {
                                             <div key={i} className="bg-[#f5b041] w-full rounded-t-sm opacity-80" style={{ height: `${30 + Math.random() * 50}%` }} />
                                         ))}
                                     </div>
-                                    <div className="flex justify-between text-[10px] font-medium text-slate-400 mt-2">
+                                    <div className="flex justify-between text-[10px] font-medium text-[var(--text-tertiary)] mt-2">
                                         <span>09:50</span><span>10:40</span><span>11:30</span><span>12:20</span>
                                     </div>
-                                    <div className="flex gap-4 mt-5 text-[11px] font-medium text-slate-500 justify-center">
+                                    <div className="flex gap-4 mt-5 text-[11px] font-medium text-[var(--text-secondary)] justify-center">
                                         <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 bg-[#f5b041] rounded-[2px]" /> Open interest</div>
-                                        <div className="flex items-center gap-1.5"><div className="w-3.5 h-[2px] bg-slate-500" /> Open interest (notional value)</div>
+                                        <div className="flex items-center gap-1.5"><div className="w-3.5 h-[2px] bg-[var(--bg-secondary)]" /> Open interest (notional value)</div>
                                     </div>
                                 </div>
 
                                 {/* Funding Rate */}
-                                <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm relative overflow-hidden">
+                                <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] shadow-sm relative overflow-hidden">
                                     <div className="flex items-center gap-1.5 mb-6">
-                                        <h3 className="font-bold text-[16px] text-slate-900 tracking-tight">Funding rate</h3>
-                                        <Info size={14} className="text-slate-400" />
+                                        <h3 className="font-bold text-[16px] text-[var(--text-primary)] tracking-tight">Funding rate</h3>
+                                        <Info size={14} className="text-[var(--text-tertiary)]" />
                                     </div>
                                     <div className="h-[140px] relative mt-2">
-                                        <div className="absolute top-1/2 left-0 right-0 h-[1px] border-t border-dashed border-slate-300" />
+                                        <div className="absolute top-1/2 left-0 right-0 h-[1px] border-t border-dashed border-[var(--border-strong)]" />
                                         {/* Mock positive/negative chart line */}
                                         <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
                                             {/* Green parts (above 50) */}
@@ -575,17 +575,17 @@ const ChartTradeView = () => {
                                             <path d="M10,50 L15,80 L20,60 L25,90 L30,50 M40,50 L45,70 L50,50 M60,50 L65,70 L70,50 M80,50 L85,90 L90,50 L95,80 L100,50" fill="none" stroke="#FF4D5B" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
                                         </svg>
                                     </div>
-                                    <div className="flex justify-between text-[10px] font-medium text-slate-400 mt-2">
+                                    <div className="flex justify-between text-[10px] font-medium text-[var(--text-tertiary)] mt-2">
                                         <span>01/31</span><span>02/06</span><span>02/13</span><span>02/20</span><span>02/26</span>
                                     </div>
-                                    <div className="flex gap-4 mt-5 text-[11px] font-medium text-slate-500 justify-center">
+                                    <div className="flex gap-4 mt-5 text-[11px] font-medium text-[var(--text-secondary)] justify-center">
                                         <div className="flex items-center gap-1.5"><div className="w-3 h-[2px] bg-[#00C076]" /> Positive</div>
                                         <div className="flex items-center gap-1.5"><div className="w-3 h-[2px] bg-[#FF4D5B]" /> Negative</div>
                                     </div>
                                 </div>
                             </div>
                         ) : (
-                            <div className="text-center text-slate-400 mt-10 text-[14px]">
+                            <div className="text-center text-[var(--text-tertiary)] mt-10 text-[14px]">
                                 Market data analytics available only for Futures pairs.
                             </div>
                         )}
@@ -596,9 +596,9 @@ const ChartTradeView = () => {
             </div>
 
             {/* Bottom bar */}
-            <div className={`fixed bottom-0 w-full max-w-md border-t border-slate-100 px-4 pt-3 pb-[calc(10px+var(--safe-area-bottom))] flex items-center justify-between gap-4 z-[70] ${isChartExpanded ? 'bg-[#fcfcfc]' : 'bg-white'}`}>
+            <div className={`fixed bottom-0 w-full max-w-md border-t border-[var(--border-color)] px-4 pt-3 pb-[calc(10px+var(--safe-area-bottom))] flex items-center justify-between gap-4 z-[70] bg-[var(--bg-primary)]`}>
                 <button
-                    className="flex-1 max-w-[200px] bg-black text-white font-bold py-3 rounded-full text-[15px] text-center active:scale-[0.98] transition-all whitespace-nowrap"
+                    className="flex-1 max-w-[200px] bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] font-bold py-3 rounded-full text-[15px] text-center active:scale-[0.98] transition-all whitespace-nowrap"
                     onClick={() => {
                         useExchangeStore.setState({ selectedCoin, activePage: isFutures ? 'futures' : 'trade' });
                     }}
@@ -607,17 +607,17 @@ const ChartTradeView = () => {
                 </button>
 
                 <div className="flex gap-6 pr-2 items-center translate-y-1">
-                    <div className="flex flex-col items-center gap-1 text-slate-500 cursor-pointer hover:text-slate-900 transition-colors group">
-                        <LuPencilRuler className="w-6 h-6 text-slate-900" />
-                        <span className="text-[10px] font-medium text-slate-400">Drawings</span>
+                    <div className="flex flex-col items-center gap-1 text-[var(--text-secondary)] cursor-pointer hover:text-[var(--text-primary)] transition-colors group">
+                        <LuPencilRuler className="w-6 h-6 text-[var(--text-primary)]" />
+                        <span className="text-[10px] font-medium text-[var(--text-tertiary)]">Drawings</span>
                     </div>
-                    <div className="flex flex-col items-center gap-1 text-slate-500 cursor-pointer hover:text-slate-900 transition-colors group">
-                        <LuChartNoAxesCombined className="w-6 h-6 text-slate-900" />
-                        <span className="text-[10px] font-medium text-slate-400">Indicators</span>
+                    <div className="flex flex-col items-center gap-1 text-[var(--text-secondary)] cursor-pointer hover:text-[var(--text-primary)] transition-colors group">
+                        <LuChartNoAxesCombined className="w-6 h-6 text-[var(--text-primary)]" />
+                        <span className="text-[10px] font-medium text-[var(--text-tertiary)]">Indicators</span>
                     </div>
-                    <div className="flex flex-col items-center gap-1 text-slate-500 relative cursor-pointer hover:text-slate-900 transition-colors group">
-                        <LuBolt className="w-6 h-6 text-slate-900" />
-                        <span className="text-[10px] font-medium text-slate-400">Settings</span>
+                    <div className="flex flex-col items-center gap-1 text-[var(--text-secondary)] relative cursor-pointer hover:text-[var(--text-primary)] transition-colors group">
+                        <LuBolt className="w-6 h-6 text-[var(--text-primary)]" />
+                        <span className="text-[10px] font-medium text-[var(--text-tertiary)]">Settings</span>
                         <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white"></span>
                     </div>
                 </div>

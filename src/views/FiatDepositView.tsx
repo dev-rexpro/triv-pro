@@ -63,17 +63,17 @@ const FiatDepositView = () => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
-            className="fixed inset-0 bg-white z-[300] flex flex-col pt-safe px-4 pb-0 overflow-hidden"
+            className="fixed inset-0 bg-[var(--bg-primary)] z-[300] flex flex-col pt-safe px-4 pb-0 overflow-hidden"
         >
             {/* Header */}
-            <div className="flex items-center justify-between py-4 sticky top-0 bg-white z-10">
+            <div className="flex items-center justify-between py-4 sticky top-0 bg-[var(--bg-primary)] z-10">
                 <button
                     onClick={() => step > 1 ? setStep(1) : window.history.back()}
-                    className="p-1 -ml-1 flex items-center justify-center text-slate-900"
+                    className="p-1 -ml-1 flex items-center justify-center text-[var(--text-primary)]"
                 >
                     <ChevronLeft size={28} />
                 </button>
-                <div className="font-bold text-[17px] text-slate-900 absolute left-1/2 -translate-x-1/2">
+                <div className="font-bold text-[17px] text-[var(--text-primary)] absolute left-1/2 -translate-x-1/2">
                     {step === 1 ? 'Fiat Deposit' : 'Deposit Details'}
                 </div>
                 <div className="w-8"></div>
@@ -83,38 +83,38 @@ const FiatDepositView = () => {
             {step === 1 && (
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 mt-2">
 
-                    <div className="flex justify-between items-center mb-6 bg-[#F5F7F9] p-1 rounded-xl">
+                    <div className="flex justify-between items-center mb-6 bg-[var(--bg-secondary)] p-1 rounded-xl">
                         {(['IDR', 'USD'] as const).map(fiat => (
                             <button
                                 key={fiat}
                                 onClick={() => setSelectedFiat(fiat)}
-                                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${selectedFiat === fiat ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${selectedFiat === fiat ? 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-secondary)]'}`}
                             >
                                 {fiat}
                             </button>
                         ))}
                     </div>
 
-                    <div className="font-bold text-[15px] text-slate-900 mb-4">Select payment method</div>
+                    <div className="font-bold text-[15px] text-[var(--text-primary)] mb-4">Select payment method</div>
 
                     <div className="space-y-4">
                         {activeMethods.map((method) => (
                             <div
                                 key={method.id}
                                 onClick={() => { setSelectedMethod(method.name); setStep(2); }}
-                                className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl cursor-pointer active:bg-slate-50 shadow-sm"
+                                className="flex items-center justify-between p-4 border border-[var(--border-color)] rounded-2xl cursor-pointer active:bg-[var(--bg-hover)] shadow-sm"
                             >
                                 <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-700">
+                                    <div className="w-10 h-10 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center text-[var(--text-secondary)]">
                                         <method.icon size={18} />
                                     </div>
                                     <div>
-                                        <div className="font-bold text-[15px] text-slate-900">{method.name}</div>
-                                        <div className="text-[13px] text-slate-400 font-medium">{method.desc}</div>
+                                        <div className="font-bold text-[15px] text-[var(--text-primary)]">{method.name}</div>
+                                        <div className="text-[13px] text-[var(--text-tertiary)] font-medium">{method.desc}</div>
                                     </div>
                                 </div>
-                                <div className="w-4 h-4 rounded-full border border-slate-300 flex justify-center items-center">
-                                    {selectedMethod === method.name && <div className="w-2.5 h-2.5 bg-slate-900 rounded-full" />}
+                                <div className="w-4 h-4 rounded-full border border-[var(--border-strong)] flex justify-center items-center">
+                                    {selectedMethod === method.name && <div className="w-2.5 h-2.5 bg-[var(--text-primary)] rounded-full" />}
                                 </div>
                             </div>
                         ))}
@@ -126,30 +126,30 @@ const FiatDepositView = () => {
             {step === 2 && (
                 <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex-1 mt-2 flex flex-col h-full">
 
-                    <div className="bg-[#F5F7F9] rounded-2xl p-4 flex items-center gap-4 mb-8">
-                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-700 shadow-sm">
+                    <div className="bg-[var(--bg-secondary)] rounded-2xl p-4 flex items-center gap-4 mb-8">
+                        <div className="w-10 h-10 rounded-full bg-[var(--bg-card)] flex items-center justify-center text-[var(--text-secondary)] shadow-sm">
                             {React.createElement(activeMethods.find(m => m.name === selectedMethod)?.icon || Bank, { size: 18 })}
                         </div>
                         <div>
-                            <div className="font-bold text-[15px] text-slate-900">{selectedMethod}</div>
-                            <div className="text-[12px] text-slate-500 font-medium">Fee: 0 {selectedFiat}</div>
+                            <div className="font-bold text-[15px] text-[var(--text-primary)]">{selectedMethod}</div>
+                            <div className="text-[12px] text-[var(--text-secondary)] font-medium">Fee: 0 {selectedFiat}</div>
                         </div>
                     </div>
 
-                    <div className="font-bold text-[15px] text-slate-900 mb-3">Amount</div>
+                    <div className="font-bold text-[15px] text-[var(--text-primary)] mb-3">Amount</div>
                     <div className="relative mb-2">
                         <input
                             type="number"
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
-                            className="w-full bg-[#F5F7F9] border-none rounded-2xl py-4 px-4 text-2xl font-bold text-slate-900 outline-none placeholder:text-slate-300"
+                            className="w-full bg-[var(--bg-secondary)] border-none rounded-2xl py-4 px-4 text-2xl font-bold text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
                             placeholder={"0.00"}
                         />
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-900 bg-white px-3 py-1 rounded-full shadow-sm">
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-[var(--text-primary)] bg-[var(--bg-card)] px-3 py-1 rounded-full shadow-sm">
                             {selectedFiat}
                         </div>
                     </div>
-                    <div className="text-[13px] text-slate-400 font-medium mb-10 px-1 flex justify-between">
+                    <div className="text-[13px] text-[var(--text-tertiary)] font-medium mb-10 px-1 flex justify-between">
                         <span>Min: {selectedFiat === 'IDR' ? '150,000' : '10'} {selectedFiat}</span>
                         <span>Receive ≈ {(parseFloat(amount || '0') / (selectedFiat === 'IDR' ? 16300 : 1)).toFixed(2)} USDT</span>
                     </div>
@@ -158,7 +158,7 @@ const FiatDepositView = () => {
                         <button
                             onClick={handleSimulateDeposit}
                             disabled={!amount || isSimulating}
-                            className={`w-full py-4 rounded-full font-bold text-[16px] text-center transition-opacity ${!amount || isSimulating ? 'bg-slate-200 text-slate-400' : 'bg-[#00C076] text-white active:bg-[#00a666]'}`}
+                            className={`w-full py-4 rounded-full font-bold text-[16px] text-center transition-opacity ${!amount || isSimulating ? 'bg-[var(--bg-secondary)] text-[var(--text-tertiary)]' : 'bg-[#00C076] text-white active:bg-[var(--green)]'}`}
                         >
                             {isSimulating ? 'Processing...' : 'Simulate Deposit'}
                         </button>

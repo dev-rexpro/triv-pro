@@ -41,8 +41,17 @@ import systemFont from './assets/fonts/system-font.woff2';
 export default function App() {
   const {
     session, setSession,
-    activePage, setActivePage, setMarkets, setFuturesMarkets, setRates, setSpotSymbols, setFuturesSymbols, isSearchOpen, setSearchOpen, isManageGroupsOpen, setManageGroupsOpen, isDepositOptionOpen, setDepositOptionOpen, isPairPickerOpen, setPairPickerOpen, updateAssetPrices, setTradeType
+    activePage, setActivePage, setMarkets, setFuturesMarkets, setRates, setSpotSymbols, setFuturesSymbols, isSearchOpen, setSearchOpen, isManageGroupsOpen, setManageGroupsOpen, isDepositOptionOpen, setDepositOptionOpen, isPairPickerOpen, setPairPickerOpen, updateAssetPrices, setTradeType,
+    theme
   } = useExchangeStore();
+
+  // Bootstrap persisted theme on mount
+  useEffect(() => {
+    const savedTheme = useExchangeStore.getState().theme;
+    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', savedTheme === 'dark' ? '#0f0f0f' : '#FDFDFD');
+  }, []);
 
   const isPopStateRef = useRef(false);
   const hasInitializedRef = useRef(false);
@@ -175,7 +184,7 @@ export default function App() {
   }, [activePage, isSearchOpen, isManageGroupsOpen, isPairPickerOpen, isDepositOptionOpen]);
 
   return (
-    <div className="flex flex-col h-screen bg-[#FDFDFD] text-slate-900 relative overflow-hidden font-sans">
+    <div className="flex flex-col h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] relative overflow-hidden font-sans">
       {!session && <AuthView />}
       <style>{`
         @font-face {
@@ -217,19 +226,19 @@ export default function App() {
       </div>
 
       {activePage !== 'chart-trade' && activePage !== 'profile' && activePage !== 'user-center' && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex justify-around items-center pt-2 pb-[calc(10px+var(--safe-area-bottom))] z-[200] px-2">
-          <button onClick={() => setActivePage('home')} className={`flex flex-col items-center gap-2 ${activePage === 'home' ? 'text-slate-900' : 'text-slate-400'}`}>
-            <img src={homeIcon} alt="Home" className={`w-[24px] h-[24px] ${activePage === 'home' ? 'opacity-100' : 'opacity-40'}`} />
+        <nav className="fixed bottom-0 left-0 right-0 bg-[var(--nav-bg)] border-t border-[var(--nav-border)] flex justify-around items-center pt-2 pb-[calc(10px+var(--safe-area-bottom))] z-[200] px-2">
+          <button onClick={() => setActivePage('home')} className={`flex flex-col items-center gap-2 ${activePage === 'home' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
+            <img src={homeIcon} alt="Home" className={`w-[24px] h-[24px] ${activePage === 'home' ? 'opacity-100' : 'opacity-40'}`} style={{ filter: 'var(--home-icon-filter)' }} />
             <span className="text-[10px] font-medium">Home</span>
           </button>
-          <button onClick={() => setActivePage('market')} className={`flex flex-col items-center gap-2 ${activePage === 'market' ? 'text-slate-900' : 'text-slate-400'}`}>
+          <button onClick={() => setActivePage('market')} className={`flex flex-col items-center gap-2 ${activePage === 'market' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
             <RiFundsBoxLine size={24} />
             <span className="text-[10px] font-medium">Markets</span>
           </button>
 
-          <button onClick={() => { setActivePage('trade'); setTradeType('spot'); }} className={`flex flex-col items-center gap-2 relative ${activePage === 'trade' ? 'text-slate-900' : 'text-slate-400'}`}>
+          <button onClick={() => { setActivePage('trade'); setTradeType('spot'); }} className={`flex flex-col items-center gap-2 relative ${activePage === 'trade' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
             <div className="w-[24px] h-[24px]"></div>
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-[46px] h-[46px] bg-[#3189c6] rounded-full flex items-center justify-center text-white shadow-sm active:scale-95 transition-transform">
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-[46px] h-[46px] bg-[var(--accent)] rounded-full flex items-center justify-center text-white shadow-sm active:scale-95 transition-transform">
               <div className={`transition-all duration-200 flex items-center justify-center ${activePage === 'trade' ? 'scale-110' : 'scale-100'}`}>
                 {activePage === 'trade' ? <TbTransferVertical size={28} strokeWidth={2} /> : <TbTransfer size={28} strokeWidth={2} />}
               </div>
@@ -237,11 +246,11 @@ export default function App() {
             <span className="text-[10px] font-medium">Trade</span>
           </button>
 
-          <button onClick={() => { setActivePage('futures'); setTradeType('futures'); }} className={`flex flex-col items-center gap-2 ${activePage === 'futures' ? 'text-slate-900' : 'text-slate-400'}`}>
+          <button onClick={() => { setActivePage('futures'); setTradeType('futures'); }} className={`flex flex-col items-center gap-2 ${activePage === 'futures' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
             <RiNewspaperLine size={24} />
             <span className="text-[10px] font-medium">Futures</span>
           </button>
-          <button onClick={() => setActivePage('assets')} className={`flex flex-col items-center gap-2 ${activePage === 'assets' ? 'text-slate-900' : 'text-slate-400'}`}>
+          <button onClick={() => setActivePage('assets')} className={`flex flex-col items-center gap-2 ${activePage === 'assets' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
             <RiWalletLine size={24} />
             <span className="text-[10px] font-medium">Assets</span>
           </button>

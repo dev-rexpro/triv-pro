@@ -122,6 +122,10 @@ interface ExchangeState {
     toastMessage: { isOpen: boolean; title: string; message: string; type: 'success' | 'error' } | null;
     showToast: (title: string, message: string, type?: 'success' | 'error') => void;
     hideToast: () => void;
+
+    // Theme
+    theme: 'light' | 'dark';
+    toggleTheme: () => void;
 }
 
 const useExchangeStore = create<ExchangeState>()(
@@ -165,6 +169,7 @@ const useExchangeStore = create<ExchangeState>()(
             showOrderConfirmation: true,
             futuresUnrealizedPnl: 0,
             toastMessage: null,
+            theme: 'light',
 
             // Demo Engine State Init
             wallets: {
@@ -497,6 +502,15 @@ const useExchangeStore = create<ExchangeState>()(
                 get().updateAssetPrices();
             },
             setDepositOptionOpen: (val) => set({ isDepositOptionOpen: val }),
+            showToast: (title, message, type = 'success') => set({ toastMessage: { isOpen: true, title, message, type } }),
+            hideToast: () => set({ toastMessage: null }),
+            toggleTheme: () => {
+                const newTheme = get().theme === 'light' ? 'dark' : 'light';
+                document.documentElement.classList.toggle('dark', newTheme === 'dark');
+                const meta = document.querySelector('meta[name="theme-color"]');
+                if (meta) meta.setAttribute('content', newTheme === 'dark' ? '#0f0f0f' : '#FDFDFD');
+                set({ theme: newTheme });
+            },
             addTransaction: async (tx) => {
                 set(s => ({ transactionHistory: [tx, ...s.transactionHistory] }));
                 const { user } = get();
