@@ -237,7 +237,18 @@ const SearchOverlay = ({ mode = 'search', onSelect, onClose }: { mode?: 'search'
                                     {top10.map((coin: any, i: number) => {
                                         const isFav = favorites.includes(coin.symbol) || favorites.includes(`${coin.symbol}:spot`);
                                         return (
-                                            <div key={coin.symbol} className="flex items-center justify-between">
+                                            <div
+                                                key={coin.symbol}
+                                                className="flex items-center justify-between cursor-pointer active:bg-slate-50 -mx-2 px-2 py-0.5 rounded-lg"
+                                                onClick={() => {
+                                                    addToHistory(coin.symbol.replace('USDT', ''));
+                                                    useExchangeStore.setState({ selectedCoin: coin.symbol });
+                                                    setTradeType('spot');
+                                                    setActivePage('chart-trade');
+                                                    setSearchOpen(false);
+                                                    setSearchQuery('');
+                                                }}
+                                            >
                                                 <div className="flex items-center gap-4">
                                                     <span className={`font-medium text-sm w-4 ${i < 3 ? 'text-[#e9ba3b]' : 'text-slate-400'}`}>{i + 1}</span>
                                                     <CoinIcon symbol={coin.symbol} size={8} />

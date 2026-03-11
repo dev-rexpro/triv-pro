@@ -45,6 +45,8 @@ const ChartTradeView = () => {
     const [fetchedTicker, setFetchedTicker] = useState<any>(null);
     const [isChartExpanded, setIsChartExpanded] = useState(false);
     const [klines, setKlines] = useState<any[]>([]);
+    const [coinInfo, setCoinInfo] = useState<any>(null);
+    const [coinInfoLoading, setCoinInfoLoading] = useState(false);
 
     const isFutures = tradeType === 'futures';
     const { orderBook } = useOrderBookSocket(selectedCoin, isFutures ? 'futures' : 'spot', 10);
@@ -129,7 +131,66 @@ const ChartTradeView = () => {
         return v.toFixed(2);
     };
 
+    const formatMcap = (v: number) => {
+        if (!v) return '--';
+        if (v >= 1e12) return `$${(v / 1e12).toFixed(2)}T`;
+        if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
+        if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
+        return `$${v.toLocaleString()}`;
+    };
+
+    // Fetch CoinGecko info when baseAsset changes
+    useEffect(() => {
+        if (!baseAsset) return;
+        let cancelled = false;
+        setCoinInfo(null);
+        setCoinInfoLoading(true);
+
+        const fetch_ = async () => {
+            try {
+                // 1. Search for CoinGecko ID
+                const searchRes = await fetch(`https://api.coingecko.com/api/v3/search?query=${baseAsset.toLowerCase()}`);
+                const searchData = await searchRes.json();
+                const coin = searchData?.coins?.find((c: any) =>
+                    c.symbol.toLowerCase() === baseAsset.toLowerCase()
+                ) || searchData?.coins?.[0];
+                if (!coin || cancelled) return;
+
+                // 2. Fetch full detail
+                const detailRes = await fetch(
+                    `https://api.coingecko.com/api/v3/coins/${coin.id}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false`
+                );
+                const detail = await detailRes.json();
+                if (!cancelled) setCoinInfo(detail);
+            } catch { } finally {
+                if (!cancelled) setCoinInfoLoading(false);
+            }
+        };
+        fetch_();
+        return () => { cancelled = true; };
+    }, [baseAsset]);
+
     const isPositive = priceChange >= 0;
+
+    // Helpers for CoinGecko data
+    const cgMarketCap = coinInfo?.market_data?.market_cap?.usd;
+    const cgMcapRank = coinInfo?.market_cap_rank;
+    const cgCircSupply = coinInfo?.market_data?.circulating_supply;
+    const cgTotalSupply = coinInfo?.market_data?.total_supply;
+    const cgMaxSupply = coinInfo?.market_data?.max_supply;
+    const cgAth = coinInfo?.market_data?.ath?.usd;
+    const cgAthDate = coinInfo?.market_data?.ath_date?.usd;
+    const cgAtl = coinInfo?.market_data?.atl?.usd;
+    const cgAtlDate = coinInfo?.market_data?.atl_date?.usd;
+    const cgGenesis = coinInfo?.genesis_date;
+    const cgDesc = coinInfo?.description?.en?.replace(/<[^>]+>/g, '') || '';
+    const cgWebsite = coinInfo?.links?.homepage?.[0];
+    const cgExplorer = coinInfo?.links?.blockchain_site?.find((s: string) => s);
+    const cgGithub = coinInfo?.links?.repos_url?.github?.[0];
+    const cgWhitepaper = coinInfo?.links?.whitepaper;
+    const cgTwitter = coinInfo?.links?.twitter_screen_name ? `https://x.com/${coinInfo.links.twitter_screen_name}` : null;
+    const cgFullName = coinInfo?.name || baseAsset;
+    const cgThumb = coinInfo?.image?.small;
 
 
 
@@ -213,9 +274,11 @@ const ChartTradeView = () => {
                                                 Mark price <span className="text-slate-700">{formatPrice(lastPrice)}</span>
                                             </div>
                                         )}
-                                        <div className="flex items-center gap-1 mt-2.5 text-[10px] text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded w-max">
-                                            <span className="font-bold">🔥 No. 1</span> <span className="text-orange-200">|</span> Top <span className="text-orange-200">|</span> Payment
-                                        </div>
+                                        {cgMcapRank && (
+                                            <div className="flex items-center gap-1 mt-2.5 text-[10px] text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded w-max">
+                                                <span className="font-bold">🏆 No. {cgMcapRank}</span> <span className="text-orange-200">|</span> Market Cap Rank
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="grid grid-cols-2 gap-x-5 gap-y-1.5 text-[10px] text-right mt-1">
                                         <div className="text-slate-400">24h high</div>
@@ -393,51 +456,73 @@ const ChartTradeView = () => {
                     <div className="px-4 py-4">
                         <div className="flex gap-4 border-b border-slate-100 pb-2 mb-5">
                             {['Crypto info', 'Trading rules', 'Funding rate'].map((t, i) => (
-                                <span key={t} className={`text-[13px] font-bold ${i === 0 ? 'text-slate-900 bg-slate-100/80 px-3 py-1 rounded-full' : 'text-slate-400 py-1'}`}>{t}</span>
+                                <span key={t} className={`text-[13px] font-bold cursor-pointer ${infoTab === t ? 'text-slate-900 bg-slate-100/80 px-3 py-1 rounded-full' : 'text-slate-400 py-1'}`}
+                                    onClick={() => setInfoTab(t)}>{t}</span>
                             ))}
                         </div>
-                        <div className="flex items-center gap-2.5 mb-6">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-[10px]" style={{ background: 'linear-gradient(135deg, #f7931a, #f37121)' }}>{baseAsset.substring(0, 3)}</div>
-                            <div>
-                                <span className="font-bold text-[18px] text-slate-900 tracking-tight">{baseAsset}</span>
-                                <span className="text-[14px] text-slate-500 ml-1.5 font-medium">{baseAsset === 'BTC' ? 'Bitcoin' : baseAsset === 'ETH' ? 'Ethereum' : baseAsset === 'SOL' ? 'Solana' : 'Token'}</span>
+
+                        {coinInfoLoading ? (
+                            <div className="flex flex-col gap-3 animate-pulse">
+                                {[...Array(6)].map((_, i) => (
+                                    <div key={i} className="h-4 bg-slate-100 rounded w-full" />
+                                ))}
                             </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-5">
-                            {[
-                                { label: 'Heat index ranking', value: 'No. 1 >' },
-                                { label: 'Market cap ranking', value: 'No. 1 >' },
-                                { label: 'Market cap', value: `$1.33T` },
-                                { label: 'Circulating supply', value: `19,996,665 ${baseAsset}` },
-                                { label: 'Favorited rate', value: '99.99%' },
-                                { label: 'Circulation rate', value: '95.22%' },
-                                { label: 'All-time high', value: `$126,200.0\n(10/06/2025)` },
-                                { label: 'All-time low', value: `$67.8100\n(07/06/2013)` },
-                                { label: 'Launch date', value: '10/30/2008' },
-                                { label: 'Trading volume/Mcap', value: '0.0004' },
-                                { label: 'Max supply', value: `21,000,000 ${baseAsset}` },
-                                { label: 'Mcap at max supply', value: '$1.4T' },
-                            ].map((item, i) => (
-                                <div key={i}>
-                                    <div className="text-[11px] text-slate-500 mb-0.5">{item.label}</div>
-                                    <div className="text-[13px] font-bold text-slate-900 whitespace-pre-line leading-tight">{item.value}</div>
+                        ) : (
+                            <>
+                                <div className="flex items-center gap-2.5 mb-6">
+                                    {cgThumb ? (
+                                        <img src={cgThumb} alt={baseAsset} className="w-8 h-8 rounded-full" />
+                                    ) : (
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white text-[10px]" style={{ background: 'linear-gradient(135deg, #627eea, #4a5fa8)' }}>
+                                            {baseAsset.substring(0, 3)}
+                                        </div>
+                                    )}
+                                    <div>
+                                        <span className="font-bold text-[18px] text-slate-900 tracking-tight">{baseAsset}</span>
+                                        <span className="text-[14px] text-slate-500 ml-1.5 font-medium">{cgFullName !== baseAsset ? cgFullName : ''}</span>
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
-                        <div className="mt-8">
-                            <h3 className="font-bold text-[18px] text-slate-900 mb-2">About {baseAsset}</h3>
-                            <p className="text-[13px] text-slate-600 leading-relaxed mb-1">
-                                {baseAsset === 'BTC' ? 'Bitcoin is a digital asset and a payment system that was first proposed in 2008 by an anonymous person or group of people under the name Satoshi Nakamoto. Bitcoin is decentralized and not subject to government or central authority...' : `${baseAsset} is a decentralized cryptocurrency asset.`}
-                            </p>
-                            <span className="text-[13px] text-slate-900 font-bold cursor-pointer">Show more <ArrowDropDown size={14} className="inline align-middle" /></span>
-                        </div>
-                        <div className="mt-6 flex flex-wrap gap-2 pb-6">
-                            <button className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">𝕏 X</button>
-                            <button className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">🌐 Block explorer</button>
-                            <button className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">⌨️ GitHub</button>
-                            <button className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">📄 Whitepaper</button>
-                            <button className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">🖥️ Official website</button>
-                        </div>
+
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+                                    {[
+                                        { label: 'Market cap ranking', value: cgMcapRank ? `No. ${cgMcapRank}` : '--' },
+                                        { label: 'Market cap', value: formatMcap(cgMarketCap) },
+                                        { label: 'Circulating supply', value: cgCircSupply ? `${cgCircSupply.toLocaleString('en-US', { maximumFractionDigits: 0 })} ${baseAsset}` : '--' },
+                                        { label: 'Max supply', value: cgMaxSupply ? `${cgMaxSupply.toLocaleString('en-US', { maximumFractionDigits: 0 })} ${baseAsset}` : cgTotalSupply ? `${cgTotalSupply.toLocaleString('en-US', { maximumFractionDigits: 0 })} ${baseAsset}` : '∞' },
+                                        { label: 'All-time high', value: cgAth ? `$${Number(cgAth).toLocaleString('en-US', { maximumFractionDigits: 6 })}${cgAthDate ? `\n(${new Date(cgAthDate).toLocaleDateString('en-US', { day:'2-digit', month:'2-digit', year:'numeric' })})` : ''}` : '--' },
+                                        { label: 'All-time low', value: cgAtl ? `$${Number(cgAtl).toLocaleString('en-US', { maximumFractionDigits: 6 })}${cgAtlDate ? `\n(${new Date(cgAtlDate).toLocaleDateString('en-US', { day:'2-digit', month:'2-digit', year:'numeric' })})` : ''}` : '--' },
+                                        { label: 'Launch date', value: cgGenesis || '--' },
+                                        { label: 'Fully diluted valuation', value: coinInfo?.market_data?.fully_diluted_valuation?.usd ? formatMcap(coinInfo.market_data.fully_diluted_valuation.usd) : '--' },
+                                    ].map((item, i) => (
+                                        <div key={i}>
+                                            <div className="text-[11px] text-slate-500 mb-0.5">{item.label}</div>
+                                            <div className="text-[13px] font-bold text-slate-900 whitespace-pre-line leading-tight">{item.value}</div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {cgDesc && (
+                                    <div className="mt-8">
+                                        <h3 className="font-bold text-[18px] text-slate-900 mb-2">About {cgFullName}</h3>
+                                        <p className="text-[13px] text-slate-600 leading-relaxed mb-1 line-clamp-5">
+                                            {cgDesc}
+                                        </p>
+                                        <span className="text-[13px] text-slate-900 font-bold cursor-pointer">Show more <ArrowDropDown size={14} className="inline align-middle" /></span>
+                                    </div>
+                                )}
+
+                                <div className="mt-6 flex flex-wrap gap-2 pb-6">
+                                    {cgTwitter && <a href={cgTwitter} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">𝕏 X</a>}
+                                    {cgExplorer && <a href={cgExplorer} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">🌐 Block explorer</a>}
+                                    {cgGithub && <a href={cgGithub} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">⌨️ GitHub</a>}
+                                    {cgWhitepaper && <a href={cgWhitepaper} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">📄 Whitepaper</a>}
+                                    {cgWebsite && <a href={cgWebsite} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-slate-100 rounded-full text-[12px] font-bold text-slate-700">🖥️ Official website</a>}
+                                    {!cgTwitter && !cgExplorer && !cgGithub && !cgWhitepaper && !cgWebsite && (
+                                        <span className="text-slate-400 text-[12px]">No links available</span>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
 

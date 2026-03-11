@@ -59,7 +59,7 @@ const TradeView = () => {
     const [activeTopTab, setActiveTopTab] = useState<'Spot' | 'Futures' | 'Bots' | 'Convert'>('Spot');
     const [isReduceOnly, setIsReduceOnly] = useState(false);
     const [secondsRemaining, setSecondsRemaining] = useState(8430);
-    const [toastMessage, setToastMessage] = useState<{ title: string; message: string } | null>(null);
+    // Order Confirmation Modal State
     const [isCloseAllConfirmOpen, setIsCloseAllConfirmOpen] = useState(false);
 
     // Futures Specific State
@@ -1572,28 +1572,6 @@ const TradeView = () => {
                     )
                 }
             </AnimatePresence >
-
-            {/* Native-like Top Toast for Success */}
-            <AnimatePresence>
-                {toastMessage && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -50, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                        className="fixed top-4 left-4 right-4 z-[2000] bg-white text-gray-900 border border-gray-100 p-4 rounded-xl shadow-[0_12px_32px_rgba(0,0,0,0.08)] flex items-start gap-3 pointer-events-none"
-                        style={{ paddingTop: 'calc(1rem + var(--safe-area-top))' }}
-                    >
-                        <div className="w-8 h-8 rounded-full bg-[#00C076]/10 flex items-center justify-center shrink-0 mt-0.5">
-                            <Check size={18} className="text-[#00C076] stroke-[3]" />
-                        </div>
-                        <div className="flex flex-col flex-1">
-                            <span className="font-bold text-[15px] leading-tight mb-1">{toastMessage.title}</span>
-                            <span className="text-[13px] text-gray-500 leading-snug whitespace-pre-line">{toastMessage.message}</span>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
 
             <OrderConfirmationModal
                 isOpen={isConfirmModalOpen}

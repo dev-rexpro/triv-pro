@@ -4,7 +4,6 @@ import { FiChevronLeft as ChevronLeft, FiSearch as Search, FiCheck as Check } fr
 import { MdOutlineArrowDropDown as ChevronDown } from 'react-icons/md';
 import useExchangeStore from '../stores/useExchangeStore';
 import { BsBank2 as Bank, BsWallet2 as Wallet, BsShop as Shop, BsQrCodeScan as QrCode } from 'react-icons/bs';
-import SuccessDialog from '../components/SuccessDialog';
 
 const FiatDepositView = () => {
     const { setActivePage, addTransaction, setWallets, wallets } = useExchangeStore();
@@ -13,7 +12,6 @@ const FiatDepositView = () => {
     const [selectedMethod, setSelectedMethod] = useState('');
     const [amount, setAmount] = useState('');
     const [isSimulating, setIsSimulating] = useState(false);
-    const [successDialog, setSuccessDialog] = useState({ isOpen: false, message: '' });
 
     const methodsIDR = [
         { id: 'bank', name: 'Online Bank Transfer', desc: 'BCA, BNI, BRI, Mandiri, Permata', icon: Bank },
@@ -54,16 +52,9 @@ const FiatDepositView = () => {
             setWallets(w);
 
             setIsSimulating(false);
-            setSuccessDialog({
-                isOpen: true,
-                message: `Amount: ${numAmount} ${selectedFiat}\nMethod: ${selectedMethod}\nCredited as USDT to Spot Wallet.`
-            });
+            useExchangeStore.getState().showToast('Fiat Deposit Simulated!', `Amount: ${numAmount} ${selectedFiat}\nMethod: ${selectedMethod}\nCredited as USDT to Spot Wallet.`, 'success');
+            setActivePage('assets');
         }, 1500);
-    };
-
-    const handleSuccessClose = () => {
-        setSuccessDialog({ isOpen: false, message: '' });
-        setActivePage('assets');
     };
 
     return (
@@ -175,12 +166,6 @@ const FiatDepositView = () => {
                 </motion.div>
             )}
 
-            <SuccessDialog
-                isOpen={successDialog.isOpen}
-                title="Fiat Deposit Simulated!"
-                message={successDialog.message}
-                onClose={handleSuccessClose}
-            />
         </motion.div>
     );
 };

@@ -7,7 +7,6 @@ import { MdOutlineArrowDropDown as ChevronDown } from 'react-icons/md';
 import { BsCheckCircleFill } from 'react-icons/bs';
 import useExchangeStore from '../stores/useExchangeStore';
 import CoinIcon from '../components/CoinIcon';
-import SuccessDialog from '../components/SuccessDialog';
 import SearchOverlay from '../components/SearchOverlay';
 
 const ConvertView = () => {
@@ -19,7 +18,6 @@ const ConvertView = () => {
     const [fromAmount, setFromAmount] = useState('');
     const [toAmount, setToAmount] = useState('');
     const [isSimulating, setIsSimulating] = useState(false);
-    const [successDialog, setSuccessDialog] = useState({ isOpen: false, message: '' });
     const [isFromDrawerOpen, setIsFromDrawerOpen] = useState(false);
     const [isToDrawerOpen, setIsToDrawerOpen] = useState(false);
 
@@ -99,10 +97,9 @@ const ConvertView = () => {
             });
 
             setIsSimulating(false);
-            setSuccessDialog({
-                isOpen: true,
-                message: `Successfully converted ${amount} ${fromAsset} to ${finalToAmount.toFixed(6)} ${toAsset}.`
-            });
+            useExchangeStore.getState().showToast('Conversion Successful', `Successfully converted ${amount} ${fromAsset} to ${finalToAmount.toFixed(6)} ${toAsset}.`, 'success');
+            setFromAmount('');
+            setToAmount('');
         }, 1200);
     };
 
@@ -282,12 +279,6 @@ const ConvertView = () => {
                 )}
             </AnimatePresence>
 
-            <SuccessDialog
-                isOpen={successDialog.isOpen}
-                title="Conversion Successful"
-                message={successDialog.message}
-                onClose={() => { setSuccessDialog({ isOpen: false, message: '' }); setFromAmount(''); setToAmount(''); }}
-            />
         </motion.div>
     );
 };

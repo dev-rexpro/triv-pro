@@ -4,7 +4,6 @@ import { FiChevronLeft as ChevronLeft, FiSearch as Search, FiCopy as Copy, FiMax
 import { MdOutlineArrowDropDown as ChevronDown } from 'react-icons/md';
 import useExchangeStore from '../stores/useExchangeStore';
 import CoinIcon from '../components/CoinIcon';
-import SuccessDialog from '../components/SuccessDialog';
 
 const WithdrawalView = () => {
     const { setActivePage, wallets, addTransaction, setWallets, rates } = useExchangeStore();
@@ -15,7 +14,6 @@ const WithdrawalView = () => {
     const [address, setAddress] = useState('');
     const [amount, setAmount] = useState('');
     const [isSimulating, setIsSimulating] = useState(false);
-    const [successDialog, setSuccessDialog] = useState({ isOpen: false, message: '' });
 
     // Filter coins to ONLY those owned in the Spot wallet
     const availableCoins = useMemo(() => {
@@ -71,16 +69,9 @@ const WithdrawalView = () => {
             setWallets(w);
 
             setIsSimulating(false);
-            setSuccessDialog({
-                isOpen: true,
-                message: `Withdrew ${numAmount} ${selectedCoin} via ${selectedNetwork}.`
-            });
+            useExchangeStore.getState().showToast('Withdrawal Successful', `Withdrew ${numAmount} ${selectedCoin} via ${selectedNetwork}.`, 'success');
+            setActivePage('assets');
         }, 1500);
-    };
-
-    const handleSuccessClose = () => {
-        setSuccessDialog({ isOpen: false, message: '' });
-        setActivePage('assets');
     };
 
     return (
@@ -258,12 +249,6 @@ const WithdrawalView = () => {
                 </motion.div>
             )}
 
-            <SuccessDialog
-                isOpen={successDialog.isOpen}
-                title="Withdrawal Successful"
-                message={successDialog.message}
-                onClose={handleSuccessClose}
-            />
         </motion.div>
     );
 };

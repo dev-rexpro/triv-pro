@@ -117,6 +117,11 @@ interface ExchangeState {
     startEarnYield: () => void;
     setSession: (session: Session | null) => void;
     signOut: () => Promise<void>;
+
+    // Global Toast
+    toastMessage: { isOpen: boolean; title: string; message: string; type: 'success' | 'error' } | null;
+    showToast: (title: string, message: string, type?: 'success' | 'error') => void;
+    hideToast: () => void;
 }
 
 const useExchangeStore = create<ExchangeState>()(
@@ -159,6 +164,7 @@ const useExchangeStore = create<ExchangeState>()(
             hideBalance: false,
             showOrderConfirmation: true,
             futuresUnrealizedPnl: 0,
+            toastMessage: null,
 
             // Demo Engine State Init
             wallets: {
@@ -680,6 +686,7 @@ const useExchangeStore = create<ExchangeState>()(
                     wallets: newWallets,
                     openOrders: openOrders.filter(o => o.id !== orderId)
                 });
+                get().showToast('Order Canceled', `Spot order successfully canceled.`, 'success');
             },
 
             placeFuturesOrder: (order) => {
@@ -788,6 +795,7 @@ const useExchangeStore = create<ExchangeState>()(
                 });
 
                 get().updateAssetPrices(true); // user action: position closed
+                get().showToast('Position Closed', `Futures position ${pos.pair} closed successfully.`, 'success');
             },
 
             resetWallets: () => {

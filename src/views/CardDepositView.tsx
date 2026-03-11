@@ -4,7 +4,7 @@ import { FiChevronLeft as ChevronLeft } from 'react-icons/fi';
 import { FaCcVisa as Visa, FaCcMastercard as Mastercard, FaCcAmex as Amex } from 'react-icons/fa';
 import useExchangeStore from '../stores/useExchangeStore';
 import CoinIcon from '../components/CoinIcon';
-import SuccessDialog from '../components/SuccessDialog';
+
 
 const CardDepositView = () => {
     const { setActivePage, addTransaction, setWallets, wallets } = useExchangeStore();
@@ -12,7 +12,7 @@ const CardDepositView = () => {
     const [selectedCard, setSelectedCard] = useState('');
     const [amount, setAmount] = useState('');
     const [isSimulating, setIsSimulating] = useState(false);
-    const [successDialog, setSuccessDialog] = useState({ isOpen: false, message: '' });
+
 
     const cards = [
         { id: 'visa', name: 'Visa', icon: Visa, color: 'text-blue-600' },
@@ -45,16 +45,9 @@ const CardDepositView = () => {
             setWallets(w);
 
             setIsSimulating(false);
-            setSuccessDialog({
-                isOpen: true,
-                message: `Bought ${numAmount} USDT using ${selectedCard}.`
-            });
+            useExchangeStore.getState().showToast('Card Deposit Simulated!', `Bought ${numAmount} USDT using ${selectedCard}.`, 'success');
+            setActivePage('assets');
         }, 1500);
-    };
-
-    const handleSuccessClose = () => {
-        setSuccessDialog({ isOpen: false, message: '' });
-        setActivePage('assets');
     };
 
     return (
@@ -172,12 +165,6 @@ const CardDepositView = () => {
                 </motion.div>
             )}
 
-            <SuccessDialog
-                isOpen={successDialog.isOpen}
-                title="Card Deposit Simulated!"
-                message={successDialog.message}
-                onClose={handleSuccessClose}
-            />
         </motion.div>
     );
 };

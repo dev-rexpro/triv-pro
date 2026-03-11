@@ -6,7 +6,6 @@ import { TbArrowsSort as SwapIcon } from 'react-icons/tb';
 import { MdOutlineArrowDropDown as ChevronDown } from 'react-icons/md';
 import useExchangeStore from '../stores/useExchangeStore';
 import CoinIcon from '../components/CoinIcon';
-import SuccessDialog from '../components/SuccessDialog';
 
 const TransferView = () => {
     const { setActivePage, wallets, addTransaction, setWallets } = useExchangeStore();
@@ -17,7 +16,6 @@ const TransferView = () => {
     const [selectedCoin, setSelectedCoin] = useState('USDT');
     const [amount, setAmount] = useState('');
     const [isSimulating, setIsSimulating] = useState(false);
-    const [successDialog, setSuccessDialog] = useState({ isOpen: false, message: '' });
 
     // Coin Drawer State
     const [isCoinDrawerOpen, setIsCoinDrawerOpen] = useState(false);
@@ -83,17 +81,10 @@ const TransferView = () => {
             setWallets(w);
 
             setIsSimulating(false);
-            setSuccessDialog({
-                isOpen: true,
-                message: `Moved ${numAmount} ${selectedCoin}\nfrom ${fromAccount} to ${toAccount}.`
-            });
+            useExchangeStore.getState().showToast('Transfer Successful', `Moved ${numAmount} ${selectedCoin}\nfrom ${fromAccount} to ${toAccount}.`, 'success');
+            setActivePage('assets');
+            setAmount('');
         }, 800);
-    };
-
-    const handleSuccessClose = () => {
-        setSuccessDialog({ isOpen: false, message: '' });
-        setActivePage('assets');
-        setAmount('');
     };
 
     const formatWalletName = (w: TargetWallet) => w === 'spot' ? 'Funding' : w === 'futures' ? 'Trading' : 'Earn';
@@ -250,12 +241,6 @@ const TransferView = () => {
                 )}
             </AnimatePresence>
 
-            <SuccessDialog
-                isOpen={successDialog.isOpen}
-                title="Transfer Successful"
-                message={successDialog.message}
-                onClose={handleSuccessClose}
-            />
         </motion.div>
     );
 };

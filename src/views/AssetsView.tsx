@@ -28,7 +28,6 @@ const AssetsView = () => {
     const [activeTab, setActiveTab] = useState('Overview');
     const [hideZero, setHideZero] = useState(true);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-    const [toastMessage, setToastMessage] = useState('');
     const {
         balance, spotBalance, futuresBalance, earnBalance, todayPnl, todaySpotPnl, pnlPercent,
         assets, rates, currency, setDepositOptionOpen, setActivePage, resetWallets,
@@ -58,8 +57,7 @@ const AssetsView = () => {
     const handleConfirmReset = () => {
         setIsConfirmOpen(false);
         resetWallets();
-        setToastMessage('Balances successfully reset to default');
-        setTimeout(() => setToastMessage(''), 3000);
+        useExchangeStore.getState().showToast('Wallets Reset', 'Balances successfully reset to default', 'success');
     };
 
     return (
@@ -202,21 +200,6 @@ const AssetsView = () => {
                 confirmText="Reset"
             />
 
-            <AnimatePresence>
-                {toastMessage && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                        className="fixed top-[max(16px,var(--safe-area-top,16px))] left-4 right-4 bg-white/95 backdrop-blur-md flex items-center gap-3 px-4 py-3.5 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 z-[1000] text-[14px] font-semibold text-slate-800"
-                    >
-                        <div className="w-8 h-8 rounded-full bg-[#00C076]/10 flex items-center justify-center shrink-0">
-                            <Check size={18} className="text-[#00C076]" strokeWidth={3} />
-                        </div>
-                        {toastMessage}
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </div>
     );
 };

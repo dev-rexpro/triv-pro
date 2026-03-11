@@ -4,7 +4,6 @@ import { FiChevronLeft as ChevronLeft, FiSearch as Search, FiCheck as Check, FiC
 import { MdOutlineArrowDropDown as ChevronDown } from 'react-icons/md';
 import useExchangeStore from '../stores/useExchangeStore';
 import CoinIcon from '../components/CoinIcon';
-import SuccessDialog from '../components/SuccessDialog';
 
 const CryptoDepositView = () => {
     const { setActivePage, markets, assets, addTransaction, setWallets, wallets, session } = useExchangeStore();
@@ -16,7 +15,6 @@ const CryptoDepositView = () => {
     const [depositAccount, setDepositAccount] = useState<'Funding' | 'Trading'>('Funding');
     const [amount, setAmount] = useState('');
     const [isSimulating, setIsSimulating] = useState(false);
-    const [successDialog, setSuccessDialog] = useState({ isOpen: false, message: '' });
 
     // Filter unique coins from markets and assets to deposit
     const depositCoins = useMemo(() => {
@@ -102,16 +100,9 @@ const CryptoDepositView = () => {
             setWallets(w);
 
             setIsSimulating(false);
-            setSuccessDialog({
-                isOpen: true,
-                message: `Deposited ${numAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })} ${selectedCoin}\ninto ${depositAccount} via ${selectedNetwork}.`
-            });
+            useExchangeStore.getState().showToast('Deposit Successful', `Deposited ${numAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })} ${selectedCoin}\ninto ${depositAccount} via ${selectedNetwork}.`, 'success');
+            setActivePage('assets');
         }, 1500);
-    };
-
-    const handleSuccessClose = () => {
-        setSuccessDialog({ isOpen: false, message: '' });
-        setActivePage('assets');
     };
 
     return (
@@ -329,12 +320,6 @@ const CryptoDepositView = () => {
                 )}
             </AnimatePresence>
 
-            <SuccessDialog
-                isOpen={successDialog.isOpen}
-                title="Deposit Successful"
-                message={successDialog.message}
-                onClose={handleSuccessClose}
-            />
         </motion.div>
     );
 };
