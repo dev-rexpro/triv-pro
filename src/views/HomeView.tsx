@@ -186,7 +186,7 @@ const HomeView = () => {
 
     const chartData = useMemo(() => {
         const endValue = parseFloat(String(displayBalance).replace(/,/g, '')) || 0;
-        const pnlValue = parseFloat(String(displayPnl).replace(/,/g, '')) * (todayPnl >= 0 ? 1 : -1) || 0;
+        const pnlValue = parseFloat(String(displayPnl).replace(/,/g, '')) * (currentPnlData.value >= 0 ? 1 : -1) || 0;
 
         const pointsCount = noiseFactors.length;
         const result = new Array(pointsCount).fill(0);
@@ -292,10 +292,10 @@ const HomeView = () => {
                                             <span className="text-[15px] font-bold text-slate-300 leading-none">—</span>
                                         ) : (
                                             <>
-                                                <span className="text-[15px] font-bold leading-none">
+                                                <span className="text-sm font-medium leading-none">
                                                     {currentPnlData.value >= 0 ? '+' : '-'}{getCurrencySymbol(currency)}<SlotTicker value={Math.abs(displayPnl)} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" />
                                                 </span>
-                                                <span className="text-[12px] font-medium leading-none">
+                                                <span className="text-sm font-medium leading-none">
                                                     ({currentPnlData.value >= 0 ? '+' : ''}{Number(pnlPercentDisplay).toLocaleString('id-ID', { maximumFractionDigits: 2 })}%)
                                                 </span>
                                             </>

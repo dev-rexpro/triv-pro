@@ -102,7 +102,7 @@ export default function SpotTradeView() {
                 const data = await res.json();
                 setTicker(data);
                 if (priceInput === '') { // Changed from '0' to '' for initial state
-                    setPriceInput(data.lastPrice);
+                    setPriceInput(formatInput(parseFloat(data.lastPrice).toString()));
                 }
             } catch (err) { }
         };
@@ -491,7 +491,7 @@ export default function SpotTradeView() {
                                     const maxDAsks = totalAsks > 0 ? totalAsks : 1;
 
                                     return asksWithDepth.slice(-askLimit).map((ask: any, i: number) => (
-                                        <div key={`ask-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-slate-50" onClick={() => setPriceInput(ask.price.toString())}>
+                                        <div key={`ask-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-slate-50" onClick={() => setPriceInput(formatInput(ask.price.toFixed(precisionDecimals)))}>
                                             <div className="absolute right-0 top-0 h-full bg-[#ffecec] transition-all duration-300" style={{ width: `${(ask.depth / maxDAsks) * 100}%` }} />
                                             <span className="text-[#ef454a] font-medium relative z-10 text-[12px] tracking-tight">
                                                 {ask.price.toLocaleString('en-US', { minimumFractionDigits: precisionDecimals, maximumFractionDigits: precisionDecimals })}
@@ -531,7 +531,7 @@ export default function SpotTradeView() {
                                     const maxDBids = totalBids > 0 ? totalBids : 1;
 
                                     return bidsWithDepth.slice(0, bidLimit).map((bid: any, i: number) => (
-                                        <div key={`bid-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-slate-50" onClick={() => setPriceInput(bid.price.toString())}>
+                                        <div key={`bid-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-slate-50" onClick={() => setPriceInput(formatInput(bid.price.toFixed(precisionDecimals)))}>
                                             <div className="absolute right-0 top-0 h-full bg-[#e5f7ed] transition-all duration-300" style={{ width: `${(bid.depth / maxDBids) * 100}%` }} />
                                             <span className="text-[#20b26c] font-medium relative z-10 text-[12px] tracking-tight">
                                                 {bid.price.toLocaleString('en-US', { minimumFractionDigits: precisionDecimals, maximumFractionDigits: precisionDecimals })}

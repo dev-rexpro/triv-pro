@@ -8,6 +8,7 @@ import type {
 import type { BinanceSymbolInfo } from '../utils/api';
 import { supabase } from '../utils/supabase';
 import { Session, User } from '@supabase/supabase-js';
+import Decimal from 'decimal.js';
 
 // Throttle portfolio balance recalculation to 3s (like Binance/OKX/MEXC)
 // User-triggered actions (trades, deposits) pass force=true to bypass
@@ -955,46 +956,54 @@ const useExchangeStore = create<ExchangeState>()(
                     });
 
                     // 3. --- Calculate Balances & Asset Values ---
-                    let spotTotal = 0;
-                    let futuresTotal = 0;
-                    let earnTotal = 0;
-                    let weightedPnl = 0;
+                    let dSpotTotal = new Decimal(0);
+                    let dFuturesTotal = new Decimal(0);
+                    let dEarnTotal = new Decimal(0);
+                    let dWeightedPnl = new Decimal(0);
 
                     const finalWallets = fillOccurred ? updatedWallets : wallets;
 
                     const updatedAssets = Object.entries(finalWallets.spot).map(([symbol, amount]) => {
-                        let valueUsdt = amount as number;
-                        let changePercent = 0;
+                        let valueUsdt = new Decimal(amount as number);
+                        let changePercent = new Decimal(0);
                         if (symbol !== 'USDT' && symbol !== 'USDC') {
                             const market = markets.find(m => m.symbol === `${symbol}USDT` || m.symbol === `${symbol}USD`);
                             if (market) {
-                                valueUsdt = (amount as number) * parseFloat(market.lastPrice);
-                                changePercent = parseFloat(market.priceChangePercent);
+                                valueUsdt = new Decimal(amount as number).times(market.lastPrice);
+                                changePercent = new Decimal(market.priceChangePercent);
                             }
                         }
-                        spotTotal += valueUsdt;
-                        weightedPnl += valueUsdt * changePercent / 100;
-                        return { symbol, amount: amount as number, valueUsdt };
+                        dSpotTotal = dSpotTotal.plus(valueUsdt);
+                        dWeightedPnl = dWeightedPnl.plus(valueUsdt.times(changePercent).div(100));
+                        return { symbol, amount: amount as number, valueUsdt: valueUsdt.toNumber() };
                     }).filter(a => a.amount > 0 || a.symbol === 'USDT');
 
                     // Futures Wallet balance calculation
-                    futuresTotal = (finalWallets.futures.USDT || 0);
+                    dFuturesTotal = new Decimal(finalWallets.futures.USDT || 0);
                     const totalFuturesUnrealizedPnl = updatedPositions.reduce((sum, pos) => sum + (pos.pnl || 0), 0);
+                    const dFuturesUnrealizedPnl = new Decimal(totalFuturesUnrealizedPnl);
 
                     // Earn wallet
                     Object.entries(finalWallets.earn).forEach(([symbol, amount]) => {
-                        let valueUsdt = amount as number;
+                        let valueUsdt = new Decimal(amount as number);
                         if (symbol !== 'USDT' && symbol !== 'USDC') {
                             const market = markets.find(m => m.symbol === `${symbol}USDT` || m.symbol === `${symbol}USD`);
-                            if (market) valueUsdt = (amount as number) * parseFloat(market.lastPrice);
+                            if (market) valueUsdt = new Decimal(amount as number).times(market.lastPrice);
                         }
-                        earnTotal += valueUsdt;
+                        dEarnTotal = dEarnTotal.plus(valueUsdt);
                     });
 
-                    const totalValue = spotTotal + futuresTotal + earnTotal + totalFuturesUnrealizedPnl;
+                    const dTotalValue = dSpotTotal.plus(dFuturesTotal).plus(dEarnTotal).plus(dFuturesUnrealizedPnl);
+                    const spotTotal = dSpotTotal.toNumber();
+                    const futuresTotal = dFuturesTotal.toNumber();
+                    const earnTotal = dEarnTotal.toNumber();
+                    const weightedPnl = dWeightedPnl.toNumber();
+                    const totalValue = dTotalValue.toNumber();
                     // Apply 0.1% simulated spread/fee on the estimated total wealth for conservatism
-                    const conservativeTotalValue = totalValue * 0.999;
-                    const pnlPercentValue = totalValue > 0 ? ((weightedPnl + totalFuturesUnrealizedPnl) / totalValue) * 100 : 0;
+                    const conservativeTotalValue = dTotalValue.times(0.999).toNumber();
+                    const pnlPercentValue = dTotalValue.gt(0)
+                        ? dWeightedPnl.plus(dFuturesUnrealizedPnl).div(dTotalValue).times(100).toNumber()
+                        : 0;
 
                     // 4. --- Update BTC Rate ---
                     const btcMarket = markets.find(m => m.symbol === 'BTCUSDT');
@@ -1014,14 +1023,14 @@ const useExchangeStore = create<ExchangeState>()(
                         tradeHistory: fillOccurred ? updatedTradeHistory : tradeHistory,
                         positions: updatedPositions,
                         assets: updatedAssets,
-                        balance: totalValue,
-                        spotBalance: spotTotal,
-                        futuresBalance: futuresTotal,
-                        earnBalance: earnTotal,
-                        todayPnl: weightedPnl + totalFuturesUnrealizedPnl,
-                        todaySpotPnl: weightedPnl,
-                        pnlPercent: parseFloat(pnlPercentValue.toFixed(2)),
-                        futuresUnrealizedPnl: totalFuturesUnrealizedPnl,
+                        balance: new Decimal(totalValue).toDecimalPlaces(8).toNumber(),
+                        spotBalance: new Decimal(spotTotal).toDecimalPlaces(8).toNumber(),
+                        futuresBalance: new Decimal(futuresTotal).toDecimalPlaces(8).toNumber(),
+                        earnBalance: new Decimal(earnTotal).toDecimalPlaces(8).toNumber(),
+                        todayPnl: new Decimal(weightedPnl).plus(totalFuturesUnrealizedPnl).toDecimalPlaces(8).toNumber(),
+                        todaySpotPnl: new Decimal(weightedPnl).toDecimalPlaces(8).toNumber(),
+                        pnlPercent: new Decimal(pnlPercentValue).toDecimalPlaces(2).toNumber(),
+                        futuresUnrealizedPnl: new Decimal(totalFuturesUnrealizedPnl).toDecimalPlaces(8).toNumber(),
                         rates: newRates,
                         snapshots: nextSnapshots
                     };
@@ -1080,25 +1089,31 @@ const useExchangeStore = create<ExchangeState>()(
                 const periodFlow = transactionHistory
                     .filter(tx => tx.timestamp > baselineTimestamp && tx.status === 'Completed')
                     .reduce((acc, tx) => {
-                        if (tx.type === 'Deposit') return acc + tx.amount;
-                        if (tx.type === 'Withdrawal') return acc - tx.amount;
+                        const a = new Decimal(acc);
+                        if (tx.type === 'Deposit') return a.plus(tx.amount).toNumber();
+                        if (tx.type === 'Withdrawal') return a.minus(tx.amount).toNumber();
                         return acc;
                     }, 0);
 
-                // 5. Total PnL = Current Total Equity - (Baseline + Net Flow)
-                const currentPnL = (balance - historicalEquity) - periodFlow;
+                // 5. Total PnL = Current Total Equity - (Baseline + Net Flow) — using Decimal for precision
+                const dBalance = new Decimal(balance);
+                const dHistorical = new Decimal(historicalEquity);
+                const dPeriodFlow = new Decimal(periodFlow);
+                const dCurrentPnL = dBalance.minus(dHistorical).minus(dPeriodFlow);
 
                 // 6. Calculate Base Capital for ROI (Baseline + all Deposits in period)
                 const depositsInPeriod = transactionHistory
                     .filter(tx => tx.timestamp > baselineTimestamp && tx.status === 'Completed' && tx.type === 'Deposit')
-                    .reduce((acc, tx) => acc + tx.amount, 0);
+                    .reduce((acc, tx) => new Decimal(acc).plus(tx.amount).toNumber(), 0);
 
-                const baseCapital = historicalEquity + depositsInPeriod;
-                const pnlPct = baseCapital > 0 ? (currentPnL / baseCapital) * 100 : 0;
+                const dBaseCapital = dHistorical.plus(depositsInPeriod);
+                const dPnlPct = dBaseCapital.gt(0)
+                    ? dCurrentPnL.div(dBaseCapital).times(100)
+                    : new Decimal(0);
 
                 return {
-                    value: currentPnL,
-                    percent: parseFloat(pnlPct.toFixed(2)),
+                    value: dCurrentPnL.toDecimalPlaces(8).toNumber(),
+                    percent: dPnlPct.toDecimalPlaces(2).toNumber(),
                     hasData: baselineFound
                 };
             },

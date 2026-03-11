@@ -271,7 +271,19 @@ const HistoryView = () => {
                             <div className="font-bold text-[17px] text-slate-900 mb-4">{monthStr}</div>
                             <div className="space-y-6">
                                 {grouped[monthStr].map((tx: TransactionRecord, idx: number) => {
-                                    const isPositive = tx.type === 'Deposit' || (tx.type === 'Transfer' && tx.to === 'spot');
+                                    const isInflow = tx.type === 'Deposit'
+                                        || (tx.type === 'Transfer' && (
+                                            tx.to === 'spot' || tx.to === 'funding' || tx.to === 'earn'
+                                        ));
+                                    const isOutflow = tx.type === 'Withdrawal'
+                                        || (tx.type === 'Transfer' && (
+                                            tx.from === 'spot' || tx.from === 'funding'
+                                        ));
+                                    const amountColor = isInflow
+                                        ? 'text-[#00C076]'
+                                        : isOutflow
+                                            ? 'text-[#FF4D5B]'
+                                            : 'text-slate-500';
                                     return (
                                         <div key={idx} onClick={() => setSelectedTx(tx)} className="flex justify-between items-center cursor-pointer active:bg-slate-50 -mx-4 px-4 py-1">
                                             <div className="flex items-center gap-3">
@@ -289,9 +301,9 @@ const HistoryView = () => {
                                                     <div className="text-[13px] text-slate-400 font-medium leading-tight">{tx.status}</div>
                                                 </div>
                                             </div>
-                                            <div className={`font-medium text-[15px] flex items-center justify-end gap-1 ${isPositive ? 'text-[#00C076]' : 'text-[#FF3B30]'}`}>
+                                            <div className={`font-medium text-[15px] flex items-center justify-end gap-1 ${amountColor}`}>
                                                 <div className="flex flex-col items-end text-sm">
-                                                    <span>{isPositive ? '+' : '-'}{tx.amount}</span>
+                                                    <span>{isInflow ? '+' : isOutflow ? '-' : ''}{tx.amount}</span>
                                                     <span>{tx.currency === 'USDT' || tx.currency === 'FIAT' ? 'USDT' : tx.currency}</span>
                                                 </div>
                                                 <span className="-rotate-90 text-slate-400 mt-0.5"><ChevronDown size={16} /></span>

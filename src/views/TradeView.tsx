@@ -132,7 +132,7 @@ const TradeView = () => {
                 const data = await res.json();
                 setTicker(data);
                 if (!isPriceFocused && (priceInputRef.current === '0' || priceInputRef.current === '')) {
-                    setPriceInput(parseFloat(data.lastPrice).toString());
+                    setPriceInput(formatInput(parseFloat(data.lastPrice).toString()));
                 }
             } catch (err) { }
         };
@@ -869,7 +869,7 @@ const TradeView = () => {
                         return (orderBookView === 'both' || orderBookView === 'sell') && (
                             <div className="flex flex-col flex-1 justify-end relative gap-[1px]">
                                 {asksWithDepth.map((ask: any, i: number) => (
-                                    <div key={`ask-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-slate-50" onClick={() => setPriceInput(ask.price.toString())}>
+                                    <div key={`ask-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-slate-50" onClick={() => setPriceInput(formatInput(ask.price.toFixed(precisionDecimals)))}>
                                         <div className="absolute right-0 top-0 h-full bg-[#ffecec] transition-all duration-300" style={{ width: `${(ask.depth / maxDAsks) * 100}%` }} />
                                         <span className="text-[#ef454a] font-medium relative z-10 text-[12px] tracking-tight">
                                             {ask.price.toLocaleString('en-US', { minimumFractionDigits: precisionDecimals, maximumFractionDigits: precisionDecimals })}
@@ -909,7 +909,7 @@ const TradeView = () => {
                         return (orderBookView === 'both' || orderBookView === 'buy') && (
                             <div className="flex flex-col flex-1 relative gap-[1px]">
                                 {bidsWithDepth.map((bid: any, i: number) => (
-                                    <div key={`bid-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-slate-50" onClick={() => setPriceInput(bid.price.toString())}>
+                                    <div key={`bid-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-slate-50" onClick={() => setPriceInput(formatInput(bid.price.toFixed(precisionDecimals)))}>
                                         <div className="absolute right-0 top-0 h-full bg-[#e5f7ed] transition-all duration-300" style={{ width: `${(bid.depth / maxDBids) * 100}%` }} />
                                         <span className="text-[#20b26c] font-medium relative z-10 text-[12px] tracking-tight">
                                             {bid.price.toLocaleString('en-US', { minimumFractionDigits: precisionDecimals, maximumFractionDigits: precisionDecimals })}

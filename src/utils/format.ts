@@ -1,4 +1,32 @@
 import type { ExchangeRates, CurrencyCode } from '../types';
+import Decimal from 'decimal.js';
+
+/**
+ * Rounds a value using Decimal.js precision.
+ * type 'crypto' → up to 8 decimals, trimmed; type 'fiat' → exactly 2 decimals.
+ */
+export const formatPrecise = (value: number, type: 'crypto' | 'fiat' = 'fiat'): string => {
+    try {
+        const d = new Decimal(value);
+        if (type === 'crypto') {
+            return d.toDecimalPlaces(8, Decimal.ROUND_DOWN).toFixed();
+        }
+        return d.toFixed(2, Decimal.ROUND_DOWN);
+    } catch {
+        return type === 'fiat' ? Number(value).toFixed(2) : String(value);
+    }
+};
+
+/**
+ * Safely rounds a number to N decimal places using Decimal.js.
+ */
+export const roundToFixed = (value: number, decimals = 2): number => {
+    try {
+        return new Decimal(value).toDecimalPlaces(decimals, Decimal.ROUND_DOWN).toNumber();
+    } catch {
+        return parseFloat(value.toFixed(decimals));
+    }
+};
 
 export const formatPrice = (price: string | number): string => {
     const num = typeof price === 'string' ? parseFloat(price) : price;
