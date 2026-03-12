@@ -566,12 +566,12 @@ const TradeView = () => {
 
             {/* Symbol Header */}
             <div className="px-4 flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-primary)] sticky top-0 z-[100] h-[52px]" style={{ transform: 'translateZ(0)' }}>
-                <div className="flex items-center gap-2 cursor-pointer" onClick={() => setSearchOpen(true)}>
-                    <h1 className="text-[22px] font-bold text-[var(--text-primary)] leading-none">{activeTopTab === 'Futures' ? currentSymbol : currentSymbol.replace('USDT', '/USDT')}</h1>
+                <div className="flex items-center gap-2 cursor-pointer h-full" onClick={() => setSearchOpen(true)}>
+                    <h1 className="text-[18px] font-bold text-[var(--text-primary)] leading-none uppercase">{activeTopTab === 'Futures' ? currentSymbol : currentSymbol.replace('USDT', '/USDT')}</h1>
                     {activeTopTab === 'Futures' ? (
-                        <span className="bg-[var(--bg-secondary)] text-[#faad14] border border-[var(--border-color)] text-[11px] font-bold px-1.5 py-[1px] rounded-[4px] leading-none mt-0.5">Perp</span>
+                        <span className="bg-[#faad14]/10 text-[#faad14] text-[10px] font-bold px-1.5 py-[2px] rounded-[4px] leading-none">Perp</span>
                     ) : (
-                        <span className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-[11px] font-bold px-1.5 py-[1px] rounded-[4px] leading-none mt-0.5">10x</span>
+                        <span className="bg-slate-400/10 text-slate-400 text-[10px] font-bold px-1.5 py-[2px] rounded-[4px] leading-none">10x</span>
                     )}
                     <ArrowDropDown className="w-6 h-6 text-[var(--text-secondary)] mt-0.5" />
                 </div>
@@ -581,9 +581,9 @@ const TradeView = () => {
                 </div>
             </div>
 
-            <div className="flex">
+            <div className="flex items-stretch px-3 py-3">
                 {/* Left Panel: Trade Inputs */}
-                <div className="w-[58%] p-3 pr-2 flex flex-col gap-2.5">
+                <div className="w-[58%] pr-1 flex flex-col gap-2.5">
                     {activeTopTab === 'Futures' ? (
                         <>
                             <div className="flex gap-2">
@@ -770,18 +770,18 @@ const TradeView = () => {
 
                     <div className="flex flex-col gap-2.5 px-1 mt-1 mb-2">
                         {activeTopTab === 'Futures' && (
-                            <label className="flex items-center gap-2 cursor-pointer" onClick={() => setIsReduceOnly(!isReduceOnly)}>
-                                <div className={`w-[15px] h-[15px] rounded-[3px] flex items-center justify-center border-2 transition-colors ${isReduceOnly ? 'border-gray-900 bg-gray-900' : 'border-gray-400'}`}>
-                                    {isReduceOnly && <Check className="w-3 h-3 text-white stroke-[4]" />}
+                            <label className="flex items-center gap-2 cursor-pointer group" onClick={() => setIsReduceOnly(!isReduceOnly)}>
+                                <div className={`w-4 h-4 rounded-[3px] flex items-center justify-center border transition-colors ${isReduceOnly ? 'bg-[var(--btn-primary-bg)] border-[var(--btn-primary-bg)]' : 'border-[var(--border-strong)] bg-[var(--bg-card)]'}`}>
+                                    {isReduceOnly && <Check size={12} className="text-[var(--btn-primary-text)]" strokeWidth={3} />}
                                 </div>
-                                <span className="text-[13px] font-medium text-[var(--text-secondary)] border-b border-dashed border-gray-400 pb-[1px] leading-none">Reduce-only</span>
+                                <span className="text-[13px] font-medium text-[var(--text-secondary)] border-b border-dashed border-[var(--text-tertiary)] pb-[1px] leading-none transition-colors group-hover:text-[var(--text-primary)]">Reduce-only</span>
                             </label>
                         )}
-                        <label className="flex items-center gap-2 cursor-pointer" onClick={() => setIsTpSlEnabled(!isTpSlEnabled)}>
-                            <div className={`w-[15px] h-[15px] rounded-[3px] flex items-center justify-center border-2 transition-colors ${isTpSlEnabled ? 'border-gray-900 bg-gray-900' : 'border-gray-400'}`}>
-                                {isTpSlEnabled && <Check className="w-3 h-3 text-white stroke-[4]" />}
+                        <label className="flex items-center gap-2 cursor-pointer group" onClick={() => setIsTpSlEnabled(!isTpSlEnabled)}>
+                            <div className={`w-4 h-4 rounded-[3px] flex items-center justify-center border transition-colors ${isTpSlEnabled ? 'bg-[var(--btn-primary-bg)] border-[var(--btn-primary-bg)]' : 'border-[var(--border-strong)] bg-[var(--bg-card)]'}`}>
+                                {isTpSlEnabled && <Check size={12} className="text-[var(--btn-primary-text)]" strokeWidth={3} />}
                             </div>
-                            <span className="text-[13px] font-medium text-[var(--text-secondary)] border-b border-dashed border-gray-400 pb-[1px] leading-none">TP/SL</span>
+                            <span className="text-[13px] font-medium text-[var(--text-secondary)] border-b border-dashed border-[var(--text-tertiary)] pb-[1px] leading-none transition-colors group-hover:text-[var(--text-primary)]">TP/SL</span>
                         </label>
                     </div>
 
@@ -799,7 +799,7 @@ const TradeView = () => {
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex flex-col gap-2mt-auto mb-2">
+                    <div className="flex flex-col gap-2 mt-auto">
                         {activeTopTab === 'Futures' ? (
                             <>
                                 <div className="flex flex-col gap-1 text-[11px] px-1 mb-1.5">
@@ -823,7 +823,7 @@ const TradeView = () => {
                             </>
                         ) : (
                             <button
-                                className={`w-full h-[44px] rounded-full font-bold text-white text-[15px] mt-auto shadow-sm ${tradeSide === 'buy' ? 'bg-[var(--green)]' : 'bg-[var(--red)]'}`}
+                                className={`w-full h-[44px] rounded-full font-bold text-white text-[15px] shadow-sm ${tradeSide === 'buy' ? 'bg-[var(--green)]' : 'bg-[var(--red)]'}`}
                                 onClick={() => handlePlaceOrder()}
                             >
                                 {tradeSide === 'buy' ? `Buy ${baseCoin}` : `Sell ${baseCoin}`}
@@ -833,7 +833,7 @@ const TradeView = () => {
                 </div>
 
                 {/* Right Column: Order Book */}
-                <div className="w-[42%] p-3 pl-2 flex flex-col text-[11px]">
+                <div className="w-[42%] pl-1 flex flex-col text-[11px]">
                     <div className="flex items-center justify-end gap-2 mb-3 min-h-[30px]">
                         {activeTopTab === 'Spot' ? (
                             <div className="flex items-center gap-2">
@@ -976,7 +976,7 @@ const TradeView = () => {
                         );
                     })()}
 
-                    <div className="flex items-center gap-1.5 px-1">
+                    <div className="flex items-center gap-1.5 px-1 mt-auto">
                         <div
                             className="flex-1 flex items-center justify-between bg-[var(--bg-secondary)] border border-[var(--border-color)] px-2 h-[26px] rounded-[6px] text-[13px] font-semibold text-[var(--text-secondary)] cursor-pointer"
                             onClick={() => setIsPrecisionSheetOpen(true)}
@@ -1068,11 +1068,11 @@ const TradeView = () => {
             {/* Control Row (Current symbol / Cancel all) - Root level for robust stickiness */}
             {(activeTab === 'orders' || activeTab === 'positions') && (
                 <div className="px-4 py-2.5 flex items-center justify-between bg-[var(--bg-primary)] border-b border-[var(--border-color)] sticky top-[100px] z-[80]" style={{ transform: 'translateZ(0)' }}>
-                    <label className="flex items-center gap-2 cursor-pointer" onClick={() => setIsCurrentSymbolChecked(!isCurrentSymbolChecked)}>
-                        <div className={`w-[15px] h-[15px] rounded-[3px] flex items-center justify-center border-[1.5px] transition-colors ${isCurrentSymbolChecked ? 'border-gray-900 bg-gray-900' : 'border-[var(--border-strong)] bg-[var(--bg-primary)]'}`}>
-                            {isCurrentSymbolChecked && <Check className="w-3 h-3 text-white stroke-[4]" />}
+                    <label className="flex items-center gap-2 cursor-pointer group" onClick={() => setIsCurrentSymbolChecked(!isCurrentSymbolChecked)}>
+                        <div className={`w-4 h-4 rounded-[3px] flex items-center justify-center border transition-colors ${isCurrentSymbolChecked ? 'bg-[var(--btn-primary-bg)] border-[var(--btn-primary-bg)]' : 'border-[var(--border-strong)] bg-[var(--bg-card)]'}`}>
+                            {isCurrentSymbolChecked && <Check size={12} className="text-[var(--btn-primary-text)]" strokeWidth={3} />}
                         </div>
-                        <span className="text-[13px] font-medium text-[var(--text-primary)]">Current symbol</span>
+                        <span className="text-[13px] font-medium text-[var(--text-primary)] transition-colors group-hover:text-[var(--text-secondary)]">Current symbol</span>
                     </label>
                     <button
                         className={`text-[12px] font-semibold px-3 py-1.5 rounded-full transition-colors ${(openOrders.length > 0 || (activeTab === 'positions' && (positions.length > 0 || Object.keys(spotCostBasis).length > 0))) ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--bg-hover)]' : 'bg-[var(--input-bg)] text-[var(--text-tertiary)] cursor-not-allowed'}`}

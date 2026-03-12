@@ -360,9 +360,6 @@ const useExchangeStore = create<ExchangeState>()(
                     };
 
                     data.forEach((w: any) => {
-                        // Map 'funding' to 'spot' for internal demo logic if needed, 
-                        // but schema says 'funding', 'trading', 'earn'. 
-                        // The store uses 'spot', 'futures', 'earn'.
                         const typeMap = { 'funding': 'spot', 'trading': 'futures', 'earn': 'earn' };
                         const storeType = typeMap[w.type] || w.type;
                         if (newWallets[storeType]) {
@@ -373,35 +370,8 @@ const useExchangeStore = create<ExchangeState>()(
                     set({ wallets: newWallets });
                     get().updateAssetPrices(true);
                 } else {
-                    // If no wallets found in DB, but user is logged in, 
-                    // we could seed the default demo 500 USDT to the DB here
-                    try {
-                        await supabase.from('wallets').insert([
-                            { user_id: user.id, type: 'funding', coin_symbol: 'USDT', balance: 500 }
-                        ]);
-
-                        // Seed the transaction history for this default deposit
-                        await supabase.from('transactions').insert([
-                            {
-                                user_id: user.id,
-                                type: 'deposit',
-                                amount: 500,
-                                currency: 'USDT',
-                                to_wallet: 'funding',
-                                status: 'completed'
-                            }
-                        ]);
-
-                        // Refetch after seeding
-                        const { data: seededData } = await supabase.from('wallets').select('*').eq('user_id', user.id);
-                        if (seededData && seededData.length > 0) {
-                            const newWallets = { spot: { USDT: 500 }, futures: {}, earn: {} };
-                            set({ wallets: newWallets });
-                            get().updateAssetPrices(true);
-                        }
-                    } catch (e) {
-                        console.error('Wallet seeding failed:', e);
-                    }
+                    // Seeding is now handled by the database trigger on public.profiles creation
+                    // No action needed here, just refetch in next step
                 }
             },
 
@@ -434,7 +404,7 @@ const useExchangeStore = create<ExchangeState>()(
                     .from('profiles')
                     .select('preferences')
                     .eq('id', user.id)
-                    .single();
+                    .maybeSingle(); // maybeSingle returns null if no rows instead of erroring 406
 
                 const updatedPreferences = {
                     ...(profile?.preferences || {}),
@@ -445,8 +415,11 @@ const useExchangeStore = create<ExchangeState>()(
 
                 await supabase
                     .from('profiles')
-                    .update({ preferences: updatedPreferences })
-                    .eq('id', user.id);
+                    .upsert({ 
+                        id: user.id, 
+                        preferences: updatedPreferences,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'id' });
             },
 
             fetchSupabaseFavorites: async () => {
@@ -457,13 +430,16 @@ const useExchangeStore = create<ExchangeState>()(
                     .from('profiles')
                     .select('preferences')
                     .eq('id', user.id)
-                    .single();
+                    .maybeSingle();
 
                 if (!error && data?.preferences) {
                     const { favorites, favoriteGroups, hiddenGroups } = data.preferences;
                     if (favorites) set({ favorites });
                     if (favoriteGroups) set({ favoriteGroups });
                     if (hiddenGroups) set({ hiddenGroups });
+                } else if (!data) {
+                    // Profile doesn't exist, create it
+                    await get().syncFavoritesToSupabase();
                 }
             },
 
@@ -490,10 +466,37 @@ const useExchangeStore = create<ExchangeState>()(
                 }, 1000);
             },
 
-            setSession: (session) => set({ session, user: session?.user ?? null }),
+            setSession: (session) => {
+                const currentUser = get().user;
+                const nextUser = session?.user ?? null;
+                
+                // If user changed (login to different account or logout)
+                if (currentUser?.id !== nextUser?.id) {
+                    set({ 
+                        wallets: { spot: {}, futures: {}, earn: {} },
+                        transactionHistory: [],
+                        tradeHistory: [],
+                        positions: [],
+                        openOrders: [],
+                        positionHistory: [],
+                        assets: [],
+                        balance: 0,
+                        spotBalance: 0,
+                        futuresBalance: 0,
+                        earnBalance: 0,
+                        todayPnl: 0,
+                        todaySpotPnl: 0,
+                        pnlPercent: 0,
+                        session, 
+                        user: nextUser 
+                    });
+                } else {
+                    set({ session, user: nextUser });
+                }
+            },
             signOut: async () => {
                 await supabase.auth.signOut();
-                set({ session: null, user: null });
+                // setSession will handle state clearing via listener
             },
 
             // Demo Actions Impl
@@ -809,16 +812,23 @@ const useExchangeStore = create<ExchangeState>()(
                 get().showToast('Position Closed', `Futures position ${pos.pair} closed successfully.`, 'success');
             },
 
-            resetWallets: () => {
+            resetWallets: async () => {
+                const { user } = get();
+                if (!user) return;
+
+                const { error } = await supabase.rpc('full_reset_user_data', { p_user_id: user.id });
+                
+                if (error) {
+                    console.error('Full reset failed:', error);
+                    get().showToast('Reset Failed', 'Could not clear data in Supabase.', 'error');
+                    return;
+                }
+
+                // Update local state to match the reset
                 const now = Date.now();
-                const todayMidnight = new Date(new Date().toISOString().split('T')[0]).getTime(); // midnight today
+                const todayMidnight = new Date(new Date().toISOString().split('T')[0]).getTime();
                 const initialHistory = [
                     { id: `INIT-USDT-${now}`, type: 'Deposit', status: 'Completed', amount: 500, currency: 'USDT', timestamp: todayMidnight - 1, to: 'Spot' },
-                ];
-
-                const defaultFavorites = [
-                    'BTCUSDT:spot', 'ETHUSDT:spot', 'SOLUSDT:spot', 'DOGEUSDT:spot', 'XRPUSDT:spot',
-                    'BTCUSDT:futures', 'ETHUSDT:futures', 'SOLUSDT:futures', 'DOGEUSDT:futures', 'XRPUSDT:futures'
                 ];
 
                 set({
@@ -833,7 +843,7 @@ const useExchangeStore = create<ExchangeState>()(
                     positions: [],
                     openOrders: [],
                     positionHistory: [],
-                    snapshots: { [new Date().toISOString().split('T')[0]]: 500 },
+                    snapshots: { [new Date().toISOString().split('T')[0]]: 0 },
                     balance: 500,
                     spotBalance: 500,
                     futuresBalance: 0,
@@ -842,31 +852,11 @@ const useExchangeStore = create<ExchangeState>()(
                     todaySpotPnl: 0,
                     pnlPercent: 0,
                     assets: [{ symbol: 'USDT', amount: 500, valueUsdt: 500 }],
-                    favorites: defaultFavorites,
-                    favoriteGroups: {},
-                    hiddenGroups: [],
+                    favorites: get().favorites, // Keep favorites
                 });
 
-                // Sync to Supabase
-                const { user } = get();
-                if (user) {
-                    supabase.from('wallets').upsert([
-                        { user_id: user.id, type: 'funding', coin_symbol: 'USDT', balance: 500 },
-                        { user_id: user.id, type: 'trading', coin_symbol: 'USDT', balance: 0 },
-                        { user_id: user.id, type: 'earn', coin_symbol: 'USDT', balance: 0 },
-                    ], { onConflict: 'user_id,type,coin_symbol' }).then();
-
-                    supabase.from('transactions').insert([{
-                        user_id: user.id,
-                        type: 'deposit',
-                        amount: 500,
-                        currency: 'USDT',
-                        to_wallet: 'funding',
-                        status: 'completed'
-                    }]).then();
-                }
-
                 get().updateAssetPrices(true);
+                get().showToast('Account Reset', 'All data cleared and balance reset to 500 USDT.', 'success');
             },
 
             // Auto-Calculation: recalculate asset values from latest market prices and wallets
@@ -1033,7 +1023,7 @@ const useExchangeStore = create<ExchangeState>()(
                     // 5. --- Snapshot logic ---
                     const today = new Date().toISOString().split('T')[0];
                     const nextSnapshots = { ...state.snapshots };
-                    if (!nextSnapshots[today]) nextSnapshots[today] = totalValue;
+                    if (state.snapshots[today] === undefined) nextSnapshots[today] = totalValue;
 
                     return {
                         wallets: finalWallets,
@@ -1172,7 +1162,13 @@ const useExchangeStore = create<ExchangeState>()(
                 get().updateAssetPrices(true);
             },
         }),
-        { name: 'triv-ultra-storage' }
+        {
+            name: 'triv-ultra-storage',
+            partialize: (state) => {
+                const { toastMessage, ...rest } = state;
+                return rest;
+            }
+        }
     )
 );
 

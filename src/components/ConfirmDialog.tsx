@@ -30,7 +30,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                             <button onClick={onCancel} className="flex-1 py-3.5 rounded-full font-bold text-[15px] bg-[var(--bg-secondary)] text-[var(--text-primary)] active:scale-95 transition-transform">
                                 {cancelText}
                             </button>
-                            <button onClick={onConfirm} className="flex-1 py-3.5 rounded-full font-bold text-[15px] bg-[#FF4D5B] text-white active:scale-95 transition-transform">
+                            <button onClick={onConfirm} className="flex-1 py-3.5 rounded-full font-bold text-[15px] bg-[var(--red)] text-white shadow-lg active:scale-95 transition-transform">
                                 {confirmText}
                             </button>
                         </div>

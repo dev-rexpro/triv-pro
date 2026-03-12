@@ -79,8 +79,8 @@ const ModeSelectorSheet: React.FC<ModeSelectorSheetProps> = ({ isOpen, onClose, 
                                             onClose();
                                         }}
                                         className={`flex items-center gap-4 py-2.5 px-4 rounded-lg border-2 transition-all text-left ${isSelected
-                                            ? 'border-slate-900 bg-[var(--bg-card)] shadow-sm'
-                                            : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-slate-200'
+                                            ? 'border-[var(--text-secondary)] bg-[var(--bg-card)] shadow-sm'
+                                            : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-[var(--border-strong)]'
                                             }`}
                                     >
                                         <div className={`${mode.color} flex items-center justify-center`}>
@@ -91,7 +91,7 @@ const ModeSelectorSheet: React.FC<ModeSelectorSheetProps> = ({ isOpen, onClose, 
                                             <div className="text-sm text-[var(--text-secondary)] font-normal">{mode.description}</div>
                                         </div>
                                         {isSelected && (
-                                            <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center">
+                                            <div className="w-5 h-5 rounded-full bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] flex items-center justify-center">
                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                                                     <polyline points="20 6 9 17 4 12" />
                                                 </svg>

@@ -248,7 +248,7 @@ const HomeView = () => {
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]">
                         <Search size={18} />
                     </div>
-                    <div className="w-full bg-[var(--bg-secondary)] border-none rounded-full py-3 pl-11 pr-4 h-[44px] flex items-center">
+                    <div className="w-full bg-[var(--bg-secondary)] border-none rounded-full py-3 pl-11 pr-4 h-[40px] flex items-center">
                         <AnimatedPlaceholder className="ml-0" />
                     </div>
                 </div>
@@ -479,7 +479,7 @@ const HomeView = () => {
                 onSelect={(mode) => setCurrentMode(mode)}
             />
 
-            <footer className="mt-0 mb-4 px-4 border-t border-[var(--border-color)] pt-3 pb-10 flex flex-col items-center text-center">
+            <footer className="mt-0 mb-4 px-4 pb-10 flex flex-col items-center text-center">
                 <div className="flex flex-col items-center gap-3 mb-10">
                     <span className="text-[13px] font-medium text-[var(--text-tertiary)]">Licensed and supervised by</span>
                     <div className="flex items-center gap-8 opacity-60">

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IoClose } from 'react-icons/io5';
+import { FiCheck as Check } from 'react-icons/fi';
 
 interface OrderConfirmationModalProps {
     isOpen: boolean;
@@ -127,20 +128,17 @@ const OrderConfirmationModal: React.FC<OrderConfirmationModalProps> = ({
                         </p>
 
                         {/* Don't show again checkbox */}
-                        <label className="flex items-center gap-3 mb-8 cursor-pointer select-none text-[var(--text-primary)]">
-                            <input
-                                type="checkbox"
-                                checked={dontShowAgain}
-                                onChange={(e) => setDontShowAgain(e.target.checked)}
-                                className="w-[18px] h-[18px] rounded border-[var(--border-strong)] text-[var(--text-primary)] focus:ring-0 accent-gray-900"
-                            />
+                        <label className="flex items-center gap-3 mb-8 cursor-pointer select-none text-[var(--text-primary)]" onClick={() => setDontShowAgain(!dontShowAgain)}>
+                            <div className={`w-[18px] h-[18px] rounded-[4px] flex items-center justify-center border transition-colors ${dontShowAgain ? 'bg-[var(--btn-primary-bg)] border-[var(--btn-primary-bg)]' : 'border-[var(--border-strong)] bg-[var(--bg-card)]'}`}>
+                                {dontShowAgain && <Check size={14} className="text-[var(--btn-primary-text)]" />}
+                            </div>
                             <span className="text-[15px] font-medium">Don't show again</span>
                         </label>
 
                         {/* Confirm Button */}
                         <button
                             onClick={() => onConfirm(dontShowAgain)}
-                            className={`w-full py-4 rounded-full font-bold text-[17px] text-white shadow-lg active:scale-[0.98] transition-all ${isBuy ? 'bg-[var(--green)] shadow-green-100' : 'bg-[var(--red)] shadow-red-100'
+                            className={`w-full py-4 rounded-full font-bold text-[17px] text-white shadow-xl active:scale-[0.98] transition-all ${isBuy ? 'bg-[var(--green)]' : 'bg-[var(--red)]'
                                 }`}
                         >
                             Confirm

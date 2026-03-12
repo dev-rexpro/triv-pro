@@ -102,7 +102,7 @@ const PairPickerOverlay = () => {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         autoFocus
-                        className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-secondary)] rounded-xl text-[14px] placeholder:text-[var(--text-tertiary)] outline-none font-medium"
+                        className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-secondary)] rounded-xl text-[14px] placeholder:text-[var(--text-tertiary)] outline-none font-medium h-[40px]"
                     />
                 </div>
             </div>
@@ -164,8 +164,8 @@ const PairPickerOverlay = () => {
                                         <div className="flex items-center gap-1.5">
                                             <span className="font-bold text-[14px] text-[var(--text-primary)]">{item.baseAsset}</span>
                                             <span className="text-[11px] text-[var(--text-tertiary)] font-medium">/{item.quoteAsset}</span>
-                                            {isFutures && <span className="text-[9px] font-bold text-[var(--text-secondary)] bg-[var(--bg-secondary)] px-1 py-[1px] rounded leading-none">Perp</span>}
-                                            {!isFutures && <span className="text-[9px] font-bold text-[var(--text-secondary)] bg-[var(--bg-secondary)] px-1 py-[1px] rounded leading-none">5x</span>}
+                                            {isFutures && <span className="text-[10px] font-bold text-[#faad14] bg-[#faad14]/15 px-1.5 py-[2px] rounded uppercase leading-none">Perp</span>}
+                                            {!isFutures && <span className="text-[10px] font-bold text-slate-400 bg-slate-400/10 px-1.5 py-[2px] rounded uppercase leading-none">Spot</span>}
                                         </div>
                                         <div className="text-[10px] text-[var(--text-tertiary)] font-medium">
                                             Vol {formatVol(vol)}

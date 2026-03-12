@@ -210,8 +210,12 @@ const ChartTradeView = () => {
                         <div>
                             <div className="flex items-center gap-2 cursor-pointer" onClick={() => setSearchOpen(true)}>
                                 <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">{selectedCoin.replace('USDT', '/USDT')}</h1>
-                                <span className="text-[11px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded">Spot</span>
-                                <span className="text-[11px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded">10x</span>
+                                {isFutures ? (
+                                    <span className="bg-[#faad14]/10 text-[#faad14] text-[10px] font-bold px-1.5 py-[2px] rounded-[4px] leading-none">Perp</span>
+                                ) : (
+                                    <span className="bg-slate-400/10 text-slate-400 text-[10px] font-bold px-1.5 py-[2px] rounded-[4px] leading-none">Spot</span>
+                                )}
+                                <span className="bg-slate-400/10 text-slate-400 text-[10px] font-bold px-1.5 py-[2px] rounded-[4px] leading-none">10x</span>
                                 <ArrowDropDown className="w-6 h-6 text-[var(--text-secondary)] mt-0.5" />
                             </div>
                             <div className="flex items-center gap-2 mt-0.5">
@@ -275,8 +279,8 @@ const ChartTradeView = () => {
                                             </div>
                                         )}
                                         {cgMcapRank && (
-                                            <div className="flex items-center gap-1 mt-2.5 text-[10px] text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded w-max">
-                                                <span className="font-bold">🏆 No. {cgMcapRank}</span> <span className="text-orange-200">|</span> Market Cap Rank
+                                            <div className="flex items-center gap-1 mt-2.5 text-[10px] text-[#faad14] bg-[#faad14]/10 px-1.5 py-[2px] rounded-[4px] w-max leading-none">
+                                                <span className="font-bold">🏆 No. {cgMcapRank}</span> <span className="text-[#faad14]/30">|</span> Market Cap Rank
                                             </div>
                                         )}
                                     </div>

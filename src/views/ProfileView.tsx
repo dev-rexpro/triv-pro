@@ -55,9 +55,10 @@ const ProfileView = () => {
                     onClick={() => setActivePage('user-center')}
                 >
                     <div className="flex items-center gap-3">
-                        <div className="w-16 h-16 rounded-full bg-[var(--bg-secondary)] overflow-hidden relative">
-                            <div className="absolute inset-0 bg-[url('https://api.dicebear.com/7.x/shapes/svg?seed=wave')] bg-cover opacity-80 mix-blend-multiply grayscale contrast-125"></div>
-                            <div className="absolute inset-0 w-full h-full object-cover grayscale mix-blend-overlay opacity-50 bg-gradient-to-tr from-black to-transparent" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 1px, rgba(0,0,0,0.1) 1px, rgba(0,0,0,0.1) 2px)' }}></div>
+                        <div className="w-16 h-16 rounded-full bg-[var(--btn-primary-bg)] flex items-center justify-center shadow-inner overflow-hidden relative">
+                            <span className="text-[28px] font-bold text-[var(--btn-primary-text)] select-none">
+                                {email?.charAt(0).toUpperCase() || 'U'}
+                            </span>
                         </div>
                         <div className="flex flex-col">
                             <h2 className="text-[22px] font-bold text-[var(--text-primary)] leading-tight tracking-tight">{maskedEmail}</h2>

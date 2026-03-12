@@ -169,7 +169,7 @@ const SearchOverlay = ({ mode = 'search', onSelect, onClose }: { mode?: 'search'
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-primary)]" size={18} strokeWidth={2.5} />
                     <input
                         autoFocus
-                        className="w-full bg-[var(--bg-secondary)] border-none rounded-full py-2.5 pl-11 pr-4 text-[15px] font-medium placeholder:text-transparent focus:ring-0 focus:outline-none"
+                        className="w-full bg-[var(--bg-secondary)] border-none rounded-full py-2.5 pl-11 pr-4 text-[15px] font-medium placeholder:text-transparent focus:ring-0 focus:outline-none h-[40px]"
                         placeholder=""
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -303,7 +303,7 @@ const SearchOverlay = ({ mode = 'search', onSelect, onClose }: { mode?: 'search'
                                                     <div className="flex items-center gap-1.5">
                                                         <span className="font-bold text-[15px] text-[var(--text-primary)] uppercase">{item.baseAsset}</span>
                                                         <span className="text-[12px] text-[var(--text-tertiary)] font-medium whitespace-nowrap">/{item.quoteAsset}</span>
-                                                        {item.quoteAsset === 'USDT' && <span className="text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--bg-secondary)] px-1.5 py-[2px] rounded leading-none">5x</span>}
+                                                        {item.quoteAsset === 'USDT' && <span className="text-[10px] font-bold text-slate-400 bg-slate-400/10 px-1.5 py-[2px] rounded uppercase leading-none">Spot</span>}
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-3">
@@ -351,7 +351,7 @@ const SearchOverlay = ({ mode = 'search', onSelect, onClose }: { mode?: 'search'
                                                     <CoinIcon symbol={item.baseAsset} size={8} />
                                                     <div className="flex items-center gap-1.5">
                                                         <span className="font-bold text-[15px] text-[var(--text-primary)] uppercase">{item.symbol}</span>
-                                                        <span className="text-[11px] font-bold text-orange-500 bg-[#FFF8E6] px-1.5 py-0.5 rounded leading-none">Perp</span>
+                                                        <span className="text-[10px] font-bold text-[#faad14] bg-[#faad14]/15 px-1.5 py-[2px] rounded uppercase leading-none">Perp</span>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-3">

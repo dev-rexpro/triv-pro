@@ -26,7 +26,7 @@ const MarketRow = React.memo(({ coin, showPerp = true, onClick }: MarketRowProps
                     <div className="flex items-center gap-1.5">
                         <span className="font-medium text-[15px] text-[var(--text-primary)] uppercase">{showPerp ? coin.symbol : coin.symbol.replace('USDT', '')}</span>
                         {showPerp ? (
-                            <span className="text-[11px] bg-[#FFF8E6] text-orange-500 px-1.5 py-0.5 rounded font-bold uppercase leading-none dark:bg-orange-500/15">Perp</span>
+                            <span className="text-[10px] bg-[#faad14]/15 text-[#faad14] px-1.5 py-[2px] rounded font-bold uppercase leading-none">Perp</span>
                         ) : (
                             <span className="text-[12px] text-[var(--text-tertiary)] font-medium">/USDT</span>
                         )}

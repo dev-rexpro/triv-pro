@@ -227,12 +227,12 @@ const MarketView = () => {
     return (
         <div className="pb-24 bg-[var(--bg-primary)] min-h-screen font-sans">
             <div className="p-4 pt-[calc(16px+var(--safe-area-top))] flex gap-4 items-center">
-                <div className="relative flex-1 flex items-center bg-[var(--bg-secondary)] rounded-full px-4 py-2.5 cursor-pointer h-[44px]" onClick={() => setSearchOpen(true)}>
+                <div className="relative flex-1 flex items-center bg-[var(--bg-secondary)] rounded-full px-4 py-2.5 cursor-pointer h-[40px]" onClick={() => setSearchOpen(true)}>
                     <Search className="text-[var(--text-tertiary)] mr-2" size={18} />
                     <AnimatedPlaceholder className="ml-0" />
                 </div>
                 <div className="relative">
-                    <AlarmClock size={24} strokeWidth={1.5} className="text-[var(--text-primary)]" />
+                    <AlarmClock size={20} strokeWidth={1.5} className="text-[var(--text-primary)]" />
                     <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-[var(--bg-primary)]" />
                 </div>
             </div>

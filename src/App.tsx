@@ -29,6 +29,8 @@ import UserCenterView from './views/UserCenterView';
 import SearchOverlay from './components/SearchOverlay';
 import DepositBottomSheet from './components/DepositBottomSheet';
 import PairPickerOverlay from './components/PairPickerOverlay';
+import GlobalToast from './components/GlobalToast';
+
 
 // Icons
 import { RiFundsBoxLine, RiNewspaperLine, RiWalletLine } from 'react-icons/ri';
@@ -261,6 +263,7 @@ export default function App() {
           </button>
         </nav>
       )}
+      <GlobalToast />
     </div>
   );
 }

@@ -40,9 +40,8 @@ const UserCenterView = () => {
             <div className="flex-1 overflow-y-auto px-4 pb-10">
                 {/* Avatar Section */}
                 <div className="flex flex-col items-center mt-6 mb-8">
-                    <div className="w-[72px] h-[72px] rounded-full bg-[var(--bg-secondary)] overflow-hidden relative mb-4">
-                        <div className="absolute inset-0 bg-[url('https://api.dicebear.com/7.x/shapes/svg?seed=wave')] bg-cover opacity-80 mix-blend-multiply grayscale contrast-125"></div>
-                        <div className="absolute inset-0 w-full h-full object-cover grayscale mix-blend-overlay opacity-50 bg-gradient-to-tr from-black to-transparent" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 1px, rgba(0,0,0,0.1) 1px, rgba(0,0,0,0.1) 2px)' }}></div>
+                    <div className="w-[72px] h-[72px] rounded-full bg-[var(--btn-primary-bg)] flex items-center justify-center shadow-inner overflow-hidden relative mb-4 text-[var(--btn-primary-text)] font-bold text-[32px] select-none">
+                        {email?.charAt(0).toUpperCase() || 'U'}
                     </div>
                     <h2 className="text-[20px] font-bold text-[var(--text-primary)] mb-2">{email}</h2>
                     <button className="bg-[#f5f7f9] text-[var(--text-secondary)] px-4 py-1.5 rounded-full text-[13px] font-medium flex items-center gap-1.5 active:scale-95 transition-transform">
