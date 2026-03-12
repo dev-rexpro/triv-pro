@@ -231,7 +231,7 @@ const AuthView = () => {
                                         onClick={() => setIsAgreed(!isAgreed)}
                                         className={`w-5 h-5 rounded-[4px] flex items-center justify-center border cursor-pointer transition-colors ${isAgreed ? 'bg-[var(--green)] border-[var(--green)]' : 'border-[var(--border-strong)] bg-[var(--bg-secondary)]'}`}
                                     >
-                                        {isAgreed && <Check size={14} className="text-white" />}
+                                        {isAgreed && <Check size={14} color="white" />}
                                     </div>
                                 </div>
                                 <p className="text-[13px] text-[var(--text-secondary)] leading-normal">

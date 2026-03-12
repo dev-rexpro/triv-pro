@@ -16,7 +16,7 @@ import { RiPlayListAddFill as MoreHorizontal } from 'react-icons/ri';
 import { PiDotsSixBold as AlignRight } from 'react-icons/pi';
 import { IoClose as XIcon, IoShareOutline as FiShare2 } from 'react-icons/io5';
 import { FiEdit2, FiUpload as FiUploadLine } from 'react-icons/fi';
-import { formatCurrency, getCurrencySymbol, formatPrice } from '../utils/format';
+import { formatCurrency, getCurrencySymbol, formatPrice, formatAbbreviated } from '../utils/format';
 import { motion, AnimatePresence } from 'framer-motion';
 import useExchangeStore from '../stores/useExchangeStore';
 import SuccessDialog from '../components/SuccessDialog';
@@ -24,20 +24,34 @@ import OrderConfirmationModal from '../components/OrderConfirmationModal';
 import LeverageBottomSheet from '../components/LeverageBottomSheet';
 const RealChart = React.lazy(() => import('../components/RealChart'));
 import trivLogo from '../assets/triv-logo.svg';
+import { useOrderBookSocket } from '../hooks/useOrderBookSocket';
+import { useTickerSocket } from '../hooks/useTickerSocket';
 
 const TradeView = () => {
     const {
         setActivePage, wallets, markets, openOrders, positions,
         spotCostBasis, placeSpotOrder, cancelSpotOrder, placeFuturesOrder,
         closeFuturesPosition, showOrderConfirmation, setShowOrderConfirmation,
-        closeAll, tradeType, setTradeType, selectedCoin, setSearchOpen
+        closeAll, tradeType, setTradeType, selectedCoin, setSearchOpen,
+        futuresSymbols, nextFundingTime, fundingRate
     } = useExchangeStore();
 
+    const [activeTopTab, setActiveTopTab] = useState<'Spot' | 'Futures' | 'Bots' | 'Convert'>(tradeType === 'futures' ? 'Futures' : 'Spot');
     const currentSymbol = selectedCoin || 'BTCUSDT';
-    const baseCoin = currentSymbol.replace('USDT', '');
+    
+    const tradingSymbol = useMemo(() => {
+        if (activeTopTab !== 'Futures') return currentSymbol;
+        const exists = (futuresSymbols || []).some(s => s.symbol === currentSymbol);
+        if (exists) return currentSymbol;
+        const base = currentSymbol.replace('USDT', '');
+        const mapped = `1000${base}USDT`;
+        const mappedExists = (futuresSymbols || []).some(s => s.symbol === mapped);
+        if (mappedExists) return mapped;
+        return currentSymbol;
+    }, [activeTopTab, currentSymbol, futuresSymbols]);
+
+    const baseCoin = tradingSymbol.replace('USDT', '');
     const [tradeSide, setTradeSide] = useState<'buy' | 'sell'>('buy');
-    const [ticker, setTicker] = useState<any>(null);
-    const [orderBook, setOrderBook] = useState({ bids: [], asks: [] });
     const [priceInput, setPriceInput] = useState('0');
     const [amountInput, setAmountInput] = useState('');
     const [sliderPercent, setSliderPercent] = useState(0);
@@ -55,14 +69,8 @@ const TradeView = () => {
     const [isAssetFilterSheetOpen, setIsAssetFilterSheetOpen] = useState(false);
     const [orderType, setOrderType] = useState<'Limit' | 'Market' | 'TP/SL'>('Limit');
     const [isOrderTypeSheetOpen, setIsOrderTypeSheetOpen] = useState(false);
-
-    const [activeTopTab, setActiveTopTab] = useState<'Spot' | 'Futures' | 'Bots' | 'Convert'>('Spot');
     const [isReduceOnly, setIsReduceOnly] = useState(false);
-    const [secondsRemaining, setSecondsRemaining] = useState(8430);
-    // Order Confirmation Modal State
     const [isCloseAllConfirmOpen, setIsCloseAllConfirmOpen] = useState(false);
-
-    // Futures Specific State
     const [marginMode, setMarginMode] = useState<'Isolated' | 'Cross'>('Isolated');
     const [leverage, setLeverage] = useState(50);
     const [isMarginModeSheetOpen, setIsMarginModeSheetOpen] = useState(false);
@@ -70,23 +78,42 @@ const TradeView = () => {
     const [activeInterval, setActiveInterval] = useState('1h');
     const [isPriceFocused, setIsPriceFocused] = useState(false);
     const priceInputRef = useRef(priceInput);
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [pendingOrder, setPendingOrder] = useState<any>(null);
+
+    const wsType = activeTopTab === 'Futures' ? 'futures' : 'spot';
+    const wsTicker = useTickerSocket(tradingSymbol, wsType);
+    const { orderBook: wsOrderBook } = useOrderBookSocket(tradingSymbol, wsType, 20);
+
+    // Compat with existing code (mapping numeric/array types)
+    const ticker = useMemo(() => {
+        if (!wsTicker) return null;
+        return {
+            ...wsTicker,
+            lastPrice: wsTicker.lastPrice.toString(),
+            priceChangePercent: wsTicker.priceChangePercent.toString()
+        };
+    }, [wsTicker]);
+
+    const orderBook = useMemo(() => ({
+        bids: wsOrderBook.bids.map(b => ({ price: parseFloat(b[0]), amount: parseFloat(b[1]) })),
+        asks: wsOrderBook.asks.map(a => ({ price: parseFloat(a[0]), amount: parseFloat(a[1]) })).reverse()
+    }), [wsOrderBook]);
+
+    // Auto-fill price input saat pertama kali buka koin (Reactive from WebSocket)
+    useEffect(() => {
+        if (ticker?.lastPrice && !isPriceFocused && (priceInputRef.current === '0' || priceInputRef.current === '')) {
+            setPriceInput(formatInput(ticker.lastPrice.toString()));
+        }
+    }, [ticker?.lastPrice, isPriceFocused]);
 
     // Keep ref in sync for the interval closure
     useEffect(() => {
         priceInputRef.current = priceInput;
     }, [priceInput]);
 
-    // Order Confirmation Modal State
-    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-    const [pendingOrder, setPendingOrder] = useState<any>(null);
-
     const handleClosePosition = (posId: string, symbol: string) => {
         closeFuturesPosition(posId);
-        setToastMessage({
-            title: 'Position Closed',
-            message: `Successfully closed ${symbol} position.`
-        });
-        setTimeout(() => setToastMessage(null), 3000);
     };
 
     // Sync local activeTopTab with store's tradeType
@@ -115,31 +142,23 @@ const TradeView = () => {
     const liqPriceLong = currentPrice * (1 - 1 / leverage);
     const liqPriceShort = currentPrice * (1 + 1 / leverage);
 
+    const [secondsRemaining, setSecondsRemaining] = useState(0);
+
     useEffect(() => {
         const timer = setInterval(() => {
-            setSecondsRemaining(prev => (prev > 0 ? prev - 1 : 28800));
+            const diff = Math.max(0, Math.floor((nextFundingTime - Date.now()) / 1000));
+            setSecondsRemaining(diff);
         }, 1000);
         return () => clearInterval(timer);
-    }, []);
+    }, [nextFundingTime]);
 
     useEffect(() => {
         const baseUrl = activeTopTab === 'Futures' ? 'https://fapi.binance.com' : 'https://api.binance.com';
         const prefix = activeTopTab === 'Futures' ? '/fapi/v1' : '/api/v3';
 
-        const fetchTicker = async () => {
-            try {
-                const res = await fetch(`${baseUrl}${prefix}/ticker/24hr?symbol=${currentSymbol}`);
-                const data = await res.json();
-                setTicker(data);
-                if (!isPriceFocused && (priceInputRef.current === '0' || priceInputRef.current === '')) {
-                    setPriceInput(formatInput(parseFloat(data.lastPrice).toString()));
-                }
-            } catch (err) { }
-        };
-
         const fetchKlines = async (interval: string) => {
             try {
-                const res = await fetch(`${baseUrl}${prefix}/klines?symbol=${currentSymbol}&interval=${interval}&limit=100`);
+                const res = await fetch(`${baseUrl}${prefix}/klines?symbol=${tradingSymbol}&interval=${interval}&limit=100`);
                 const data = await res.json();
                 const formatted = data.map((d: any) => ({
                     time: d[0] / 1000,
@@ -152,22 +171,14 @@ const TradeView = () => {
             } catch (err) { }
         };
 
-        const fetchOrderBook = async () => {
-            try {
-                const res = await fetch(`${baseUrl}${prefix}/depth?symbol=${currentSymbol}&limit=1000`);
-                const data = await res.json();
-                setOrderBook({
-                    bids: data.bids.map((b: any) => ({ price: parseFloat(b[0]), amount: parseFloat(b[1]) })),
-                    asks: data.asks.map((a: any) => ({ price: parseFloat(a[0]), amount: parseFloat(a[1]) })).reverse()
-                });
-            } catch (err) { }
-        };
-
         const fetchExchangeInfo = async () => {
             try {
-                const res = await fetch(`${baseUrl}${prefix === '/api/v3' ? '/api/v3' : '/fapi/v1'}/exchangeInfo?symbol=${currentSymbol}`);
+                const res = await fetch(`${baseUrl}${prefix}/exchangeInfo?symbol=${tradingSymbol}`);
                 const data = await res.json();
-                const symbolInfo = data.symbols?.[0];
+                
+                // Safety: Find the specific symbol instead of assuming index 0
+                const symbolInfo = data.symbols?.find((s: any) => s.symbol === tradingSymbol);
+                
                 if (symbolInfo) {
                     const priceFilter = symbolInfo.filters.find((f: any) => f.filterType === 'PRICE_FILTER');
                     if (priceFilter && priceFilter.tickSize) {
@@ -178,17 +189,10 @@ const TradeView = () => {
         };
 
         fetchExchangeInfo();
-        fetchTicker();
         fetchKlines(activeInterval);
-        fetchOrderBook();
 
-        const interval = setInterval(() => {
-            fetchTicker();
-            fetchOrderBook();
-        }, 2000);
-
-        return () => clearInterval(interval);
-    }, [activeInterval, activeTopTab, currentSymbol]);
+        // Kita tidak perlu lagi setInterval untuk Ticker & OrderBook karena sudah di-handle oleh WebSocket!
+    }, [activeInterval, activeTopTab, tradingSymbol]);
 
     // Toast auto-close is handled inline where it's set
 
@@ -213,6 +217,7 @@ const TradeView = () => {
         setPriceInput('0');
         setAmountInput('');
         setSliderPercent(0);
+        setTickSize(null); // Clear tickSize so the fetch in the other effect updates it correctly
     }, [currentSymbol, activeTopTab]);
 
     const handleTradeSideSwitch = (side: 'buy' | 'sell') => {
@@ -226,12 +231,12 @@ const TradeView = () => {
             setShowOrderConfirmation(false);
         }
 
-        const { p, a } = pendingOrder;
+        const { p, a, side } = pendingOrder;
 
         if (activeTopTab === 'Futures') {
             placeFuturesOrder({
                 symbol: currentSymbol,
-                side: tradeSide === 'buy' ? 'Buy' : 'Sell',
+                side: (side || tradeSide) === 'buy' ? 'Buy' : 'Sell',
                 type: orderType === 'TP/SL' ? 'Limit' : orderType,
                 price: p,
                 amount: a,
@@ -239,15 +244,10 @@ const TradeView = () => {
                 leverage: leverage
             });
 
-            setToastMessage({
-                title: 'Order Placed',
-                message: `Successfully placed ${tradeSide.toUpperCase()} ${a.toFixed(4)} ${baseCoin} at ${p.toLocaleString('en-US')} USDT`
-            });
-            setTimeout(() => setToastMessage(null), 3000);
         } else {
             placeSpotOrder({
                 symbol: currentSymbol,
-                side: tradeSide === 'buy' ? 'Buy' : 'Sell',
+                side: (side || tradeSide) === 'buy' ? 'Buy' : 'Sell',
                 type: orderType === 'TP/SL' ? 'Limit' : orderType,
                 price: p,
                 amount: a,
@@ -269,8 +269,8 @@ const TradeView = () => {
             setTradeSide(actualSide);
         }
 
-        const p = orderType === 'Market' ? (ticker ? parseFloat(ticker.lastPrice) : 0) : parseFloat(priceInput);
-        const a = parseFloat(amountInput) || currentFuturesAmount;
+        const p = orderType === 'Market' ? (ticker ? parseFloat(ticker.lastPrice) : 0) : parseFloat(priceInput.replace(/,/g, ''));
+        const a = parseFloat(amountInput.replace(/,/g, '')) || currentFuturesAmount;
         if (a <= 0) return;
 
         if (activeTopTab === 'Futures' && availableFuturesUSDT <= 0) {
@@ -279,7 +279,7 @@ const TradeView = () => {
         }
 
         if (showOrderConfirmation) {
-            setPendingOrder({ p, a });
+            setPendingOrder({ p, a, side: actualSide });
             setIsConfirmModalOpen(true);
         } else {
             // Direct execution if preference is set
@@ -294,11 +294,6 @@ const TradeView = () => {
                     leverage: leverage
                 });
 
-                setToastMessage({
-                    title: 'Order Placed',
-                    message: `Successfully placed ${actualSide.toUpperCase()} ${a.toFixed(4)} ${baseCoin} at ${p.toLocaleString('en-US')} USDT`
-                });
-                setTimeout(() => setToastMessage(null), 3000);
             } else {
                 placeSpotOrder({
                     symbol: currentSymbol,
@@ -411,12 +406,12 @@ const TradeView = () => {
         return [0.1, 1, 10, 100];
     }, [currentPrice, tickSize]);
 
-    // Auto-adjust precision when symbol changes
+    // Auto-adjust precision when symbol or market changes
     useEffect(() => {
-        if (!dynamicPrecisions.includes(precision) || (tickSize && precision < tickSize)) {
+        if (dynamicPrecisions.length > 0) {
             setPrecision(dynamicPrecisions[0]);
         }
-    }, [dynamicPrecisions, precision, tickSize]);
+    }, [dynamicPrecisions, currentSymbol, activeTopTab]);
 
     const precisionDecimals = useMemo(() => {
         if (precision >= 1) return 0;
@@ -751,7 +746,7 @@ const TradeView = () => {
                             </div>
                             <div className="flex justify-between items-center text-[12px] mb-2 px-1">
                                 <span className="text-[var(--text-tertiary)] font-medium">Max {tradeSide}</span>
-                                <span className="font-medium text-[var(--text-secondary)]">{maxBuySellValue} {baseCoin}</span>
+                                <span className="font-medium text-[var(--text-secondary)]">{formatAbbreviated(parseFloat(maxBuySellValue))} {baseCoin}</span>
                             </div>
                         </>
                     )}
@@ -803,22 +798,22 @@ const TradeView = () => {
                         {activeTopTab === 'Futures' ? (
                             <>
                                 <div className="flex flex-col gap-1 text-[11px] px-1 mb-1.5">
-                                    <div className="flex justify-between text-[var(--text-tertiary)]"><span>Max buy</span><span className="text-[var(--text-primary)] font-bold">{maxBuySellFutures.toFixed(4)} {baseCoin}</span></div>
+                                    <div className="flex justify-between text-[var(--text-tertiary)]"><span>Max buy</span><span className="text-[var(--text-primary)] font-bold">{formatAbbreviated(maxBuySellFutures)} {baseCoin}</span></div>
                                     <div className="flex justify-between text-[var(--text-tertiary)]"><span>Cost</span><span className="text-[var(--text-primary)] font-bold">{currentFuturesCost.toFixed(2)} USDT</span></div>
                                     <div className="flex justify-between text-[var(--text-tertiary)]"><span>Liq. price</span><span className="text-[var(--text-primary)] font-bold">{sliderPercent > 0 ? liqPriceLong.toFixed(1) : '--'}</span></div>
                                 </div>
                                 <button className="w-full h-[44px] rounded-full font-bold text-white bg-[var(--green)] flex flex-col items-center justify-center shrink-0 overflow-hidden shadow-sm mb-2" onClick={() => handlePlaceOrder('buy')}>
                                     <span className="text-[14px] leading-tight">Buy (Long) {leverage}x</span>
-                                    {sliderPercent > 0 && <span className="text-[10px] opacity-90 font-medium leading-tight">≈{currentFuturesAmount.toFixed(4)} {baseCoin}</span>}
+                                    {sliderPercent > 0 && <span className="text-[10px] opacity-90 font-medium leading-tight">≈{formatAbbreviated(currentFuturesAmount)} {baseCoin}</span>}
                                 </button>
                                 <div className="flex flex-col gap-1 text-[11px] px-1 mt-1 mb-1.5">
-                                    <div className="flex justify-between text-[var(--text-tertiary)]"><span>Max sell</span><span className="text-[var(--text-primary)] font-bold">{maxBuySellFutures.toFixed(4)} {baseCoin}</span></div>
+                                    <div className="flex justify-between text-[var(--text-tertiary)]"><span>Max sell</span><span className="text-[var(--text-primary)] font-bold">{formatAbbreviated(maxBuySellFutures)} {baseCoin}</span></div>
                                     <div className="flex justify-between text-[var(--text-tertiary)]"><span>Cost</span><span className="text-[var(--text-primary)] font-bold">{currentFuturesCost.toFixed(2)} USDT</span></div>
                                     <div className="flex justify-between text-[var(--text-tertiary)]"><span>Liq. price</span><span className="text-[var(--text-primary)] font-bold">{sliderPercent > 0 ? liqPriceShort.toFixed(1) : '--'}</span></div>
                                 </div>
                                 <button className="w-full h-[44px] rounded-full font-bold text-white bg-[var(--red)] flex flex-col items-center justify-center shrink-0 overflow-hidden shadow-sm" onClick={() => handlePlaceOrder('sell')}>
                                     <span className="text-[14px] leading-tight">Sell (Short) {leverage}x</span>
-                                    {sliderPercent > 0 && <span className="text-[10px] opacity-90 font-medium leading-tight">≈{currentFuturesAmount.toFixed(4)} {baseCoin}</span>}
+                                    {sliderPercent > 0 && <span className="text-[10px] opacity-90 font-medium leading-tight">≈{formatAbbreviated(currentFuturesAmount)} {baseCoin}</span>}
                                 </button>
                             </>
                         ) : (
@@ -848,7 +843,7 @@ const TradeView = () => {
                         ) : (
                             <div className="text-right leading-tight">
                                 <div className="text-[10px] text-[var(--text-tertiary)] font-medium">Funding rate / Countdown</div>
-                                <div className="text-[10px] text-[var(--text-primary)] font-bold">0.003% / {formatTime(secondsRemaining)}</div>
+                                <div className="text-[10px] text-[var(--text-primary)] font-bold">{(fundingRate * 100).toFixed(4)}% / {formatTime(secondsRemaining)}</div>
                             </div>
                         )}
                     </div>
@@ -875,7 +870,7 @@ const TradeView = () => {
                                             {ask.price.toLocaleString('en-US', { minimumFractionDigits: precisionDecimals, maximumFractionDigits: precisionDecimals })}
                                         </span>
                                         <span className="text-[var(--text-secondary)] relative z-10 text-[12px] font-medium tracking-tight">
-                                            {ask.amount >= 1 ? ask.amount.toFixed(2) : ask.amount.toFixed(5)}
+                                            {formatAbbreviated(ask.amount)}
                                         </span>
                                     </div>
                                 ))}
@@ -915,7 +910,7 @@ const TradeView = () => {
                                             {bid.price.toLocaleString('en-US', { minimumFractionDigits: precisionDecimals, maximumFractionDigits: precisionDecimals })}
                                         </span>
                                         <span className="text-[var(--text-secondary)] relative z-10 text-[12px] font-medium tracking-tight">
-                                            {bid.amount >= 1 ? bid.amount.toFixed(2) : bid.amount.toFixed(5)}
+                                            {formatAbbreviated(bid.amount)}
                                         </span>
                                     </div>
                                 ))}
@@ -981,7 +976,7 @@ const TradeView = () => {
                             className="flex-1 flex items-center justify-between bg-[var(--bg-secondary)] border border-[var(--border-color)] px-2 h-[26px] rounded-[6px] text-[13px] font-semibold text-[var(--text-secondary)] cursor-pointer"
                             onClick={() => setIsPrecisionSheetOpen(true)}
                         >
-                            {precision} <ArrowDropDown className="w-6 h-6 text-[var(--text-tertiary)]" />
+                            {precision < 0.0001 ? precision.toFixed(8).replace(/\.?0+$/, "") : precision} <ArrowDropDown className="w-6 h-6 text-[var(--text-tertiary)]" />
                         </div>
                         <div
                             className="w-[26px] h-[26px] shrink-0 flex flex-col items-center justify-center gap-[4px] border border-[var(--border-color)] rounded-[6px] bg-[var(--bg-secondary)] cursor-pointer"
@@ -1415,7 +1410,7 @@ const TradeView = () => {
                                                 setIsPrecisionSheetOpen(false);
                                             }}
                                         >
-                                            {val}
+                                            {val < 0.0001 ? val.toFixed(8).replace(/\.?0+$/, "") : val}
                                             {precision === val && (
                                                 <div className="w-5 h-5 rounded-full bg-[var(--text-primary)] text-white flex items-center justify-center">
                                                     <Check size={12} className="text-[var(--bg-primary)]" />
@@ -1578,16 +1573,16 @@ const TradeView = () => {
                 onClose={() => setIsConfirmModalOpen(false)}
                 onConfirm={handleFinalConfirm}
                 symbol={currentSymbol}
-                side={tradeSide === 'buy' ? 'Buy' : 'Sell'}
+                side={(pendingOrder?.side || tradeSide) === 'buy' ? 'Buy' : 'Sell'}
                 price={orderType === 'Market' ? 'Market' : (pendingOrder?.p || 0).toLocaleString()}
                 amount={pendingOrder?.a || 0}
                 total={((pendingOrder?.p || currentPrice) * (pendingOrder?.a || 0)).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                 type={activeTopTab === 'Futures' ? `Isolated-${orderType}` : orderType}
                 isFutures={activeTopTab === 'Futures'}
                 leverage={leverage}
-                liqPrice={tradeSide === 'buy' ? liqPriceLong.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : liqPriceShort.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                priceGap={((((tradeSide === 'buy' ? liqPriceLong : liqPriceShort) / currentPrice) - 1) * 100).toFixed(2)}
-                priceGapUsdt={((tradeSide === 'buy' ? liqPriceLong : liqPriceShort) - currentPrice).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                liqPrice={(pendingOrder?.side || tradeSide) === 'buy' ? liqPriceLong.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : liqPriceShort.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                priceGap={(((((pendingOrder?.side || tradeSide) === 'buy' ? liqPriceLong : liqPriceShort) / currentPrice) - 1) * 100).toFixed(2)}
+                priceGapUsdt={(((pendingOrder?.side || tradeSide) === 'buy' ? liqPriceLong : liqPriceShort) - currentPrice).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
             />
 
             {/* Margin Mode Sheet */}

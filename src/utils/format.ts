@@ -47,6 +47,15 @@ export const formatVolume = (volume: string | number): string => {
     return num.toLocaleString();
 };
 
+export const formatAbbreviated = (num: number): string => {
+    if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
+    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+    if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+    if (num >= 1) return num.toFixed(2);
+    return num.toFixed(5);
+};
+
 export const formatPercent = (percent: string | number): string => {
     const num = typeof percent === 'string' ? parseFloat(percent) : percent;
     return `${num > 0 ? '+' : ''}${num.toFixed(2)}%`;

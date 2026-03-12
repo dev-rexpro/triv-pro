@@ -1,8 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import throttle from 'lodash/throttle';
 
 export const useOrderBookSocket = (symbol: string, type: 'spot' | 'futures', depth: 5 | 10 | 20 = 20) => {
     const [orderBook, setOrderBook] = useState<{ bids: [string, string][]; asks: [string, string][] }>({ bids: [], asks: [] });
     const [isConnected, setIsConnected] = useState(false);
+
+    const throttledUpdate = useRef(
+        throttle((bids, asks) => {
+            setOrderBook({ bids, asks });
+        }, 300)
+    ).current;
 
     useEffect(() => {
         if (!symbol) return;
@@ -27,15 +34,11 @@ export const useOrderBookSocket = (symbol: string, type: 'spot' | 'futures', dep
                 try {
                     const data = JSON.parse(event.data);
                     if (data.b && data.a) {
-                        // Sometimes depth streams use 'b' and 'a' or 'bids' and 'asks' depending on the exact stream payload
-                        setOrderBook({ bids: data.b, asks: data.a });
+                        throttledUpdate(data.b, data.a);
                     } else if (data.bids && data.asks) {
-                        // The partial book depth stream uses bids and asks
-                        setOrderBook({ bids: data.bids, asks: data.asks });
+                        throttledUpdate(data.bids, data.asks);
                     }
-                } catch (e) {
-                    // Ignore parse errors
-                }
+                } catch (e) {}
             };
 
             ws.onerror = () => {
@@ -45,7 +48,6 @@ export const useOrderBookSocket = (symbol: string, type: 'spot' | 'futures', dep
             ws.onclose = () => {
                 if (!cancelled) {
                     setIsConnected(false);
-                    // Reconnect after 3 seconds
                     retryTimeout = setTimeout(connect, 3000);
                 }
             };
@@ -59,6 +61,7 @@ export const useOrderBookSocket = (symbol: string, type: 'spot' | 'futures', dep
             if (ws) {
                 ws.close();
             }
+            throttledUpdate.cancel();
         };
     }, [symbol, type, depth]);
 

@@ -46,45 +46,37 @@ const TransferView = () => {
         setAmount(availableBalance.toString());
     };
 
-    const handleSimulateTransfer = () => {
+    const handleSimulateTransfer = async () => {
         const numAmount = parseFloat(amount);
         if (isNaN(numAmount) || numAmount <= 0) return;
 
         if (numAmount > availableBalance) {
-            alert(`Insufficient balance in ${fromAccount} account.`);
+            useExchangeStore.getState().showToast('Insufficient Balance', `You don't have enough ${selectedCoin} in your ${formatWalletName(fromAccount)} wallet.`, 'error');
             return;
         }
 
         setIsSimulating(true);
-        setTimeout(() => {
-            // Add transaction record
-            const txId = 'TR' + Date.now().toString(36).toUpperCase();
-            addTransaction({
-                id: txId,
-                type: 'Transfer',
-                currency: selectedCoin,
-                amount: numAmount,
-                from: fromAccount,
-                to: toAccount,
-                status: 'Completed',
-                timestamp: Date.now()
-            });
+        try {
+            const success = await useExchangeStore.getState().performInternalTransfer(
+                selectedCoin,
+                fromAccount,
+                toAccount,
+                numAmount
+            );
 
-            // Update Mock Wallets
-            const w = { ...wallets };
-            w[fromAccount] = { ...w[fromAccount] };
-            w[toAccount] = { ...w[toAccount] };
-
-            w[fromAccount][selectedCoin] -= numAmount;
-            w[toAccount][selectedCoin] = (w[toAccount][selectedCoin] || 0) + numAmount;
-
-            setWallets(w);
-
+            if (success) {
+                useExchangeStore.getState().showToast('Transfer Successful', `Moved ${numAmount} ${selectedCoin}\nfrom ${formatWalletName(fromAccount)} to ${formatWalletName(toAccount)}.`, 'success');
+                setActivePage('assets');
+                setAmount('');
+            } else {
+                useExchangeStore.getState().showToast('Transfer Failed', 'An error occurred during the transfer. Please try again.', 'error');
+            }
+        } catch (error) {
+            console.error('Transfer failed:', error);
+            useExchangeStore.getState().showToast('Error', 'An unexpected error occurred.', 'error');
+        } finally {
             setIsSimulating(false);
-            useExchangeStore.getState().showToast('Transfer Successful', `Moved ${numAmount} ${selectedCoin}\nfrom ${fromAccount} to ${toAccount}.`, 'success');
-            setActivePage('assets');
-            setAmount('');
-        }, 800);
+        }
     };
 
     const formatWalletName = (w: TargetWallet) => w === 'spot' ? 'Funding' : w === 'futures' ? 'Trading' : 'Earn';

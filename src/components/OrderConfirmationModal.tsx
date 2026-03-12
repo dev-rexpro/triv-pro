@@ -65,15 +65,18 @@ const OrderConfirmationModal: React.FC<OrderConfirmationModalProps> = ({
 
                         {/* Symbol & Side & Leverage */}
                         <div className="flex items-center gap-2 mb-8">
+                            {isFutures && (
+                                <span className="bg-[#faad14]/10 text-[#faad14] text-[10px] font-bold px-1.5 py-[2px] rounded-[4px] leading-none">Futures</span>
+                            )}
                             <span className="text-[18px] font-bold text-[var(--text-primary)]">
-                                {isFutures ? `${symbol} Perpetual` : `${symbol.replace('USDT', '')}/USDT`}
+                                {isFutures ? `${symbol.replace('USDT', '')} Perpetual` : `${symbol.replace('USDT', '')}/USDT`}
                             </span>
                             <span className={`px-2 py-0.5 rounded-[4px] text-[12px] font-bold ${isBuy ? 'bg-[var(--green-bg)] text-[var(--green)]' : 'bg-[var(--red-bg)] text-[var(--red)]'
                                 }`}>
                                 {side}
                             </span>
                             {isFutures && leverage && (
-                                <span className="px-2 py-0.5 rounded-[4px] text-[12px] font-bold bg-[#f3f4f6] text-[var(--text-secondary)]">
+                                <span className="px-2 py-0.5 rounded-[4px] text-[12px] font-bold bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
                                     {leverage}x
                                 </span>
                             )}
@@ -90,7 +93,7 @@ const OrderConfirmationModal: React.FC<OrderConfirmationModalProps> = ({
                                 <>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Amount</span>
-                                        <span className="text-[16px] font-bold text-[var(--text-primary)]">{amount} BTC</span>
+                                        <span className="text-[16px] font-bold text-[var(--text-primary)]">{amount} {symbol.replace('USDT', '')}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Type</span>
@@ -130,7 +133,7 @@ const OrderConfirmationModal: React.FC<OrderConfirmationModalProps> = ({
                         {/* Don't show again checkbox */}
                         <label className="flex items-center gap-3 mb-8 cursor-pointer select-none text-[var(--text-primary)]" onClick={() => setDontShowAgain(!dontShowAgain)}>
                             <div className={`w-[18px] h-[18px] rounded-[4px] flex items-center justify-center border transition-colors ${dontShowAgain ? 'bg-[var(--btn-primary-bg)] border-[var(--btn-primary-bg)]' : 'border-[var(--border-strong)] bg-[var(--bg-card)]'}`}>
-                                {dontShowAgain && <Check size={14} className="text-[var(--btn-primary-text)]" />}
+                                {dontShowAgain && <Check size={14} color="var(--btn-primary-text)" />}
                             </div>
                             <span className="text-[15px] font-medium">Don't show again</span>
                         </label>

@@ -44,54 +44,60 @@ export interface WalletBalances {
 
 export interface TransactionRecord {
     id: string;
-    type: 'Deposit' | 'Withdrawal' | 'Transfer' | 'Earn';
+    type: 'Deposit' | 'Withdrawal' | 'Transfer' | 'Trade' | 'Earn' | 'Stake';
     status: 'Pending' | 'On Process' | 'Completed' | 'Failed';
     amount: number;
     currency: string;
     network?: string;
     timestamp: number;
-    from?: string; // e.g., 'Spot'
-    to?: string;   // e.g., 'Futures'
+    from?: string;
+    to?: string;
 }
 
 export interface TradeRecord {
     id: string;
     timestamp: number;
-    pair: string; // e.g., BTCUSDT
+    symbol: string;
+    pair?: string;
     side: 'Buy' | 'Sell';
     price: number;
     amount: number;
-    total: number;
-    type: 'Market' | 'Limit';
+    fee?: number;
+    pnl?: number;
+    type: 'Market' | 'Limit' | 'Liquidation';
 }
 
 export interface PendingOrder {
     id: string;
     symbol: string;
     side: 'Buy' | 'Sell';
-    time: number;
+    timestamp: number;
     amount: number;
     filled: number;
     price: number;
-    type: 'Limit';
+    type: 'Limit' | 'Market';
 }
 
 export interface FuturesPosition {
     id: string;
+    symbol: string;
     pair: string;
-    side: 'Long' | 'Short';
+    side: 'Buy' | 'Sell' | 'Long' | 'Short';
     size: number;
     margin: number;
     entryPrice: number;
+    markPrice?: number;
     leverage: number;
-    liqPrice?: number;
-    unrealizedPnl?: number; // Calculated dynamically
+    liqPrice: number;
+    pnl: number;
+    pnlPercent: number;
+    marginMode: 'Isolated' | 'Cross' | string;
 }
 
 export interface PositionHistoryRecord {
     id: string;
     pair: string;
-    side: 'Long' | 'Short' | 'Buy' | 'Sell';
+    side: 'Buy' | 'Sell' | 'Long' | 'Short';
     size: number;
     margin: number;
     entryPrice: number;

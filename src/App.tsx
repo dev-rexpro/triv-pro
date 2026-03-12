@@ -65,20 +65,12 @@ export default function App() {
 
   // Supabase Auth Listener
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      if (session) {
-        useExchangeStore.getState().fetchSupabaseWallets();
-        useExchangeStore.getState().fetchSupabaseFavorites();
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) {
-        useExchangeStore.getState().fetchSupabaseWallets();
-        useExchangeStore.getState().fetchSupabaseHistory();
-        useExchangeStore.getState().fetchSupabaseFavorites();
+      
+      // Initialize or re-sync on login or persistent session discovery
+      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+        useExchangeStore.getState().initializeUserData();
       }
     });
 

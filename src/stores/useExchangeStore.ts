@@ -63,6 +63,9 @@ interface ExchangeState {
     watchlist: UnifiedCoin[];
     positionHistory: PositionHistoryRecord[];
     snapshots: { [date: string]: number };
+    nextFundingTime: number;
+    fundingRate: number;
+    startFundingCron: () => void;
 
     // Actions
     setMarkets: (data: MarketData[]) => void;
@@ -109,8 +112,10 @@ interface ExchangeState {
     getPnLForTimeframe: (timeframe: string) => { value: number; percent: number; hasData: boolean };
     setShowOrderConfirmation: (val: boolean) => void;
     closeAll: () => void;
+    syncWalletsToSupabase: () => Promise<void>;
     fetchSupabaseWallets: () => Promise<void>;
     fetchSupabaseHistory: () => Promise<void>;
+    initializeUserData: () => Promise<void>;
     performInternalTransfer: (coin: string, from: string, to: string, amount: number) => Promise<boolean>;
     fetchSupabaseFavorites: () => Promise<void>;
     syncFavoritesToSupabase: () => Promise<void>;
@@ -142,8 +147,8 @@ const useExchangeStore = create<ExchangeState>()(
             ],
             favoriteGroups: {},
             hiddenGroups: [],
-            balance: 500,
-            spotBalance: 500,
+            balance: 0,
+            spotBalance: 0,
             futuresBalance: 0,
             earnBalance: 0,
             todayPnl: 0,
@@ -160,9 +165,7 @@ const useExchangeStore = create<ExchangeState>()(
             isPairPickerOpen: false,
             searchQuery: '',
             homeFilter: 'Favorites',
-            assets: [
-                { symbol: 'USDT', amount: 500, valueUsdt: 500 },
-            ],
+            assets: [],
             currency: 'USD',
             rates: { USD: 1, USDT: 1, IDR: 16300, BTC: 0.000015 },
             hideBalance: false,
@@ -171,11 +174,11 @@ const useExchangeStore = create<ExchangeState>()(
             toastMessage: null,
             theme: 'light',
 
-            // Demo Engine State Init
+            // Engine State (Not persisted)
             wallets: {
-                spot: { USDT: 500 },
-                futures: { USDT: 0 },
-                earn: { USDT: 0 }
+                spot: {},
+                futures: {},
+                earn: {}
             },
             positions: [],
             openOrders: [],
@@ -185,6 +188,8 @@ const useExchangeStore = create<ExchangeState>()(
             positionHistory: [],
             watchlist: [],
             snapshots: {},
+            nextFundingTime: Math.ceil(Date.now() / (8 * 3600 * 1000)) * (8 * 3600 * 1000),
+            fundingRate: 0.0001,
 
             setMarkets: (data) => set({ markets: data.map(m => ({ ...m, isFutures: false })) }),
             updateMarkets: (updates) => set((state) => {
@@ -338,8 +343,31 @@ const useExchangeStore = create<ExchangeState>()(
                 await get().syncFavoritesToSupabase();
             },
 
+            syncWalletsToSupabase: async () => {
+                const { user, wallets } = get();
+                if (!user) return;
+
+                const updates: any[] = [];
+                const typeMap: Record<string, string> = { 'spot': 'funding', 'futures': 'trading', 'earn': 'earn' };
+
+                ['spot', 'futures', 'earn'].forEach(type => {
+                    Object.entries(wallets[type as keyof typeof wallets] || {}).forEach(([coin, balance]) => {
+                        updates.push({
+                            user_id: user.id,
+                            type: typeMap[type],
+                            coin_symbol: coin,
+                            balance: balance
+                        });
+                    });
+                });
+
+                if (updates.length > 0) {
+                    await supabase.from('wallets').upsert(updates, { onConflict: 'user_id, type, coin_symbol' });
+                }
+            },
+
             fetchSupabaseWallets: async () => {
-                const { data: { user } } = await supabase.auth.getUser();
+                const { user } = get();
                 if (!user) return;
 
                 const { data, error } = await supabase
@@ -352,47 +380,60 @@ const useExchangeStore = create<ExchangeState>()(
                     return;
                 }
 
-                if (data && data.length > 0) {
+                if (!error) {
+                    console.log(`[Diagnostic] Fetched Wallets for ${user.id}:`, data);
                     const newWallets = {
                         spot: {},
                         futures: {},
                         earn: {}
                     };
 
-                    data.forEach((w: any) => {
-                        const typeMap = { 'funding': 'spot', 'trading': 'futures', 'earn': 'earn' };
-                        const storeType = typeMap[w.type] || w.type;
-                        if (newWallets[storeType]) {
-                            newWallets[storeType][w.coin_symbol] = parseFloat(w.balance);
-                        }
-                    });
-
+                    if (data && data.length > 0) {
+                        data.forEach((w: any) => {
+                            const typeMap = { 'funding': 'spot', 'trading': 'futures', 'earn': 'earn' };
+                            const storeType = typeMap[w.type] || w.type;
+                            if (newWallets[storeType]) {
+                                newWallets[storeType][w.coin_symbol] = parseFloat(w.balance);
+                            }
+                        });
+                    }
+                    
                     set({ wallets: newWallets });
                     get().updateAssetPrices(true);
-                } else {
-                    // Seeding is now handled by the database trigger on public.profiles creation
-                    // No action needed here, just refetch in next step
                 }
             },
 
             performInternalTransfer: async (coin, from, to, amount) => {
                 const { data: { user } } = await supabase.auth.getUser();
-                if (!user) return false;
+                if (!user) {
+                    console.error('Transfer failed: No user found');
+                    return false;
+                }
 
-                const { error } = await supabase.rpc('internal_transfer', {
+                const typeMap = { 'spot': 'funding', 'futures': 'trading', 'earn': 'earn' };
+                const dbFrom = typeMap[from] || from;
+                const dbTo = typeMap[to] || to;
+
+                console.log(`[Diagnostic] Attempting transfer: ${amount} ${coin} from ${dbFrom} to ${dbTo} for user ${user.id}`);
+
+                const { data, error } = await supabase.rpc('internal_transfer', {
                     p_user_id: user.id,
                     p_coin: coin,
-                    p_from_type: from,
-                    p_to_type: to,
+                    p_from_type: dbFrom,
+                    p_to_type: dbTo,
                     p_amount: amount
                 });
 
                 if (error) {
-                    console.error('Transfer error:', error);
+                    console.error('[Diagnostic] Transfer RPC error:', error.message || error);
+                    useExchangeStore.getState().showToast('Transfer Failed', error.message || 'Database error during transfer', 'error');
                     return false;
                 }
 
+                console.log('[Diagnostic] Transfer RPC Success Response:', data);
+
                 await get().fetchSupabaseWallets();
+                await get().fetchSupabaseHistory();
                 return true;
             },
 
@@ -550,6 +591,60 @@ const useExchangeStore = create<ExchangeState>()(
                     }]);
                 }
             },
+            initializeUserData: async () => {
+                const { user } = get();
+                get().startFundingCron();
+                if (!user) return;
+                
+                await Promise.all([
+                    get().fetchSupabaseWallets(),
+                    get().fetchSupabaseHistory(),
+                    get().fetchSupabaseFavorites()
+                ]);
+            },
+
+            startFundingCron: () => {
+                setInterval(() => {
+                    const now = Date.now();
+                    const { nextFundingTime, fundingRate, positions, wallets, addTransaction, updateAssetPrices } = get();
+
+                    if (now >= nextFundingTime) {
+                        if (positions.length > 0) {
+                            const newWallets = { ...wallets };
+                            let totalFee = new Decimal(0);
+                            // logic...
+
+                            positions.forEach(pos => {
+                                const notional = new Decimal(pos.size).times(pos.markPrice || pos.entryPrice);
+                                const fee = notional.times(fundingRate);
+
+                                if (pos.side === 'Buy') {
+                                    totalFee = totalFee.minus(fee);
+                                } else {
+                                    totalFee = totalFee.plus(fee);
+                                }
+                            });
+
+                            newWallets.futures.USDT = new Decimal(newWallets.futures.USDT || 0).plus(totalFee).toNumber();
+
+                            set({ wallets: newWallets });
+                            updateAssetPrices(true);
+
+                            addTransaction({
+                                id: `FUND-${Date.now()}`,
+                                type: 'Trade',
+                                status: 'Completed',
+                                amount: Math.abs(totalFee.toNumber()),
+                                currency: 'USDT',
+                                timestamp: Date.now(),
+                                to: 'Futures'
+                            });
+                        }
+                        set({ nextFundingTime: nextFundingTime + (8 * 3600 * 1000) });
+                    }
+                }, 1000);
+            },
+
             fetchSupabaseHistory: async () => {
                 const { user } = get();
                 if (!user) return;
@@ -559,66 +654,74 @@ const useExchangeStore = create<ExchangeState>()(
                     supabase.from('orders_spot').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
                 ]);
 
-                if (!txData.error && txData.data && txData.data.length > 0) {
-                    const mappedTx = txData.data.map(t => ({
-                        id: t.id,
-                        type: t.type.charAt(0).toUpperCase() + t.type.slice(1),
-                        status: t.status.charAt(0).toUpperCase() + t.status.slice(1),
-                        amount: parseFloat(t.amount),
-                        currency: t.currency,
-                        timestamp: new Date(t.timestamp).getTime(),
-                        from: t.from_wallet,
-                        to: t.to_wallet
-                    }));
-                    // Merge with local state (DB is source of truth when available)
-                    // but keep local-only entries the DB doesn't have yet
-                    set(s => {
-                        const dbIds = new Set(mappedTx.map(t => t.id));
-                        const localOnly = s.transactionHistory.filter(t => !dbIds.has(t.id));
-                        return { transactionHistory: [...localOnly, ...mappedTx] };
-                    });
+                if (!txData.error) {
+                    const seenIds = new Set();
+                    const mappedTx = (txData.data || [])
+                        .filter(t => {
+                            if (seenIds.has(t.id)) return false;
+                            seenIds.add(t.id);
+                            return true;
+                        })
+                        .map(t => ({
+                            id: t.id,
+                            type: t.type.charAt(0).toUpperCase() + t.type.slice(1),
+                            status: t.status.charAt(0).toUpperCase() + t.status.slice(1),
+                            amount: parseFloat(t.amount),
+                            currency: t.currency,
+                            timestamp: new Date(t.timestamp).getTime(),
+                            from: t.from_wallet,
+                            to: t.to_wallet
+                        }));
+                    set({ transactionHistory: mappedTx });
                 }
-                // If DB returns empty, keep local state as-is (don't wipe it)
 
-                if (!tradeData.error && tradeData.data && tradeData.data.length > 0) {
-                    const mappedTrades = tradeData.data.map(t => ({
-                        id: t.id,
-                        symbol: t.pair,
-                        side: t.side.charAt(0).toUpperCase() + t.side.slice(1),
-                        type: t.type.charAt(0).toUpperCase() + t.type.slice(1),
-                        price: parseFloat(t.price),
-                        amount: parseFloat(t.amount),
-                        fee: 0,
-                        pnl: 0,
-                        timestamp: new Date(t.created_at).getTime()
-                    }));
-                    set(s => {
-                        const dbIds = new Set(mappedTrades.map(t => t.id));
-                        const localOnly = s.tradeHistory.filter(t => !dbIds.has(t.id));
-                        return { tradeHistory: [...localOnly, ...mappedTrades] };
-                    });
+                if (!tradeData.error) {
+                    const seenTradeIds = new Set();
+                    const mappedTrades = (tradeData.data || [])
+                        .filter(t => {
+                            if (seenTradeIds.has(t.id)) return false;
+                            seenTradeIds.add(t.id);
+                            return true;
+                        })
+                        .map(t => ({
+                            id: t.id,
+                            symbol: t.pair,
+                            side: t.side.charAt(0).toUpperCase() + t.side.slice(1),
+                            type: t.type.charAt(0).toUpperCase() + t.type.slice(1),
+                            price: parseFloat(t.price),
+                            amount: parseFloat(t.amount),
+                            fee: 0,
+                            pnl: 0,
+                            timestamp: new Date(t.created_at).getTime()
+                        }));
+                    set({ tradeHistory: mappedTrades });
                 }
-                // If DB returns empty, keep local state as-is
             },
             addPosition: (pos) => set(s => ({ positions: [...s.positions, pos] })),
             removePosition: (id) => set(s => ({ positions: s.positions.filter(p => p.id !== id) })),
             updatePosition: (id, updates) => set(s => ({
                 positions: s.positions.map(p => p.id === id ? { ...p, ...updates } : p)
             })),
-            placeSpotOrder: (order) => {
-                const { wallets, openOrders } = get();
+            placeSpotOrder: async (order) => {
+                const { wallets, openOrders, markets, spotCostBasis, user } = get();
                 const symbol = order.symbol.replace('USDT', '');
+                const newWallets = JSON.parse(JSON.stringify(wallets));
+                const feeRate = 0.001;
 
                 if (order.type === 'Limit') {
-                    // Lock funds
-                    const newWallets = { ...wallets };
+                    const cost = new Decimal(order.price).times(order.amount).toNumber();
                     if (order.side === 'Buy') {
-                        const cost = order.price * order.amount;
-                        if ((newWallets.spot.USDT || 0) < cost) return;
-                        newWallets.spot.USDT = (newWallets.spot.USDT || 0) - cost;
+                        if ((newWallets.spot.USDT || 0) < cost) {
+                            get().showToast('Insufficient Balance', `Required ${cost.toFixed(2)} USDT`, 'error');
+                            return;
+                        }
+                        newWallets.spot.USDT = new Decimal(newWallets.spot.USDT || 0).minus(cost).toNumber();
                     } else {
-                        if ((newWallets.spot[symbol] || 0) < order.amount) return;
-                        newWallets.spot[symbol] = (newWallets.spot[symbol] || 0) - order.amount;
+                        if ((newWallets.spot[symbol] || 0) < order.amount) {
+                            get().showToast('Insufficient Balance', `Required ${order.amount} ${symbol}`, 'error');
+                            return;
+                        }
+                        newWallets.spot[symbol] = new Decimal(newWallets.spot[symbol] || 0).minus(order.amount).toNumber();
                     }
 
                     const newOrder: PendingOrder = {
@@ -629,56 +732,95 @@ const useExchangeStore = create<ExchangeState>()(
                     };
 
                     set({ wallets: newWallets, openOrders: [newOrder, ...openOrders] });
+                    get().showToast('Limit Order Placed', `Submitted Limit ${order.side} order for ${order.amount} ${symbol} at ${order.price} USDT`, 'success');
                     get().addTransaction({
                         id: `TX-${Date.now()}`,
                         type: 'Trade',
                         status: 'Pending',
-                        amount: order.side === 'Buy' ? order.price * order.amount : order.amount,
+                        amount: order.side === 'Buy' ? cost : order.amount,
                         currency: order.side === 'Buy' ? 'USDT' : symbol,
                         timestamp: Date.now(),
                         to: 'Spot'
                     });
+
+                    if (user) {
+                        await supabase.from('orders_spot').insert([{
+                            user_id: user.id,
+                            pair: order.symbol,
+                            side: order.side.toLowerCase(),
+                            type: 'limit',
+                            price: order.price,
+                            amount: order.amount,
+                            status: 'open'
+                        }]);
+                        get().syncWalletsToSupabase();
+                    }
                 } else {
-                    // Market order: fill immediately at "last price" (simplified for demo)
-                    const { markets } = get();
                     const market = markets.find(m => m.symbol === order.symbol);
                     const fillPrice = market ? parseFloat(market.lastPrice) : order.price;
+                    
+                    const slippage = 0.0005; 
+                    const executedPrice = order.side === 'Buy' 
+                        ? new Decimal(fillPrice).times(1 + slippage).toNumber()
+                        : new Decimal(fillPrice).times(1 - slippage).toNumber();
 
-                    const newWallets = { ...wallets };
-                    const newCostBasis = { ...get().spotCostBasis };
+                    const cost = new Decimal(executedPrice).times(order.amount).toNumber();
+                    const fee = new Decimal(cost).times(feeRate).toNumber();
+                    const newCostBasis = { ...spotCostBasis };
 
                     if (order.side === 'Buy') {
-                        const cost = fillPrice * order.amount;
-                        if ((newWallets.spot.USDT || 0) < cost) return;
-
-                        // Weighted average cost calculation
+                        const totalCost = new Decimal(cost).plus(fee).toNumber();
+                        if ((newWallets.spot.USDT || 0) < totalCost) {
+                            get().showToast('Insufficient Balance', `Required ${totalCost.toFixed(2)} USDT`, 'error');
+                            return;
+                        }
+                        
                         const oldAmount = newWallets.spot[symbol] || 0;
-                        const oldCost = newCostBasis[symbol] || fillPrice;
-                        const newAmount = oldAmount + order.amount;
-                        newCostBasis[symbol] = ((oldAmount * oldCost) + (order.amount * fillPrice)) / newAmount;
+                        const oldCost = newCostBasis[symbol] || executedPrice;
+                        const newAmount = new Decimal(oldAmount).plus(order.amount).toNumber();
+                        newCostBasis[symbol] = new Decimal(oldAmount).times(oldCost).plus(cost).div(newAmount).toNumber();
 
-                        newWallets.spot.USDT = (newWallets.spot.USDT || 0) - cost;
+                        newWallets.spot.USDT = new Decimal(newWallets.spot.USDT || 0).minus(totalCost).toNumber();
                         newWallets.spot[symbol] = newAmount;
                     } else {
-                        if ((newWallets.spot[symbol] || 0) < order.amount) return;
-                        newWallets.spot[symbol] = (newWallets.spot[symbol] || 0) - order.amount;
-                        newWallets.spot.USDT = (newWallets.spot.USDT || 0) + (fillPrice * order.amount);
+                        if ((newWallets.spot[symbol] || 0) < order.amount) {
+                            get().showToast('Insufficient Balance', `Required ${order.amount} ${symbol}`, 'error');
+                            return;
+                        }
+                        const receiveAmount = new Decimal(cost).minus(fee).toNumber();
+                        newWallets.spot[symbol] = new Decimal(newWallets.spot[symbol] || 0).minus(order.amount).toNumber();
+                        newWallets.spot.USDT = new Decimal(newWallets.spot.USDT || 0).plus(receiveAmount).toNumber();
                     }
 
                     set({ wallets: newWallets, spotCostBasis: newCostBasis });
+                    get().showToast('Market Order Filled', `${order.side === 'Buy' ? 'Bought' : 'Sold'} ${order.amount} ${symbol} at avg. ${executedPrice.toFixed(2)} USDT`, 'success');
                     get().addTrade({
                         id: `TR-${Date.now()}`,
                         symbol: order.symbol,
                         side: order.side,
                         type: 'Market',
-                        price: fillPrice,
+                        price: executedPrice,
                         amount: order.amount,
-                        fee: 0,
+                        fee: fee,
                         pnl: 0,
                         timestamp: Date.now()
                     });
+                    
+                    if (user) {
+                        await supabase.from('orders_spot').insert([{
+                            user_id: user.id,
+                            pair: order.symbol,
+                            side: order.side.toLowerCase(),
+                            type: 'market',
+                            price: executedPrice,
+                            amount: order.amount,
+                            filled: order.amount,
+                            status: 'filled'
+                        }]);
+                        get().syncWalletsToSupabase();
+                    }
                 }
-                get().updateAssetPrices(true); // user action: trade placed
+                get().updateAssetPrices(true);
             },
 
             cancelSpotOrder: (orderId) => {
@@ -703,36 +845,39 @@ const useExchangeStore = create<ExchangeState>()(
                 get().showToast('Order Canceled', `Spot order successfully canceled.`, 'success');
             },
 
-            placeFuturesOrder: (order) => {
-                const { wallets, positions, futuresMarkets } = get();
+            placeFuturesOrder: async (order) => {
+                const { wallets, positions, futuresMarkets, user } = get();
                 const market = futuresMarkets.find(m => m.symbol === order.symbol);
                 const currentPrice = market ? parseFloat(market.lastPrice) : order.price;
 
-                // Initial Margin Calculation: (Size * Price) / Leverage
-                const marginRequired = (order.amount * currentPrice) / order.leverage;
+                const notionalValue = new Decimal(order.amount).times(currentPrice);
+                const marginRequired = notionalValue.div(order.leverage).toNumber();
+                const feeRate = 0.0005;
+                const fee = notionalValue.times(feeRate).toNumber();
 
-                // "Available" in Futures = Wallet USDT - Sum of already locked margins
+                const totalUnrealizedPnl = positions.reduce((sum, p) => sum + (p.pnl || 0), 0);
+                const currentEquity = new Decimal(wallets.futures.USDT || 0).plus(totalUnrealizedPnl).toNumber();
                 const totalLockedMargin = positions.reduce((sum, p) => sum + p.margin, 0);
-                const availableInFutures = (wallets.futures.USDT || 0) - totalLockedMargin;
+                const availableMargin = new Decimal(currentEquity).minus(totalLockedMargin).toNumber();
 
-                if (availableInFutures < marginRequired) {
-                    console.error('Insufficient Futures Margin');
+                if (availableMargin < (marginRequired + fee)) {
+                    get().showToast('Margin Call', `Required ${(marginRequired + fee).toFixed(2)} USDT`, 'error');
                     return;
                 }
 
-                // Standard Exchange Logic: Margin is NOT deducted from wallet balance.
-                // It's just "locked" (accounted for in Available balance calculation).
+                const newWallets = JSON.parse(JSON.stringify(wallets));
+                newWallets.futures.USDT = new Decimal(newWallets.futures.USDT || 0).minus(fee).toNumber();
 
-                // Liquidation Price standard formula
+                const mmr = 0.005;
                 const liqPrice = order.side === 'Buy'
-                    ? currentPrice * (1 - 1 / order.leverage)
-                    : currentPrice * (1 + 1 / order.leverage);
+                    ? new Decimal(currentPrice).times(new Decimal(1).minus(new Decimal(1).div(order.leverage)).plus(mmr)).toNumber()
+                    : new Decimal(currentPrice).times(new Decimal(1).plus(new Decimal(1).div(order.leverage)).minus(mmr)).toNumber();
 
                 const newPosition: FuturesPosition = {
                     id: `pos-${Date.now()}`,
                     symbol: order.symbol,
-                    pair: order.symbol, // Sync with interface
-                    side: order.side === 'Buy' ? 'Buy' : 'Sell',
+                    pair: order.symbol,
+                    side: order.side,
                     size: order.amount,
                     entryPrice: currentPrice,
                     markPrice: currentPrice,
@@ -746,22 +891,28 @@ const useExchangeStore = create<ExchangeState>()(
 
                 const existingPosIdx = positions.findIndex(p => p.symbol === order.symbol && p.side === order.side);
                 let nextPositions = [...positions];
+
                 if (existingPosIdx > -1) {
                     const existing = positions[existingPosIdx];
-                    const newSize = existing.size + order.amount;
-                    const newEntry = ((existing.entryPrice * existing.size) + (currentPrice * order.amount)) / newSize;
+                    const newSize = new Decimal(existing.size).plus(order.amount).toNumber();
+                    const oldNotional = new Decimal(existing.entryPrice).times(existing.size);
+                    const newNotional = new Decimal(currentPrice).times(order.amount);
+                    const newEntry = oldNotional.plus(newNotional).div(newSize).toNumber();
+                    
                     nextPositions[existingPosIdx] = {
                         ...existing,
                         size: newSize,
                         entryPrice: newEntry,
-                        margin: existing.margin + marginRequired,
+                        margin: new Decimal(existing.margin).plus(marginRequired).toNumber(),
+                        liqPrice
                     };
                 } else {
                     nextPositions = [newPosition, ...positions];
                 }
 
-                set({ positions: nextPositions });
-                get().updateAssetPrices(true); // user action: futures order placed
+                set({ positions: nextPositions, wallets: newWallets });
+                get().showToast('Position Opened', `${order.leverage}x ${order.side === 'Buy' ? 'Long' : 'Short'} ${order.symbol} opened at ${currentPrice.toFixed(2)} USDT`, 'success');
+                get().updateAssetPrices(true);
 
                 get().addTrade({
                     id: `TR-F-${Date.now()}`,
@@ -770,22 +921,39 @@ const useExchangeStore = create<ExchangeState>()(
                     type: order.type,
                     price: currentPrice,
                     amount: order.amount,
-                    fee: 0,
+                    fee: fee,
                     pnl: 0,
                     timestamp: Date.now()
                 });
+
+                if (user) {
+                    await supabase.from('positions_futures').insert([{
+                        user_id: user.id,
+                        pair: order.symbol,
+                        leverage: order.leverage,
+                        margin_type: order.marginMode.toLowerCase(),
+                        side: order.side === 'Buy' ? 'long' : 'short',
+                        entry_price: currentPrice,
+                        size: order.amount,
+                        liquidation_price: liqPrice,
+                        margin: marginRequired
+                    }]);
+                    get().syncWalletsToSupabase();
+                }
             },
 
-            closeFuturesPosition: (id) => {
-                const { positions, wallets } = get();
+            closeFuturesPosition: async (id) => {
+                const { positions, wallets, positionHistory, user } = get();
                 const pos = positions.find(p => p.id === id);
                 if (!pos) return;
 
-                // When closing, Realized PnL is added to the wallet balance
-                const newWallets = { ...wallets };
-                newWallets.futures.USDT = (newWallets.futures.USDT || 0) + pos.pnl;
+                const notionalValue = new Decimal(pos.size).times(pos.markPrice || pos.entryPrice);
+                const fee = notionalValue.times(0.0005).toNumber();
+                
+                const newWallets = JSON.parse(JSON.stringify(wallets));
+                const realizedUsdt = new Decimal(pos.pnl).minus(fee).toNumber();
+                newWallets.futures.USDT = new Decimal(newWallets.futures.USDT || 0).plus(realizedUsdt).toNumber();
 
-                // Record into positionHistory
                 const newHistoryRecord: PositionHistoryRecord = {
                     id: pos.id,
                     pair: pos.pair,
@@ -795,7 +963,7 @@ const useExchangeStore = create<ExchangeState>()(
                     entryPrice: pos.entryPrice,
                     markPrice: pos.markPrice || pos.entryPrice,
                     leverage: pos.leverage,
-                    pnl: pos.pnl || 0,
+                    pnl: realizedUsdt,
                     pnlPercent: pos.pnlPercent || 0,
                     timeOpened: Date.now() - 3600000,
                     timeClosed: Date.now(),
@@ -805,58 +973,88 @@ const useExchangeStore = create<ExchangeState>()(
                 set({
                     wallets: newWallets,
                     positions: positions.filter(p => p.id !== id),
-                    positionHistory: [newHistoryRecord, ...(get().positionHistory || [])]
+                    positionHistory: [newHistoryRecord, ...(positionHistory || [])]
                 });
 
-                get().updateAssetPrices(true); // user action: position closed
-                get().showToast('Position Closed', `Futures position ${pos.pair} closed successfully.`, 'success');
+                get().updateAssetPrices(true);
+                get().showToast('Position Closed', `${pos.side === 'Buy' ? 'Long' : 'Short'} ${pos.pair} closed. Realized PnL: ${realizedUsdt >= 0 ? '+' : ''}${realizedUsdt.toFixed(2)} USDT`, 'success');
+
+                if (user) {
+                    await supabase.from('history_futures').insert([{
+                        user_id: user.id,
+                        pair: pos.pair,
+                        leverage: pos.leverage,
+                        margin_type: pos.marginMode?.toLowerCase(),
+                        side: pos.side === 'Buy' ? 'long' : 'short',
+                        entry_price: pos.entryPrice,
+                        close_price: pos.markPrice || pos.entryPrice,
+                        size: pos.size,
+                        margin: pos.margin,
+                        pnl: realizedUsdt,
+                        time_opened: new Date(newHistoryRecord.timeOpened).toISOString(),
+                        time_closed: new Date(newHistoryRecord.timeClosed).toISOString()
+                    }]);
+
+                    await supabase.from('positions_futures').delete()
+                        .eq('user_id', user.id)
+                        .eq('pair', pos.pair)
+                        .eq('side', pos.side === 'Buy' ? 'long' : 'short');
+                    get().syncWalletsToSupabase();
+                }
             },
 
             resetWallets: async () => {
                 const { user } = get();
-                if (!user) return;
+                if (!user) {
+                    console.error('[Diagnostic] Reset failed: No user found in state');
+                    return;
+                }
 
+                console.log(`[Diagnostic] Triggering full reset for user: ${user.id}`);
+
+                // 2. Call DB Reset
                 const { error } = await supabase.rpc('full_reset_user_data', { p_user_id: user.id });
                 
                 if (error) {
-                    console.error('Full reset failed:', error);
+                    console.error('[Diagnostic] Reset RPC error:', error);
                     get().showToast('Reset Failed', 'Could not clear data in Supabase.', 'error');
                     return;
                 }
 
-                // Update local state to match the reset
-                const now = Date.now();
-                const todayMidnight = new Date(new Date().toISOString().split('T')[0]).getTime();
-                const initialHistory = [
-                    { id: `INIT-USDT-${now}`, type: 'Deposit', status: 'Completed', amount: 500, currency: 'USDT', timestamp: todayMidnight - 1, to: 'Spot' },
-                ];
+                console.log('[Diagnostic] Reset RPC Success. Clearing local state and re-fetching...');
 
+                // Update local state to match the reset (clear everything first)
                 set({
-                    wallets: {
-                        spot: { USDT: 500 },
-                        futures: { USDT: 0 },
-                        earn: { USDT: 0 }
-                    },
+                    wallets: { spot: {}, futures: {}, earn: {} },
                     spotCostBasis: {},
-                    transactionHistory: initialHistory,
+                    transactionHistory: [],
                     tradeHistory: [],
                     positions: [],
                     openOrders: [],
                     positionHistory: [],
-                    snapshots: { [new Date().toISOString().split('T')[0]]: 0 },
-                    balance: 500,
-                    spotBalance: 500,
+                    snapshots: {},
+                    balance: 0,
+                    spotBalance: 0,
                     futuresBalance: 0,
                     earnBalance: 0,
                     todayPnl: 0,
                     todaySpotPnl: 0,
                     pnlPercent: 0,
-                    assets: [{ symbol: 'USDT', amount: 500, valueUsdt: 500 }],
-                    favorites: get().favorites, // Keep favorites
+                    assets: [],
+                    history: [],
+                    favoriteGroups: {},
+                    hiddenGroups: [],
+                    favorites: get().favorites, 
                 });
 
+                // Immediately fetch the fresh data from Supabase (including the auto-seeded deposit)
+                await Promise.all([
+                    get().fetchSupabaseWallets(),
+                    get().fetchSupabaseHistory()
+                ]);
+
                 get().updateAssetPrices(true);
-                get().showToast('Account Reset', 'All data cleared and balance reset to 500 USDT.', 'success');
+                get().showToast('Account Reset', 'All data cleared and balance reset to default.', 'success');
             },
 
             // Auto-Calculation: recalculate asset values from latest market prices and wallets
@@ -919,80 +1117,92 @@ const useExchangeStore = create<ExchangeState>()(
                     });
 
                     // 2. --- Sync Futures Unrealized PnL & Monitor Liquidations ---
-                    const updatedPositions = [];
+                    let dFuturesUnrealizedPnl = new Decimal(0);
+                    let totalMaintenanceMargin = new Decimal(0);
+                    let updatedPositions: any[] = [];
+
                     positions.forEach(pos => {
                         const market = futuresMarkets.find(m => m.symbol === pos.symbol);
-                        if (market) {
-                            const markPrice = parseFloat(market.lastPrice);
+                        const markPrice = market ? parseFloat(market.lastPrice) : pos.markPrice;
+                        
+                        const priceDiff = pos.side === 'Buy' 
+                            ? new Decimal(markPrice).minus(pos.entryPrice) 
+                            : new Decimal(pos.entryPrice).minus(markPrice);
+                        
+                        const pnl = priceDiff.times(pos.size);
+                        const pnlPercent = pnl.div(pos.margin).times(100);
+                        
+                        const maintenanceMargin = new Decimal(pos.size).times(markPrice).times(0.005); 
 
-                            // Check for liquidation (Isolated Margin)
-                            const isLiquidated = pos.side === 'Buy'
-                                ? markPrice <= pos.liqPrice
-                                : markPrice >= pos.liqPrice;
+                        dFuturesUnrealizedPnl = dFuturesUnrealizedPnl.plus(pnl);
+                        totalMaintenanceMargin = totalMaintenanceMargin.plus(maintenanceMargin);
 
-                            if (isLiquidated) {
-                                fillOccurred = true;
-                                // In this engine, margin is not deducted from wallet when opening.
-                                // So on liquidation, we must deduct the lost margin.
-                                updatedWallets.futures.USDT = (updatedWallets.futures.USDT || 0) - pos.margin;
-
-                                updatedTradeHistory.push({
-                                    id: `LIQ-${Date.now()}-${pos.id}`,
-                                    symbol: pos.symbol,
-                                    side: pos.side,
-                                    type: 'Liquidation',
-                                    price: markPrice,
-                                    amount: pos.size,
-                                    fee: 0,
-                                    pnl: -pos.margin,
-                                    timestamp: Date.now(),
-                                    status: 'Completed'
-                                });
-                            } else {
-                                const priceDiff = pos.side === 'Buy' ? (markPrice - pos.entryPrice) : (pos.entryPrice - markPrice);
-                                const pnl = priceDiff * pos.size;
-                                const pnlPercent = (pnl / pos.margin) * 100;
-                                updatedPositions.push({
-                                    ...pos,
-                                    markPrice,
-                                    pnl: parseFloat(pnl.toFixed(2)),
-                                    pnlPercent: parseFloat(pnlPercent.toFixed(2))
-                                });
-                            }
-                        } else {
-                            updatedPositions.push(pos);
-                        }
+                        updatedPositions.push({
+                            ...pos,
+                            markPrice,
+                            pnl: parseFloat(pnl.toFixed(2)),
+                            pnlPercent: parseFloat(pnlPercent.toFixed(2))
+                        });
                     });
+
+                    const futuresWalletBalance = new Decimal(updatedWallets.futures.USDT || 0);
+                    const futuresEquity = futuresWalletBalance.plus(dFuturesUnrealizedPnl);
+
+                    if (updatedPositions.length > 0 && futuresEquity.lte(totalMaintenanceMargin)) {
+                        fillOccurred = true;
+                        
+                        updatedPositions.forEach(pos => {
+                            updatedTradeHistory.push({
+                                id: `LIQ-${Date.now()}-${pos.id}`,
+                                symbol: pos.symbol,
+                                side: pos.side,
+                                type: 'Liquidation',
+                                price: pos.markPrice,
+                                amount: pos.size,
+                                fee: 0,
+                                pnl: pos.pnl,
+                                timestamp: Date.now(),
+                                status: 'Completed'
+                            });
+                        });
+                        
+                        updatedWallets.futures.USDT = 0; 
+                        updatedPositions = [];
+                        get().showToast('Liquidation Alert', 'Futures account liquidated due to insufficient margin.', 'error');
+                    }
 
                     // 3. --- Calculate Balances & Asset Values ---
                     let dSpotTotal = new Decimal(0);
                     let dFuturesTotal = new Decimal(0);
                     let dEarnTotal = new Decimal(0);
-                    let dWeightedPnl = new Decimal(0);
+                    let dSpotUnrealizedPnl = new Decimal(0);
 
                     const finalWallets = fillOccurred ? updatedWallets : wallets;
 
                     const updatedAssets = Object.entries(finalWallets.spot).map(([symbol, amount]) => {
                         let valueUsdt = new Decimal(amount as number);
-                        let changePercent = new Decimal(0);
                         if (symbol !== 'USDT' && symbol !== 'USDC') {
                             const market = markets.find(m => m.symbol === `${symbol}USDT` || m.symbol === `${symbol}USD`);
+                            const currentPrice = market ? market.lastPrice : 0;
+                            
                             if (market) {
-                                valueUsdt = new Decimal(amount as number).times(market.lastPrice);
-                                changePercent = new Decimal(market.priceChangePercent);
+                                valueUsdt = new Decimal(amount as number).times(currentPrice);
+                                
+                                const costPrice = spotCostBasis[symbol];
+                                if (costPrice && costPrice > 0) {
+                                    const pnl = new Decimal(currentPrice).minus(costPrice).times(amount as number);
+                                    dSpotUnrealizedPnl = dSpotUnrealizedPnl.plus(pnl);
+                                }
                             }
                         }
                         dSpotTotal = dSpotTotal.plus(valueUsdt);
-                        dWeightedPnl = dWeightedPnl.plus(valueUsdt.times(changePercent).div(100));
                         return { symbol, amount: amount as number, valueUsdt: valueUsdt.toNumber() };
                     }).filter(a => a.amount > 0 || a.symbol === 'USDT');
 
-                    // Futures Wallet balance calculation
                     dFuturesTotal = new Decimal(finalWallets.futures.USDT || 0);
                     const totalFuturesUnrealizedPnl = updatedPositions.reduce((sum, pos) => sum + (pos.pnl || 0), 0);
-                    const dFuturesUnrealizedPnl = new Decimal(totalFuturesUnrealizedPnl);
+                    dFuturesUnrealizedPnl = new Decimal(totalFuturesUnrealizedPnl);
 
-                    // Earn wallet
                     Object.entries(finalWallets.earn).forEach(([symbol, amount]) => {
                         let valueUsdt = new Decimal(amount as number);
                         if (symbol !== 'USDT' && symbol !== 'USDC') {
@@ -1003,15 +1213,11 @@ const useExchangeStore = create<ExchangeState>()(
                     });
 
                     const dTotalValue = dSpotTotal.plus(dFuturesTotal).plus(dEarnTotal).plus(dFuturesUnrealizedPnl);
-                    const spotTotal = dSpotTotal.toNumber();
-                    const futuresTotal = dFuturesTotal.toNumber();
-                    const earnTotal = dEarnTotal.toNumber();
-                    const weightedPnl = dWeightedPnl.toNumber();
                     const totalValue = dTotalValue.toNumber();
-                    // Apply 0.1% simulated spread/fee on the estimated total wealth for conservatism
-                    const conservativeTotalValue = dTotalValue.times(0.999).toNumber();
+                    
+                    const dTotalUnrealizedPnl = dSpotUnrealizedPnl.plus(dFuturesUnrealizedPnl);
                     const pnlPercentValue = dTotalValue.gt(0)
-                        ? dWeightedPnl.plus(dFuturesUnrealizedPnl).div(dTotalValue).times(100).toNumber()
+                        ? dTotalUnrealizedPnl.div(dTotalValue).times(100).toNumber()
                         : 0;
 
                     // 4. --- Update BTC Rate ---
@@ -1033,13 +1239,13 @@ const useExchangeStore = create<ExchangeState>()(
                         positions: updatedPositions,
                         assets: updatedAssets,
                         balance: new Decimal(totalValue).toDecimalPlaces(8).toNumber(),
-                        spotBalance: new Decimal(spotTotal).toDecimalPlaces(8).toNumber(),
-                        futuresBalance: new Decimal(futuresTotal).toDecimalPlaces(8).toNumber(),
-                        earnBalance: new Decimal(earnTotal).toDecimalPlaces(8).toNumber(),
-                        todayPnl: new Decimal(weightedPnl).plus(totalFuturesUnrealizedPnl).toDecimalPlaces(8).toNumber(),
-                        todaySpotPnl: new Decimal(weightedPnl).toDecimalPlaces(8).toNumber(),
+                        spotBalance: new Decimal(dSpotTotal.toNumber()).toDecimalPlaces(8).toNumber(),
+                        futuresBalance: new Decimal(dFuturesTotal.toNumber()).toDecimalPlaces(8).toNumber(),
+                        earnBalance: new Decimal(dEarnTotal.toNumber()).toDecimalPlaces(8).toNumber(),
+                        todayPnl: new Decimal(dTotalUnrealizedPnl.toNumber()).toDecimalPlaces(8).toNumber(),
+                        todaySpotPnl: new Decimal(dSpotUnrealizedPnl.toNumber()).toDecimalPlaces(8).toNumber(),
                         pnlPercent: new Decimal(pnlPercentValue).toDecimalPlaces(2).toNumber(),
-                        futuresUnrealizedPnl: new Decimal(totalFuturesUnrealizedPnl).toDecimalPlaces(8).toNumber(),
+                        futuresUnrealizedPnl: dFuturesUnrealizedPnl.toDecimalPlaces(8).toNumber(),
                         rates: newRates,
                         snapshots: nextSnapshots
                     };
@@ -1099,8 +1305,18 @@ const useExchangeStore = create<ExchangeState>()(
                     .filter(tx => tx.timestamp > baselineTimestamp && tx.status === 'Completed')
                     .reduce((acc, tx) => {
                         const a = new Decimal(acc);
-                        if (tx.type === 'Deposit') return a.plus(tx.amount).toNumber();
-                        if (tx.type === 'Withdrawal') return a.minus(tx.amount).toNumber();
+                        const type = tx.type.toLowerCase();
+                        
+                        if (type === 'deposit') return a.plus(tx.amount).toNumber();
+                        if (type === 'withdrawal') return a.minus(tx.amount).toNumber();
+                        
+                        if (type === 'transfer') {
+                            const to = (tx.to || '').toLowerCase();
+                            const from = (tx.from || '').toLowerCase();
+                            
+                            if (!from && to) return a.plus(tx.amount).toNumber(); 
+                            if (from && !to) return a.minus(tx.amount).toNumber();
+                        }
                         return acc;
                     }, 0);
 
@@ -1160,12 +1376,21 @@ const useExchangeStore = create<ExchangeState>()(
                     };
                 });
                 get().updateAssetPrices(true);
+                get().syncWalletsToSupabase();
             },
         }),
         {
             name: 'triv-ultra-storage',
             partialize: (state) => {
-                const { toastMessage, ...rest } = state;
+                const { 
+                    toastMessage, 
+                    wallets, transactionHistory, tradeHistory, 
+                    positions, openOrders, positionHistory, 
+                    snapshots, balance, spotBalance, futuresBalance, 
+                    earnBalance, assets, futuresUnrealizedPnl,
+                    spotCostBasis,
+                    ...rest 
+                } = state;
                 return rest;
             }
         }
