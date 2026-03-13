@@ -122,6 +122,8 @@ interface ExchangeState {
     startEarnYield: () => void;
     setSession: (session: Session | null) => void;
     signOut: () => Promise<void>;
+    fetchSupabasePositions: () => Promise<void>;
+    setSpotCostPrice: (coin: string, price: number) => Promise<void>;
 
     // Global Toast
     toastMessage: { isOpen: boolean; title: string; message: string; type: 'success' | 'error' } | null;
@@ -364,6 +366,27 @@ const useExchangeStore = create<ExchangeState>()(
                 if (updates.length > 0) {
                     await supabase.from('wallets').upsert(updates, { onConflict: 'user_id, type, coin_symbol' });
                 }
+
+                // Also sync spotCostBasis into preferences
+                const { spotCostBasis } = get();
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('preferences')
+                    .eq('id', user.id)
+                    .maybeSingle();
+
+                const updatedPreferences = {
+                    ...(profile?.preferences || {}),
+                    spotCostBasis
+                };
+
+                await supabase
+                    .from('profiles')
+                    .upsert({ 
+                        id: user.id, 
+                        preferences: updatedPreferences,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'id' });
             },
 
             fetchSupabaseWallets: async () => {
@@ -474,10 +497,11 @@ const useExchangeStore = create<ExchangeState>()(
                     .maybeSingle();
 
                 if (!error && data?.preferences) {
-                    const { favorites, favoriteGroups, hiddenGroups } = data.preferences;
+                    const { favorites, favoriteGroups, hiddenGroups, spotCostBasis } = data.preferences;
                     if (favorites) set({ favorites });
                     if (favoriteGroups) set({ favoriteGroups });
                     if (hiddenGroups) set({ hiddenGroups });
+                    if (spotCostBasis) set({ spotCostBasis });
                 } else if (!data) {
                     // Profile doesn't exist, create it
                     await get().syncFavoritesToSupabase();
@@ -505,6 +529,46 @@ const useExchangeStore = create<ExchangeState>()(
                         get().updateAssetPrices(); // throttled — earn yield is background
                     }
                 }, 1000);
+            },
+
+            fetchSupabasePositions: async () => {
+                const { user } = get();
+                if (!user) return;
+
+                const { data, error } = await supabase
+                    .from('positions_futures')
+                    .select('*')
+                    .eq('user_id', user.id);
+
+                if (!error && data) {
+                    const mappedPositions = data.map((p: any) => ({
+                        id: p.id,
+                        symbol: p.pair,
+                        pair: p.pair,
+                        side: p.side === 'long' ? 'Buy' : 'Sell',
+                        size: parseFloat(p.size),
+                        entryPrice: parseFloat(p.entry_price),
+                        markPrice: parseFloat(p.entry_price),
+                        margin: parseFloat(p.margin),
+                        leverage: p.leverage,
+                        pnl: 0,
+                        pnlPercent: 0,
+                        liqPrice: parseFloat(p.liquidation_price),
+                        marginMode: p.margin_type === 'cross' ? 'Cross' : 'Isolated'
+                    }));
+                    
+                    set({ positions: mappedPositions });
+                    get().updateAssetPrices(true);
+                }
+            },
+
+            setSpotCostPrice: async (coin, price) => {
+                const { spotCostBasis, user } = get();
+                const newBasis = { ...spotCostBasis, [coin]: price };
+                set({ spotCostBasis: newBasis });
+                if (user) {
+                    await get().syncWalletsToSupabase();
+                }
             },
 
             setSession: (session) => {
@@ -599,7 +663,8 @@ const useExchangeStore = create<ExchangeState>()(
                 await Promise.all([
                     get().fetchSupabaseWallets(),
                     get().fetchSupabaseHistory(),
-                    get().fetchSupabaseFavorites()
+                    get().fetchSupabaseFavorites(),
+                    get().fetchSupabasePositions()
                 ]);
             },
 
@@ -927,17 +992,39 @@ const useExchangeStore = create<ExchangeState>()(
                 });
 
                 if (user) {
-                    await supabase.from('positions_futures').insert([{
-                        user_id: user.id,
-                        pair: order.symbol,
-                        leverage: order.leverage,
-                        margin_type: order.marginMode.toLowerCase(),
-                        side: order.side === 'Buy' ? 'long' : 'short',
-                        entry_price: currentPrice,
-                        size: order.amount,
-                        liquidation_price: liqPrice,
-                        margin: marginRequired
-                    }]);
+                    const dbSide = order.side === 'Buy' ? 'long' : 'short';
+                    const existingPosIdx = positions.findIndex(p => p.symbol === order.symbol && p.side === order.side);
+
+                    if (existingPosIdx > -1) {
+                        const existing = positions[existingPosIdx];
+                        const newSize = new Decimal(existing.size).plus(order.amount).toNumber();
+                        const oldNotional = new Decimal(existing.entryPrice).times(existing.size);
+                        const newNotional = new Decimal(currentPrice).times(order.amount);
+                        const newEntry = oldNotional.plus(newNotional).div(newSize).toNumber();
+                        const newMargin = new Decimal(existing.margin).plus(marginRequired).toNumber();
+
+                        await supabase.from('positions_futures').update({
+                            entry_price: newEntry,
+                            size: newSize,
+                            margin: newMargin,
+                            liquidation_price: liqPrice
+                        })
+                        .eq('user_id', user.id)
+                        .eq('pair', order.symbol)
+                        .eq('side', dbSide);
+                    } else {
+                        await supabase.from('positions_futures').insert([{
+                            user_id: user.id,
+                            pair: order.symbol,
+                            leverage: order.leverage,
+                            margin_type: order.marginMode.toLowerCase(),
+                            side: dbSide,
+                            entry_price: currentPrice,
+                            size: order.amount,
+                            liquidation_price: liqPrice,
+                            margin: marginRequired
+                        }]);
+                    }
                     get().syncWalletsToSupabase();
                 }
             },
