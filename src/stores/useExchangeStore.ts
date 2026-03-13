@@ -216,7 +216,6 @@ const useExchangeStore = create<ExchangeState>()(
             futuresUnrealizedPnl: 0,
             isSpotTradeSheetOpen: false,
             isFuturesTPSLSheetOpen: false,
-            setFuturesTPSLSheetOpen: (open, position) => set({ isFuturesTPSLSheetOpen: open, activeFuturesPosition: position || null }),
             activeSpotAsset: null,
             activeFuturesPosition: null,
 
@@ -1304,15 +1303,17 @@ const useExchangeStore = create<ExchangeState>()(
                             fillOccurred = true;
                             const symbol = order.symbol.replace('USDT', '');
                             if (order.side === 'Buy') {
-                                const oldAmount = updatedWallets.spot[symbol] || 0;
-                                const oldCost = updatedCostBasis[symbol] || currentPrice;
-                                const newAmount = oldAmount + order.amount;
-                                updatedCostBasis[symbol] = ((oldAmount * oldCost) + (order.amount * currentPrice)) / newAmount;
-                                updatedWallets.spot[symbol] = newAmount;
-                                updatedWallets.spot.USDT = (updatedWallets.spot.USDT || 0) - (order.amount * currentPrice);
+                                const oldAmount = new Decimal(updatedWallets.spot[symbol] || 0);
+                                const oldCost = new Decimal(updatedCostBasis[symbol] || currentPrice);
+                                const newAmount = oldAmount.plus(order.amount);
+                                
+                                updatedCostBasis[symbol] = oldAmount.times(oldCost).plus(new Decimal(order.amount).times(currentPrice)).div(newAmount).toNumber();
+                                updatedWallets.spot[symbol] = newAmount.toNumber();
+                                updatedWallets.spot.USDT = new Decimal(updatedWallets.spot.USDT || 0).minus(new Decimal(order.amount).times(currentPrice)).toNumber();
                             } else {
-                                updatedWallets.spot.USDT = (updatedWallets.spot.USDT || 0) + (currentPrice * order.amount);
-                                updatedWallets.spot[symbol] = (updatedWallets.spot[symbol] || 0) - order.amount;
+                                const sellValue = new Decimal(currentPrice).times(order.amount);
+                                updatedWallets.spot.USDT = new Decimal(updatedWallets.spot.USDT || 0).plus(sellValue).toNumber();
+                                updatedWallets.spot[symbol] = new Decimal(updatedWallets.spot[symbol] || 0).minus(order.amount).toNumber();
                             }
                             updatedTradeHistory.push({
                                 id: Math.random().toString(36).substr(2, 9),
@@ -1357,11 +1358,11 @@ const useExchangeStore = create<ExchangeState>()(
                             
                             // Execute Sell
                             const sellAmount = s.amount;
-                            const sellValue = sellAmount * currentPrice;
-                            const fee = sellValue * 0.001;
+                            const sellValue = new Decimal(sellAmount).times(currentPrice).toNumber();
+                            const fee = new Decimal(sellValue).times(0.001).toNumber();
                             
-                            updatedWallets.spot[s.symbol] = (updatedWallets.spot[s.symbol] || 0) - sellAmount;
-                            updatedWallets.spot.USDT = (updatedWallets.spot.USDT || 0) + sellValue - fee;
+                            updatedWallets.spot[s.symbol] = new Decimal(updatedWallets.spot[s.symbol] || 0).minus(sellAmount).toNumber();
+                            updatedWallets.spot.USDT = new Decimal(updatedWallets.spot.USDT || 0).plus(sellValue).minus(fee).toNumber();
                             
                             updatedTradeHistory.push({
                                 id: `SPOT-TPSL-${Date.now()}-${s.symbol}`,
@@ -1370,7 +1371,7 @@ const useExchangeStore = create<ExchangeState>()(
                                 price: currentPrice,
                                 amount: sellAmount,
                                 fee,
-                                pnl: (currentPrice - costBasis) * sellAmount,
+                                pnl: new Decimal(currentPrice).minus(costBasis).times(sellAmount).toNumber(),
                                 timestamp: Date.now(),
                                 type: 'Market',
                                 status: 'Completed'

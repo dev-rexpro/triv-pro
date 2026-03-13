@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    FiX as Close, 
-    FiDownload as Download, 
-    FiCopy as Copy, 
+import {
+    FiX as Close,
+    FiDownload as Download,
+    FiCopy as Copy,
     FiMessageSquare as Messages,
     FiChevronLeft as ChevronLeft,
     FiExternalLink as ExternalLink,
@@ -12,20 +12,18 @@ import {
 import { FaWhatsapp as Whatsapp, FaTelegramPlane as Telegram } from 'react-icons/fa';
 import useExchangeStore from '../stores/useExchangeStore';
 import trivLogo from '../assets/triv-logo.svg';
+import shareBg1 from '../assets/share-1.jpg';
+import shareBg2 from '../assets/share-2.jpg';
 
 const SHARE_IMAGES = [
-    "https://images.unsplash.com/photo-1639762681057-408e52192e55?q=80&w=600&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1621416894569-0f39ed31d247?q=80&w=600&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=600&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1642104704074-907c0698cbd9?q=80&w=600&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1614729939124-032f0b56c9ce?q=80&w=600&auto=format&fit=crop",
-    "https://images.unsplash.com/photo-1634152962476-4b8a00e1915c?q=80&w=600&auto=format&fit=crop"
+    shareBg1,
+    shareBg2
 ];
 
 const SharePnLSheet = () => {
-    const { 
-        isSharePnLSheetOpen, 
-        setSharePnLSheetOpen, 
+    const {
+        isSharePnLSheetOpen,
+        setSharePnLSheetOpen,
         activeShareData,
         wallets,
         showToast
@@ -107,9 +105,9 @@ const SharePnLSheet = () => {
                                 {/* Main Card */}
                                 <div className="bg-black rounded-xl overflow-hidden shadow-2xl relative w-full aspect-[4/5] flex flex-col mb-3 ring-1 ring-white/10">
                                     <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0a]">
-                                        <img 
-                                            src={SHARE_IMAGES[selectedIndex]} 
-                                            alt="Background" 
+                                        <img
+                                            src={SHARE_IMAGES[selectedIndex]}
+                                            alt="Background"
                                             className="w-full h-full object-cover opacity-60 transition-opacity duration-500"
                                         />
                                         <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/20 to-black/90" />
@@ -119,9 +117,9 @@ const SharePnLSheet = () => {
                                         <div className="flex justify-between items-start">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-5 h-5 rounded-full bg-gray-600 overflow-hidden ring-1 ring-white/20">
-                                                    <img 
-                                                        src="https://i.pravatar.cc/100?img=12" 
-                                                        alt="User" 
+                                                    <img
+                                                        src="https://i.pravatar.cc/100?img=12"
+                                                        alt="User"
                                                         className="w-full h-full object-cover"
                                                     />
                                                 </div>
@@ -137,28 +135,40 @@ const SharePnLSheet = () => {
 
                                         <div className="mb-3">
                                             <div className="flex items-center gap-2 mb-1">
-                                                <img src={trivLogo} alt="TRIV" className="h-7 brightness-200" />
+                                                <img src={trivLogo} alt="TRIV" className="h-9" />
                                             </div>
-                                            <p className={`text-4xl font-black tracking-tighter ${pnlPercent >= 0 ? 'text-[#cbfb45]' : 'text-[#ff4d4d]'}`}>
+                                            <p className={`text-4xl font-semibold tracking-tighter ${pnlPercent >= 0 ? 'text-[#00c076]' : 'text-[#ff4d5b]'}`}>
                                                 {pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%
                                             </p>
                                         </div>
 
                                         <div className="flex items-center gap-3 mb-3">
-                                            <div className="w-7 h-7 rounded-full bg-[#141414] border border-gray-800 flex items-center justify-center p-1">
-                                                <div className="w-full h-full bg-white rounded-full flex items-center justify-center p-0.5">
-                                                    <img 
-                                                        src={`https://cryptologos.cc/logos/${symbol.toLowerCase()}-${symbol.toLowerCase()}-logo.png`} 
-                                                        onError={(e) => { e.currentTarget.src = `https://bin.v15.me/coins/${symbol.toLowerCase()}.png` }}
-                                                        alt={symbol} 
-                                                        className="w-full h-full object-contain"
-                                                    />
-                                                </div>
+                                            <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center">
+                                                <img
+                                                    src={`https://cdn.jsdelivr.net/gh/vadimmalykhin/binance-icons/crypto/${symbol.replace('1000', '').replace('USDT', '').toLowerCase()}.svg`}
+                                                    onError={(e) => {
+                                                        const clean = symbol.replace('1000', '').replace('USDT', '').toLowerCase();
+                                                        const fallbacks = [
+                                                            `https://static.okx.com/cdn/oksupport/asset/currency/icon/${clean}.png`,
+                                                            `https://assets.coincap.io/assets/icons/${clean}@2x.png`,
+                                                            `https://cryptologos.cc/logos/${clean}-${clean}-logo.png`
+                                                        ];
+                                                        const currentIdx = e.currentTarget.dataset.fallbackIdx ? parseInt(e.currentTarget.dataset.fallbackIdx) : 0;
+                                                        if (currentIdx < fallbacks.length) {
+                                                            e.currentTarget.dataset.fallbackIdx = (currentIdx + 1).toString();
+                                                            e.currentTarget.src = fallbacks[currentIdx];
+                                                        } else {
+                                                            e.target.style.display = 'none';
+                                                        }
+                                                    }}
+                                                    alt={symbol}
+                                                    className="w-full h-full object-contain scale-110"
+                                                />
                                             </div>
                                             <div>
                                                 <h3 className="text-white font-bold text-[13px]">{symbol}{isFutures ? ' Perp' : '/USDT'}</h3>
                                                 <div className="flex items-center gap-1.5 text-[9px] font-medium mt-0.5">
-                                                    <span className={side === 'Buy' ? 'text-green-500' : 'text-red-500'}>{side}</span>
+                                                    <span className={side === 'Buy' ? 'text-green-500' : 'text-red-500'}>{side === 'Buy' ? 'Long' : 'Short'}</span>
                                                     <span className="text-gray-600">|</span>
                                                     <span className="text-gray-400">{isFutures ? `${leverage}x` : 'Spot'}</span>
                                                     <span className="text-gray-600">|</span>
@@ -184,8 +194,8 @@ const SharePnLSheet = () => {
                                                 <p className="text-white font-bold text-[12px]">triv.co.id/ref/TRV123</p>
                                             </div>
                                             <div className="bg-white p-0.5 rounded-sm w-10 h-10 shadow-inner">
-                                                <img 
-                                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://triv.co.id/ref/TRV123&bgcolor=ffffff&color=000000`} 
+                                                <img
+                                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://triv.co.id/ref/TRV123&bgcolor=ffffff&color=000000`}
                                                     alt="QR Code"
                                                     className="w-full h-full"
                                                 />
@@ -197,9 +207,9 @@ const SharePnLSheet = () => {
                                 {/* Indicators */}
                                 <div className="flex justify-center gap-1.5 mb-4">
                                     {SHARE_IMAGES.slice(0, 3).map((_, i) => (
-                                        <div 
-                                            key={i} 
-                                            className={`h-1 rounded-full transition-all duration-300 ${selectedIndex % 3 === i ? 'w-3 bg-black' : 'w-1 bg-gray-300'}`} 
+                                        <div
+                                            key={i}
+                                            className={`h-1 rounded-full transition-all duration-300 ${selectedIndex % 3 === i ? 'w-3 bg-black' : 'w-1 bg-gray-300'}`}
                                         />
                                     ))}
                                 </div>
@@ -207,10 +217,10 @@ const SharePnLSheet = () => {
                                 {/* Image Selector Thumbnails */}
                                 <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-3 px-1">
                                     {SHARE_IMAGES.map((src, i) => (
-                                        <div 
-                                            key={i} 
+                                        <div
+                                            key={i}
                                             onClick={() => setSelectedIndex(i)}
-                                            className={`min-w-[56px] h-[56px] rounded-lg overflow-hidden shrink-0 border-2 cursor-pointer transition-all ${i === selectedIndex ? 'border-black scale-105 shadow-sm' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                                            className={`w-[56px] h-[56px] aspect-square rounded-[4px] overflow-hidden flex-none border-2 cursor-pointer transition-all ${i === selectedIndex ? 'border-black scale-105 shadow-sm' : 'border-transparent opacity-60 hover:opacity-100'}`}
                                         >
                                             <img src={src} className="w-full h-full object-cover" alt={`Thumb ${i}`} />
                                         </div>

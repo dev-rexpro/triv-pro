@@ -1347,11 +1347,17 @@ const TradeView = () => {
                                                 <h4 className="text-[16px] font-bold text-[var(--text-primary)]">{pos.symbol} Perp</h4>
                                                 <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)]" />
                                             </div>
-                                            <div className="text-right">
-                                                <p className="text-[12px] text-[var(--text-tertiary)] font-medium flex items-center gap-1 justify-end border-b border-dashed border-[var(--border-color)] w-max ml-auto cursor-pointer" onClick={() => setSharePnLSheetOpen(true, { symbol: pos.symbol, side: pos.side, isFutures: true, leverage: pos.leverage, entryPrice: pos.entryPrice, lastPrice: pos.markPrice, pnl: pos.pnl, pnlPercent: pos.pnlPercent })}>PnL (USDT) <FiShare2 className="w-3.5 h-3.5" /></p>
-                                                <p className={`text-[16px] font-bold ${pos.pnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
-                                                    {pos.pnl >= 0 ? '+' : ''}{pos.pnl.toFixed(2)} ({pos.pnlPercent >= 0 ? '+' : ''}{pos.pnlPercent.toFixed(2)}%)
-                                                </p>
+                                            <div className="flex items-center gap-2">
+                                                <div className="text-right">
+                                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max ml-auto">PnL (USDT)</p>
+                                                    <p className={`text-[16px] font-bold ${pos.pnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
+                                                        {pos.pnl >= 0 ? '+' : ''}{pos.pnl.toFixed(2)} ({pos.pnlPercent >= 0 ? '+' : ''}{pos.pnlPercent.toFixed(2)}%)
+                                                    </p>
+                                                </div>
+                                                <RiShare2Line 
+                                                    className="w-5 h-5 text-[var(--text-primary)] cursor-pointer active:scale-90 transition-transform mt-1" 
+                                                    onClick={() => setSharePnLSheetOpen(true, { symbol: pos.symbol, side: pos.side, isFutures: true, leverage: pos.leverage, entryPrice: pos.entryPrice, lastPrice: pos.markPrice, pnl: pos.pnl, pnlPercent: pos.pnlPercent })}
+                                                />
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-1.5 mb-5">
