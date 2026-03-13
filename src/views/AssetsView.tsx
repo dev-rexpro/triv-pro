@@ -24,6 +24,9 @@ import { MdOutlineArrowDropDown as ChevronDown } from 'react-icons/md';
 import { RiPlayListAddFill as MoreHorizontal } from 'react-icons/ri';
 import { AutoShrink } from '../components/AutoShrink';
 import { SlotTicker } from '../components/SlotTicker';
+import SpotTradeSheet from '../components/SpotTradeSheet';
+import FuturesTPSLSheet from '../components/FuturesTPSLSheet';
+import SpotTPSLSheet from '../components/SpotTPSLSheet';
 
 const AssetsView = () => {
     const [activeTab, setActiveTab] = useState('Overview');
@@ -32,7 +35,8 @@ const AssetsView = () => {
     const {
         balance, spotBalance, futuresBalance, earnBalance, todayPnl, todaySpotPnl, pnlPercent,
         assets, rates, currency, setDepositOptionOpen, setActivePage, resetWallets,
-        hideBalance, setHideBalance, futuresUnrealizedPnl
+        hideBalance, setHideBalance, futuresUnrealizedPnl,
+        setSpotTradeSheetOpen, setFuturesTPSLSheetOpen, setSpotTPSLSheetOpen
     } = useExchangeStore();
     const liveSpotBalance = spotBalance;
     const totalBalance = balance;
@@ -201,12 +205,21 @@ const AssetsView = () => {
                 confirmText="Reset"
             />
 
+            <SpotTradeSheet />
+            <FuturesTPSLSheet />
+            <SpotTPSLSheet />
+
         </div>
     );
 };
 
 const AssetList = React.memo(({ activeTab, setActiveTab, hideBalance, liveSpotBalance, futuresBalance, earnBalance, filteredAssets, hideZero, currency, rates, futuresUnrealizedPnl }: any) => {
-    const { spotCostBasis, markets, setSpotCostPrice } = useExchangeStore();
+    const { 
+        spotCostBasis, markets, setSpotCostPrice,
+        setSpotTradeSheetOpen, setFuturesTPSLSheetOpen, setSpotTPSLSheetOpen,
+        isSpotTPSLSheetOpen,
+        positions
+    } = useExchangeStore();
     const [editingCoin, setEditingCoin] = useState<string | null>(null);
     const [editValue, setEditValue] = useState('');
 
@@ -324,16 +337,80 @@ const AssetList = React.memo(({ activeTab, setActiveTab, hideBalance, liveSpotBa
                             </div>
                             <div className="flex gap-2">
                                 {asset.symbol !== 'USDT' && (
-                                    <button className="px-5 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[12px] font-bold rounded-lg transition-colors">TP/SL</button>
+                                    <button 
+                                        onClick={() => setSpotTPSLSheetOpen(true, asset)}
+                                        className="px-5 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[12px] font-bold rounded-lg transition-colors"
+                                    >
+                                        TP/SL
+                                    </button>
                                 )}
-                                <button className="px-5 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[12px] font-bold rounded-lg transition-colors">Buy/sell</button>
+                                <button 
+                                    onClick={() => setSpotTradeSheetOpen(true, asset)}
+                                    className="px-5 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[12px] font-bold rounded-lg transition-colors"
+                                >
+                                    Buy/sell
+                                </button>
                             </div>
                         </div>
                     </div>
                 );
             }) : activeTab === 'Futures' ? <>
+                {/* Positions Section */}
+                {positions && positions.length > 0 && (
+                    <div className="flex flex-col gap-4 mb-8">
+                        <div className="text-[14px] font-bold text-[var(--text-primary)] mb-1 uppercase tracking-tight">Active Positions ({positions.length})</div>
+                        {positions.map((pos: any) => (
+                            <div key={pos.id} className="bg-[var(--bg-card)] border border-[var(--border-color)]/40 rounded-xl p-4 flex flex-col gap-3 shadow-sm">
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                        <div className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${pos.side === 'Buy' ? 'bg-[var(--green)]/20 text-[var(--green)]' : 'bg-[var(--red)]/20 text-[var(--red)]'}`}>
+                                            {pos.side === 'Buy' ? 'LONG' : 'SHORT'} {pos.leverage}x
+                                        </div>
+                                        <span className="font-bold text-[16px] text-[var(--text-primary)]">{pos.symbol}</span>
+                                    </div>
+                                    <div className={`text-[13px] font-bold ${pos.pnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
+                                        {pos.pnl >= 0 ? '+' : ''}{pos.pnl.toFixed(2)} USDT ({pos.pnlPercent >= 0 ? '+' : ''}{pos.pnlPercent.toFixed(2)}%)
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2 py-1">
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-[10px] text-[var(--text-tertiary)] font-bold uppercase">Size</span>
+                                        <span className="text-[13px] font-bold text-[var(--text-primary)] tabular-nums">{pos.size}</span>
+                                    </div>
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-[10px] text-[var(--text-tertiary)] font-bold uppercase">Entry</span>
+                                        <span className="text-[13px] font-bold text-[var(--text-primary)] tabular-nums">{pos.entryPrice.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex flex-col gap-0.5 items-end">
+                                        <span className="text-[10px] text-[var(--text-tertiary)] font-bold uppercase">Mark</span>
+                                        <span className="text-[13px] font-bold text-[var(--text-primary)] tabular-nums">{(pos.markPrice || pos.entryPrice).toLocaleString()}</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2 pt-2 border-t border-[var(--border-color)]/20">
+                                    <button 
+                                        onClick={() => setFuturesTPSLSheetOpen(true, pos)}
+                                        className="flex-1 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[11px] font-bold rounded-lg transition-colors"
+                                    >
+                                        TP/SL
+                                    </button>
+                                    <button 
+                                        onClick={() => {/* Implement close logic */}}
+                                        className="flex-1 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[11px] font-bold rounded-lg transition-colors text-[var(--red)]"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Futures Assets */}
+                <div className="text-[14px] font-bold text-[var(--text-primary)] mb-2 uppercase tracking-tight">Assets</div>
                 {(!hideZero || futuresBalance > 0) && (
-                    <div className="flex justify-between items-center cursor-pointer">
+                    <div className="flex justify-between items-center cursor-pointer p-1">
                         <div className="flex items-center gap-3">
                             <CoinIcon symbol="USDT" size={8} />
                             <div className="flex flex-col">

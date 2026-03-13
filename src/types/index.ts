@@ -92,6 +92,8 @@ export interface FuturesPosition {
     pnl: number;
     pnlPercent: number;
     marginMode: 'Isolated' | 'Cross' | string;
+    tpPrice?: number | null;
+    slPrice?: number | null;
 }
 
 export interface PositionHistoryRecord {
@@ -108,6 +110,13 @@ export interface PositionHistoryRecord {
     timeOpened: number;
     timeClosed: number;
     marginMode: string;
+}
+
+export interface SpotTPSL {
+    symbol: string;
+    tpPrice: number | null;
+    slPrice: number | null;
+    amount: number;
 }
 
 export type CurrencyCode = 'USD' | 'USDT' | 'BTC' | 'IDR';

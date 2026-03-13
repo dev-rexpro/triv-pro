@@ -19,12 +19,15 @@ interface OrderConfirmationModalProps {
     liqPrice?: string | number;
     priceGap?: string | number;
     priceGapUsdt?: string | number;
+    tpPrice?: string | number;
+    slPrice?: string | number;
 }
 
 const OrderConfirmationModal: React.FC<OrderConfirmationModalProps> = ({
     isOpen, onClose, onConfirm,
     symbol, side, price, amount, total, type,
-    isFutures = false, leverage, liqPrice, priceGap, priceGapUsdt
+    isFutures = false, leverage, liqPrice, priceGap, priceGapUsdt,
+    tpPrice, slPrice
 }) => {
     const [dontShowAgain, setDontShowAgain] = useState(false);
 
@@ -110,6 +113,18 @@ const OrderConfirmationModal: React.FC<OrderConfirmationModalProps> = ({
                                             <span className="text-[13px] font-medium text-[var(--text-tertiary)]">{priceGapUsdt} USDT</span>
                                         </div>
                                     </div>
+                                    {tpPrice && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Take profit</span>
+                                            <span className="text-[16px] font-bold text-[#2ebd85]">{tpPrice} USDT</span>
+                                        </div>
+                                    )}
+                                    {slPrice && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Stop loss</span>
+                                            <span className="text-[16px] font-bold text-[#f6465d]">{slPrice} USDT</span>
+                                        </div>
+                                    )}
                                 </>
                             ) : (
                                 <>
@@ -121,6 +136,18 @@ const OrderConfirmationModal: React.FC<OrderConfirmationModalProps> = ({
                                         <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Type</span>
                                         <span className="text-[16px] font-bold text-[var(--text-primary)]">{type}</span>
                                     </div>
+                                    {tpPrice && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Take profit</span>
+                                            <span className="text-[16px] font-bold text-[#2ebd85]">{tpPrice} USDT</span>
+                                        </div>
+                                    )}
+                                    {slPrice && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Stop loss</span>
+                                            <span className="text-[16px] font-bold text-[#f6465d]">{slPrice} USDT</span>
+                                        </div>
+                                    )}
                                 </>
                             )}
                         </div>

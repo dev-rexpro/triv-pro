@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type {
     MarketData, Asset, ExchangeRates, FavoriteGroups, CurrencyCode,
-    WalletBalances, TransactionRecord, TradeRecord, PendingOrder, FuturesPosition, UnifiedCoin, PositionHistoryRecord
+    WalletBalances, TransactionRecord, TradeRecord, PendingOrder, FuturesPosition, UnifiedCoin, PositionHistoryRecord, SpotTPSL
 } from '../types';
 import type { BinanceSymbolInfo } from '../utils/api';
 import { supabase } from '../utils/supabase';
@@ -48,6 +48,40 @@ interface ExchangeState {
     hideBalance: boolean;
     showOrderConfirmation: boolean;
     futuresUnrealizedPnl: number;
+    isSpotTradeSheetOpen: boolean;
+    isFuturesTPSLSheetOpen: boolean;
+    activeSpotAsset: Asset | null;
+    activeFuturesPosition: FuturesPosition | null;
+
+    isSpotTPSLSheetOpen: boolean;
+    setSpotTPSLSheetOpen: (open: boolean, asset?: { symbol: string; amount: number }) => void;
+    activeSpotTPSLAsset: { symbol: string; amount: number } | null;
+
+    isSpotCostPriceSheetOpen: boolean;
+    activeSpotCostPriceAsset: { symbol: string; costPrice: number; balance: number } | null;
+    setSpotCostPriceSheetOpen: (open: boolean, asset?: { symbol: string; costPrice: number; balance: number }) => void;
+
+    isSharePnLSheetOpen: boolean;
+    activeShareData: {
+        symbol: string;
+        side: 'Buy' | 'Sell';
+        isFutures: boolean;
+        leverage?: number;
+        entryPrice: number;
+        lastPrice: number;
+        pnl: number;
+        pnlPercent: number;
+    } | null;
+    setSharePnLSheetOpen: (open: boolean, data?: {
+        symbol: string;
+        side: 'Buy' | 'Sell';
+        isFutures: boolean;
+        leverage?: number;
+        entryPrice: number;
+        lastPrice: number;
+        pnl: number;
+        pnlPercent: number;
+    }) => void;
 
     // Demo Engine State
     wallets: {
@@ -63,6 +97,7 @@ interface ExchangeState {
     watchlist: UnifiedCoin[];
     positionHistory: PositionHistoryRecord[];
     snapshots: { [date: string]: number };
+    spotTPSL: SpotTPSL[];
     nextFundingTime: number;
     fundingRate: number;
     startFundingCron: () => void;
@@ -127,12 +162,18 @@ interface ExchangeState {
 
     // Global Toast
     toastMessage: { isOpen: boolean; title: string; message: string; type: 'success' | 'error' } | null;
-    showToast: (title: string, message: string, type?: 'success' | 'error') => void;
+    setPositions: (positions: FuturesPosition[]) => void;
+    setFuturesTPSL: (positionId: string, tpPrice: number | null, slPrice: number | null) => Promise<void>;
+    setSpotTPSL: (symbol: string, tpPrice: number | null, slPrice: number | null, amount: number) => Promise<void>;
+    showToast: (title: string, message: string, type: 'success' | 'info' | 'error') => void;
     hideToast: () => void;
+    setSpotTradeSheetOpen: (open: boolean, asset?: Asset) => void;
+    setFuturesTPSLSheetOpen: (open: boolean, position?: FuturesPosition) => void;
 
     // Theme
     theme: 'light' | 'dark';
     toggleTheme: () => void;
+    setSelectedCoin: (coin: string) => void;
 }
 
 const useExchangeStore = create<ExchangeState>()(
@@ -173,6 +214,23 @@ const useExchangeStore = create<ExchangeState>()(
             hideBalance: false,
             showOrderConfirmation: true,
             futuresUnrealizedPnl: 0,
+            isSpotTradeSheetOpen: false,
+            isFuturesTPSLSheetOpen: false,
+            setFuturesTPSLSheetOpen: (open, position) => set({ isFuturesTPSLSheetOpen: open, activeFuturesPosition: position || null }),
+            activeSpotAsset: null,
+            activeFuturesPosition: null,
+
+            isSpotTPSLSheetOpen: false,
+            setSpotTPSLSheetOpen: (open, asset) => set({ isSpotTPSLSheetOpen: open, activeSpotTPSLAsset: asset || null }),
+            activeSpotTPSLAsset: null,
+
+            isSpotCostPriceSheetOpen: false,
+            activeSpotCostPriceAsset: null,
+            setSpotCostPriceSheetOpen: (open, asset) => set({ isSpotCostPriceSheetOpen: open, activeSpotCostPriceAsset: asset || null }),
+
+            isSharePnLSheetOpen: false,
+            activeShareData: null,
+            setSharePnLSheetOpen: (open, data) => set({ isSharePnLSheetOpen: open, activeShareData: data || null }),
             toastMessage: null,
             theme: 'light',
 
@@ -190,6 +248,7 @@ const useExchangeStore = create<ExchangeState>()(
             positionHistory: [],
             watchlist: [],
             snapshots: {},
+            spotTPSL: [],
             nextFundingTime: Math.ceil(Date.now() / (8 * 3600 * 1000)) * (8 * 3600 * 1000),
             fundingRate: 0.0001,
 
@@ -222,6 +281,7 @@ const useExchangeStore = create<ExchangeState>()(
             setSearchQuery: (query) => set({ searchQuery: query }),
             setHomeFilter: (filter) => set({ homeFilter: filter }),
             setTradeType: (type) => set({ tradeType: type }),
+            setSelectedCoin: (coin) => set({ selectedCoin: coin }),
             setPairPickerOpen: (val) => set({ isPairPickerOpen: val }),
             clearHistory: () => set({ history: [] }),
             setShowOrderConfirmation: (val) => set({ showOrderConfirmation: val }),
@@ -554,7 +614,9 @@ const useExchangeStore = create<ExchangeState>()(
                         pnl: 0,
                         pnlPercent: 0,
                         liqPrice: parseFloat(p.liquidation_price),
-                        marginMode: p.margin_type === 'cross' ? 'Cross' : 'Isolated'
+                        marginMode: p.margin_type === 'cross' ? 'Cross' : 'Isolated',
+                        tpPrice: p.tp_price ? parseFloat(p.tp_price) : null,
+                        slPrice: p.sl_price ? parseFloat(p.sl_price) : null
                     }));
                     
                     set({ positions: mappedPositions });
@@ -612,6 +674,14 @@ const useExchangeStore = create<ExchangeState>()(
             setDepositOptionOpen: (val) => set({ isDepositOptionOpen: val }),
             showToast: (title, message, type = 'success') => set({ toastMessage: { isOpen: true, title, message, type } }),
             hideToast: () => set({ toastMessage: null }),
+            setSpotTradeSheetOpen: (open, asset) => set({
+                isSpotTradeSheetOpen: open,
+                activeSpotAsset: asset || null
+            }),
+            setFuturesTPSLSheetOpen: (open, position) => set({
+                isFuturesTPSLSheetOpen: open,
+                activeFuturesPosition: position || null
+            }),
             toggleTheme: () => {
                 const newTheme = get().theme === 'light' ? 'dark' : 'light';
                 set({ theme: newTheme });
@@ -763,11 +833,47 @@ const useExchangeStore = create<ExchangeState>()(
                 }
             },
             addPosition: (pos) => set(s => ({ positions: [...s.positions, pos] })),
+            setFuturesTPSL: async (positionId, tpPrice, slPrice) => {
+                const { positions, user } = get();
+                const pos = positions.find(p => p.id === positionId);
+                if (!pos) return;
+
+                const updatedPositions = positions.map(p => 
+                    p.id === positionId ? { ...p, tpPrice, slPrice } : p
+                );
+                
+                set({ positions: updatedPositions });
+
+                if (user) {
+                    await supabase.from('positions_futures').update({
+                        tp_price: tpPrice,
+                        sl_price: slPrice
+                    }).eq('user_id', user.id).eq('pair', pos.symbol).eq('side', pos.side === 'Buy' ? 'long' : 'short');
+                }
+            },
+            setSpotTPSL: async (symbol, tpPrice, slPrice, amount) => {
+                const { spotTPSL, user } = get();
+                const existing = spotTPSL.find(s => s.symbol === symbol);
+                let newSpotTPSL;
+                
+                if (tpPrice === null && slPrice === null) {
+                    newSpotTPSL = spotTPSL.filter(s => s.symbol !== symbol);
+                } else if (existing) {
+                    newSpotTPSL = spotTPSL.map(s => s.symbol === symbol ? { ...s, tpPrice, slPrice, amount } : s);
+                } else {
+                    newSpotTPSL = [...spotTPSL, { symbol, tpPrice, slPrice, amount }];
+                }
+                
+                set({ spotTPSL: newSpotTPSL });
+                
+                // For now, we don't have a dedicated Supabase table for spot TP/SL triggers,
+                // so we use local state persistence via Zustand.
+            },
             removePosition: (id) => set(s => ({ positions: s.positions.filter(p => p.id !== id) })),
             updatePosition: (id, updates) => set(s => ({
                 positions: s.positions.map(p => p.id === id ? { ...p, ...updates } : p)
             })),
-            placeSpotOrder: async (order) => {
+            placeSpotOrder: async (order, tpPrice = null, slPrice = null) => {
                 const { wallets, openOrders, markets, spotCostBasis, user } = get();
                 const symbol = order.symbol.replace('USDT', '');
                 const newWallets = JSON.parse(JSON.stringify(wallets));
@@ -884,6 +990,11 @@ const useExchangeStore = create<ExchangeState>()(
                         }]);
                         get().syncWalletsToSupabase();
                     }
+
+                    // Set TP/SL if provided
+                    if (tpPrice || slPrice) {
+                        await get().setSpotTPSL(symbol, tpPrice, slPrice, order.amount);
+                    }
                 }
                 get().updateAssetPrices(true);
             },
@@ -910,7 +1021,7 @@ const useExchangeStore = create<ExchangeState>()(
                 get().showToast('Order Canceled', `Spot order successfully canceled.`, 'success');
             },
 
-            placeFuturesOrder: async (order) => {
+            placeFuturesOrder: async (order, tpPrice = null, slPrice = null) => {
                 const { wallets, positions, futuresMarkets, user } = get();
                 const market = futuresMarkets.find(m => m.symbol === order.symbol);
                 const currentPrice = market ? parseFloat(market.lastPrice) : order.price;
@@ -1027,6 +1138,17 @@ const useExchangeStore = create<ExchangeState>()(
                     }
                     get().syncWalletsToSupabase();
                 }
+
+                // Set TP/SL if provided
+                if (tpPrice || slPrice) {
+                    const latestPositions = get().positions;
+                    const targetPos = latestPositions.find(p => p.symbol === order.symbol && p.side === order.side);
+                    if (targetPos) {
+                        await get().setFuturesTPSL(targetPos.id, tpPrice, slPrice);
+                    }
+                }
+
+                get().updateAssetPrices(true);
             },
 
             closeFuturesPosition: async (id) => {
@@ -1120,6 +1242,8 @@ const useExchangeStore = create<ExchangeState>()(
                     openOrders: [],
                     positionHistory: [],
                     snapshots: {},
+                    spotTPSL: [],
+                    nextFundingTime: Date.now() + 8 * 3600000,
                     balance: 0,
                     spotBalance: 0,
                     futuresBalance: 0,
@@ -1152,8 +1276,10 @@ const useExchangeStore = create<ExchangeState>()(
                 if (!force && now - lastPortfolioCalc < PORTFOLIO_THROTTLE_MS) return;
                 lastPortfolioCalc = now;
 
+                let triggeredClosures: { id: string; type: string }[] = [];
+
                 set((state) => {
-                    const { wallets, markets, futuresMarkets, openOrders, positions, spotCostBasis, tradeHistory } = state;
+                    const { wallets, markets, futuresMarkets, openOrders, positions, spotCostBasis, tradeHistory, spotTPSL } = state;
 
                     // 1. --- Matcher Simulation (for Spot Limit Orders) ---
                     let fillOccurred = false;
@@ -1203,6 +1329,55 @@ const useExchangeStore = create<ExchangeState>()(
                         }
                     });
 
+                    // 1.5 --- Detect Spot TP/SL Triggers ---
+                    const triggeredSpotSell: any[] = [];
+                    spotTPSL.forEach(s => {
+                        const market = markets.find(m => m.symbol === `${s.symbol}USDT` || m.symbol === `${s.symbol}USD`);
+                        if (!market) return;
+                        
+                        const currentPrice = parseFloat(market.lastPrice);
+                        const costBasis = spotCostBasis[s.symbol] || currentPrice;
+                        let trigger = false;
+                        let type = '';
+                        
+                        // Treat spot TP/SL as order relative to cost basis
+                        if (s.tpPrice && currentPrice >= s.tpPrice) {
+                            trigger = true;
+                            type = 'Take Profit';
+                        }
+                        if (s.slPrice && currentPrice <= s.slPrice && !trigger) {
+                            trigger = true;
+                            type = 'Stop Loss';
+                        }
+                        
+                        if (trigger) {
+                            fillOccurred = true;
+                            triggeredSpotSell.push(s);
+                            triggeredClosures.push({ id: 'SPOT', symbol: s.symbol, type });
+                            
+                            // Execute Sell
+                            const sellAmount = s.amount;
+                            const sellValue = sellAmount * currentPrice;
+                            const fee = sellValue * 0.001;
+                            
+                            updatedWallets.spot[s.symbol] = (updatedWallets.spot[s.symbol] || 0) - sellAmount;
+                            updatedWallets.spot.USDT = (updatedWallets.spot.USDT || 0) + sellValue - fee;
+                            
+                            updatedTradeHistory.push({
+                                id: `SPOT-TPSL-${Date.now()}-${s.symbol}`,
+                                symbol: `${s.symbol}USDT`,
+                                side: 'Sell',
+                                price: currentPrice,
+                                amount: sellAmount,
+                                fee,
+                                pnl: (currentPrice - costBasis) * sellAmount,
+                                timestamp: Date.now(),
+                                type: 'Market',
+                                status: 'Completed'
+                            });
+                        }
+                    });
+
                     // 2. --- Sync Futures Unrealized PnL & Monitor Liquidations ---
                     let dFuturesUnrealizedPnl = new Decimal(0);
                     let totalMaintenanceMargin = new Decimal(0);
@@ -1220,6 +1395,26 @@ const useExchangeStore = create<ExchangeState>()(
                         const pnlPercent = pnl.div(pos.margin).times(100);
                         
                         const maintenanceMargin = new Decimal(pos.size).times(markPrice).times(0.005); 
+
+                        let triggerClose = false;
+                        let closeType = '';
+
+                        if (pos.tpPrice) {
+                            if ((pos.side === 'Buy' && markPrice >= pos.tpPrice) || (pos.side === 'Sell' && markPrice <= pos.tpPrice)) {
+                                triggerClose = true;
+                                closeType = 'Take Profit';
+                            }
+                        }
+                        if (pos.slPrice && !triggerClose) {
+                            if ((pos.side === 'Buy' && markPrice <= pos.slPrice) || (pos.side === 'Sell' && markPrice >= pos.slPrice)) {
+                                triggerClose = true;
+                                closeType = 'Stop Loss';
+                            }
+                        }
+
+                        if (triggerClose) {
+                            triggeredClosures.push({ id: pos.id, type: closeType });
+                        }
 
                         dFuturesUnrealizedPnl = dFuturesUnrealizedPnl.plus(pnl);
                         totalMaintenanceMargin = totalMaintenanceMargin.plus(maintenanceMargin);
@@ -1322,6 +1517,7 @@ const useExchangeStore = create<ExchangeState>()(
                         wallets: finalWallets,
                         openOrders: remainingOrders,
                         spotCostBasis: fillOccurred ? updatedCostBasis : spotCostBasis,
+                        spotTPSL: triggeredSpotSell.length > 0 ? spotTPSL.filter(s => !triggeredSpotSell.some(ts => ts.symbol === s.symbol)) : spotTPSL,
                         tradeHistory: fillOccurred ? updatedTradeHistory : tradeHistory,
                         positions: updatedPositions,
                         assets: updatedAssets,
@@ -1337,6 +1533,17 @@ const useExchangeStore = create<ExchangeState>()(
                         snapshots: nextSnapshots
                     };
                 });
+
+                if (triggeredClosures.length > 0) {
+                    triggeredClosures.forEach(c => {
+                        if (c.id === 'SPOT') {
+                            get().showToast(`${c.type} Triggered`, `Spot asset ${c.symbol} sold.`, 'info');
+                        } else {
+                            get().showToast(`${c.type} Triggered`, `Position auto-closed.`, 'info');
+                            get().closeFuturesPosition(c.id);
+                        }
+                    });
+                }
             },
 
             getPnLForTimeframe: (timeframe: string) => {

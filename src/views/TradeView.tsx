@@ -14,7 +14,8 @@ import {
 } from 'react-icons/md';
 import { RiPlayListAddFill as MoreHorizontal } from 'react-icons/ri';
 import { PiDotsSixBold as AlignRight } from 'react-icons/pi';
-import { IoClose as XIcon, IoShareOutline as FiShare2 } from 'react-icons/io5';
+import { IoClose as XIcon } from 'react-icons/io5';
+import { RiShare2Line } from 'react-icons/ri';
 import { FiEdit2, FiUpload as FiUploadLine } from 'react-icons/fi';
 import { formatCurrency, getCurrencySymbol, formatPrice, formatAbbreviated } from '../utils/format';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,6 +23,11 @@ import useExchangeStore from '../stores/useExchangeStore';
 import SuccessDialog from '../components/SuccessDialog';
 import OrderConfirmationModal from '../components/OrderConfirmationModal';
 import LeverageBottomSheet from '../components/LeverageBottomSheet';
+import FuturesTPSLSheet from '../components/FuturesTPSLSheet';
+import SpotTPSLSheet from '../components/SpotTPSLSheet';
+import SpotCostPriceSheet from '../components/SpotCostPriceSheet';
+import SharePnLSheet from '../components/SharePnLSheet';
+import CoinIcon from '../components/CoinIcon';
 const RealChart = React.lazy(() => import('../components/RealChart'));
 import trivLogo from '../assets/triv-logo.svg';
 import { useOrderBookSocket } from '../hooks/useOrderBookSocket';
@@ -33,7 +39,11 @@ const TradeView = () => {
         spotCostBasis, placeSpotOrder, cancelSpotOrder, placeFuturesOrder,
         closeFuturesPosition, showOrderConfirmation, setShowOrderConfirmation,
         closeAll, tradeType, setTradeType, selectedCoin, setSearchOpen,
-        futuresSymbols, nextFundingTime, fundingRate
+        futuresSymbols, nextFundingTime, fundingRate,
+        setSpotTradeSheetOpen, setFuturesTPSLSheetOpen, setSpotTPSLSheetOpen,
+        isSpotCostPriceSheetOpen, activeSpotCostPriceAsset, setSpotCostPriceSheetOpen,
+        isSharePnLSheetOpen, activeShareData, setSharePnLSheetOpen,
+        spotTPSL, setFuturesTPSL, setSpotTPSL, showToast
     } = useExchangeStore();
 
     const [activeTopTab, setActiveTopTab] = useState<'Spot' | 'Futures' | 'Bots' | 'Convert'>(tradeType === 'futures' ? 'Futures' : 'Spot');
@@ -57,6 +67,12 @@ const TradeView = () => {
     const [sliderPercent, setSliderPercent] = useState(0);
     const [isMarginEnabled, setIsMarginEnabled] = useState(false);
     const [isTpSlEnabled, setIsTpSlEnabled] = useState(false);
+    const [tpInput, setTpInput] = useState('');
+    const [slInput, setSlInput] = useState('');
+    const [isTpFocused, setIsTpFocused] = useState(false);
+    const [isSlFocused, setIsSlFocused] = useState(false);
+    const tpInputRef = useRef<HTMLInputElement>(null);
+    const slInputRef = useRef<HTMLInputElement>(null);
     const [isCurrentSymbolChecked, setIsCurrentSymbolChecked] = useState(false);
     const [orderBookView, setOrderBookView] = useState<'both' | 'buy' | 'sell'>('both');
     const [isMiniChartOpen, setIsMiniChartOpen] = useState(false);
@@ -80,6 +96,15 @@ const TradeView = () => {
     const priceInputRef = useRef(priceInput);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [pendingOrder, setPendingOrder] = useState<any>(null);
+    const { setSelectedCoin } = useExchangeStore();
+
+    const handleNavigateToTrade = (symbol: string, type: 'spot' | 'futures') => {
+        setTradeType(type);
+        setSelectedCoin(symbol);
+        setActiveTopTab(type === 'futures' ? 'Futures' : 'Spot');
+        setActivePage(type === 'futures' ? 'futures' : 'trade');
+        window.scrollTo(0, 0);
+    };
 
     const wsType = activeTopTab === 'Futures' ? 'futures' : 'spot';
     const wsTicker = useTickerSocket(tradingSymbol, wsType);
@@ -231,7 +256,7 @@ const TradeView = () => {
             setShowOrderConfirmation(false);
         }
 
-        const { p, a, side } = pendingOrder;
+        const { p, a, side, tpPrice, slPrice } = pendingOrder;
 
         if (activeTopTab === 'Futures') {
             placeFuturesOrder({
@@ -241,7 +266,9 @@ const TradeView = () => {
                 price: p,
                 amount: a,
                 marginMode: marginMode,
-                leverage: leverage
+                leverage: leverage,
+                tpPrice,
+                slPrice
             });
 
         } else {
@@ -252,7 +279,9 @@ const TradeView = () => {
                 price: p,
                 amount: a,
                 marginMode: 'Isolated',
-                leverage: 10
+                leverage: 10,
+                tpPrice,
+                slPrice
             });
         }
 
@@ -260,6 +289,8 @@ const TradeView = () => {
         setPendingOrder(null);
         setAmountInput('');
         setSliderPercent(0);
+        setTpInput('');
+        setSlInput('');
         setActiveTab('orders');
     };
 
@@ -273,13 +304,16 @@ const TradeView = () => {
         const a = parseFloat(amountInput.replace(/,/g, '')) || currentFuturesAmount;
         if (a <= 0) return;
 
+        const tpPrice = isTpSlEnabled && tpInput ? parseFloat(tpInput) : undefined;
+        const slPrice = isTpSlEnabled && slInput ? parseFloat(slInput) : undefined;
+
         if (activeTopTab === 'Futures' && availableFuturesUSDT <= 0) {
             alert('Insufficient Futures Margin. Please transfer USDT to your Trading account first.');
             return;
         }
 
         if (showOrderConfirmation) {
-            setPendingOrder({ p, a, side: actualSide });
+            setPendingOrder({ p, a, side: actualSide, tpPrice, slPrice });
             setIsConfirmModalOpen(true);
         } else {
             // Direct execution if preference is set
@@ -291,7 +325,9 @@ const TradeView = () => {
                     price: p,
                     amount: a,
                     marginMode: marginMode,
-                    leverage: leverage
+                    leverage: leverage,
+                    tpPrice,
+                    slPrice
                 });
 
             } else {
@@ -302,11 +338,15 @@ const TradeView = () => {
                     price: p,
                     amount: a,
                     marginMode: 'Isolated',
-                    leverage: 10
+                    leverage: 10,
+                    tpPrice,
+                    slPrice
                 });
             }
             setAmountInput('');
             setSliderPercent(0);
+            setTpInput('');
+            setSlInput('');
             setActiveTab('orders');
         }
     };
@@ -772,23 +812,80 @@ const TradeView = () => {
                                 <span className="text-[13px] font-medium text-[var(--text-secondary)] border-b border-dashed border-[var(--text-tertiary)] pb-[1px] leading-none transition-colors group-hover:text-[var(--text-primary)]">Reduce-only</span>
                             </label>
                         )}
-                        <label className="flex items-center gap-2 cursor-pointer group" onClick={() => setIsTpSlEnabled(!isTpSlEnabled)}>
-                            <div className={`w-4 h-4 rounded-[3px] flex items-center justify-center border transition-colors ${isTpSlEnabled ? 'bg-[var(--btn-primary-bg)] border-[var(--btn-primary-bg)]' : 'border-[var(--border-strong)] bg-[var(--bg-card)]'}`}>
-                                {isTpSlEnabled && <Check size={12} className="text-[var(--btn-primary-text)]" strokeWidth={3} />}
-                            </div>
-                            <span className="text-[13px] font-medium text-[var(--text-secondary)] border-b border-dashed border-[var(--text-tertiary)] pb-[1px] leading-none transition-colors group-hover:text-[var(--text-primary)]">TP/SL</span>
-                        </label>
+                        <div className="flex items-center justify-between">
+                            <label className="flex items-center gap-2 cursor-pointer group" onClick={() => setIsTpSlEnabled(!isTpSlEnabled)}>
+                                <div className={`w-4 h-4 rounded-[3px] flex items-center justify-center border transition-colors ${isTpSlEnabled ? 'bg-[var(--btn-primary-bg)] border-[var(--btn-primary-bg)]' : 'border-[var(--border-strong)] bg-[var(--bg-card)]'}`}>
+                                    {isTpSlEnabled && <Check size={12} className="text-[var(--btn-primary-text)]" strokeWidth={3} />}
+                                </div>
+                                <span className="text-[13px] font-medium text-[var(--text-secondary)] border-b border-dashed border-[var(--text-tertiary)] pb-[1px] leading-none transition-colors group-hover:text-[var(--text-primary)]">TP/SL</span>
+                            </label>
+                            {isTpSlEnabled && (
+                                <button 
+                                    className="text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-0.5"
+                                    onClick={() => {
+                                        if (activeTopTab === 'Futures') {
+                                            setFuturesTPSLSheetOpen(true);
+                                        } else {
+                                            setSpotTPSLSheetOpen(true, { symbol: baseCoin, amount: 0 });
+                                        }
+                                    }}
+                                >
+                                    Advanced <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {isTpSlEnabled && (
                         <div className="animate-in fade-in duration-300 pb-2">
-                            <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[44px] mb-2 flex items-center justify-between">
-                                <span className="text-[13px] font-medium text-[var(--text-secondary)]">TP trigger price</span>
-                                <span className="text-[13px] font-semibold text-[var(--text-primary)]">USDT</span>
+                            {/* TP Input */}
+                            <div className={`bg-[var(--input-bg)] rounded-lg px-3 transition-all duration-200 border cursor-text h-[44px] mb-2 relative flex items-center ${isTpFocused ? 'border-[var(--text-primary)]' : 'border-transparent'}`}
+                                onClick={() => tpInputRef.current?.focus()}
+                            >
+                                <div className={`flex flex-col w-full transition-opacity duration-200 ${(isTpFocused || tpInput) ? 'opacity-100' : 'opacity-0 pointer-events-none absolute'}`}>
+                                    <span className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5">TP price (USDT)</span>
+                                    <input
+                                        ref={tpInputRef}
+                                        type="text"
+                                        className="bg-transparent font-medium text-[var(--text-primary)] text-[15px] outline-none w-full p-0 leading-none"
+                                        value={tpInput}
+                                        onFocus={() => setIsTpFocused(true)}
+                                        onBlur={() => setIsTpFocused(false)}
+                                        onChange={(e) => setTpInput(e.target.value.replace(/[^0-9.]/g, ''))}
+                                    />
+                                </div>
+                                <div className={`flex items-center justify-between w-full transition-opacity duration-200 ${(!isTpFocused && !tpInput) ? 'opacity-100' : 'opacity-0 pointer-events-none absolute'}`}>
+                                    <span className="text-[15px] text-[var(--text-tertiary)] font-medium">TP price</span>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[15px] font-medium text-[var(--text-primary)]">USDT</span>
+                                        <ArrowDropDown className="w-5 h-5 text-[var(--text-tertiary)]" />
+                                    </div>
+                                </div>
                             </div>
-                            <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[44px] mb-2 flex items-center justify-between">
-                                <span className="text-[13px] font-medium text-[var(--text-secondary)]">SL trigger price</span>
-                                <span className="text-[13px] font-semibold text-[var(--text-primary)]">USDT</span>
+
+                            {/* SL Input */}
+                            <div className={`bg-[var(--input-bg)] rounded-lg px-3 transition-all duration-200 border cursor-text h-[44px] mb-2 relative flex items-center ${isSlFocused ? 'border-[var(--text-primary)]' : 'border-transparent'}`}
+                                onClick={() => slInputRef.current?.focus()}
+                            >
+                                <div className={`flex flex-col w-full transition-opacity duration-200 ${(isSlFocused || slInput) ? 'opacity-100' : 'opacity-0 pointer-events-none absolute'}`}>
+                                    <span className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5">SL price (USDT)</span>
+                                    <input
+                                        ref={slInputRef}
+                                        type="text"
+                                        className="bg-transparent font-medium text-[var(--text-primary)] text-[15px] outline-none w-full p-0 leading-none"
+                                        value={slInput}
+                                        onFocus={() => setIsSlFocused(true)}
+                                        onBlur={() => setIsSlFocused(false)}
+                                        onChange={(e) => setSlInput(e.target.value.replace(/[^0-9.]/g, ''))}
+                                    />
+                                </div>
+                                <div className={`flex items-center justify-between w-full transition-opacity duration-200 ${(!isSlFocused && !slInput) ? 'opacity-100' : 'opacity-0 pointer-events-none absolute'}`}>
+                                    <span className="text-[15px] text-[var(--text-tertiary)] font-medium">SL price</span>
+                                    <div className="flex items-center gap-1">
+                                        <span className="text-[15px] font-medium text-[var(--text-primary)]">USDT</span>
+                                        <ArrowDropDown className="w-5 h-5 text-[var(--text-tertiary)]" />
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1008,7 +1105,9 @@ const TradeView = () => {
                         }}
                     >
                         <span className="text-[14px]">Orders ({
-                            openOrders.filter(o => !isCurrentSymbolChecked || o.symbol === currentSymbol).length
+                            openOrders.filter(o => !isCurrentSymbolChecked || o.symbol === currentSymbol).length +
+                            spotTPSL.filter(s => !isCurrentSymbolChecked || s.symbol === baseCoin).length +
+                            positions.filter(p => (!isCurrentSymbolChecked || p.symbol === currentSymbol) && (p.tpPrice || p.slPrice)).length
                         })</span>
                         <ArrowDropDown className="w-[18px] h-[18px] mt-0.5" />
                     </div>
@@ -1123,8 +1222,99 @@ const TradeView = () => {
                                 </div>
                             ))}
 
+                        {/* TP/SL Triggers (Futures) */}
+                        {positions
+                            .filter(p => (!isCurrentSymbolChecked || p.symbol === currentSymbol) && (p.tpPrice || p.slPrice))
+                            .map(p => (
+                                <div key={`tpsl-fut-${p.id}`} className="p-4 border-b border-[var(--border-color)]">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <h4 className="text-[16px] font-bold text-[var(--text-primary)]">{p.symbol} Perp <ChevronRight className="w-4 h-4 inline text-[var(--text-tertiary)]" /></h4>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <FiEdit2 className="w-4 h-4 text-[var(--text-secondary)]" onClick={() => setFuturesTPSLSheetOpen(true, p)} />
+                                            <span className="text-[var(--text-tertiary)] font-medium">|</span>
+                                            <span className="text-[14px] font-semibold text-[var(--text-primary)] cursor-pointer" onClick={() => setFuturesTPSL(p.id, null, null)}>Cancel</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mb-4">
+                                        <span className="bg-[#fee2e2] text-[#ef4444] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">TP/SL</span>
+                                        <span className={`${p.side === 'Buy' ? 'bg-[var(--red-bg)] text-[var(--red)]' : 'bg-[var(--green-bg)] text-[var(--green)]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{p.side === 'Buy' ? 'Sell' : 'Buy'}</span>
+                                        <span className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">{p.marginMode} {p.leverage}x</span>
+                                        <span className="text-[11px] text-[var(--text-tertiary)] font-medium ml-1">{new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}, {new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-y-4">
+                                        <div>
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">TP trigger</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">{p.tpPrice ? `${p.tpPrice} (Last)` : '--'}</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">TP order</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">Market</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Order amount ({baseCoin})</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">All</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">SL trigger</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">{p.slPrice ? `${p.slPrice} (Last)` : '--'}</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">SL order</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">Market</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+
+                        {/* TP/SL Triggers (Spot) */}
+                        {spotTPSL
+                            .filter(s => !isCurrentSymbolChecked || s.symbol === baseCoin)
+                            .map(s => (
+                                <div key={`tpsl-spot-${s.symbol}`} className="p-4 border-b border-[var(--border-color)]">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <h4 className="text-[16px] font-bold text-[var(--text-primary)]">{s.symbol}/USDT <ChevronRight className="w-4 h-4 inline text-[var(--text-tertiary)]" /></h4>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <FiEdit2 className="w-4 h-4 text-[var(--text-secondary)]" onClick={() => setSpotTPSLSheetOpen(true, { symbol: s.symbol, amount: s.amount })} />
+                                            <span className="text-[var(--text-tertiary)] font-medium">|</span>
+                                            <span className="text-[14px] font-semibold text-[var(--text-primary)] cursor-pointer" onClick={() => setSpotTPSL(s.symbol, null, null, 0)}>Cancel</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mb-4">
+                                        <span className="bg-[#fee2e2] text-[#ef4444] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">TP/SL</span>
+                                        <span className="bg-[var(--red-bg)] text-[var(--red)] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">Sell</span>
+                                        <span className="text-[11px] text-[var(--text-tertiary)] font-medium ml-1">{new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}, {new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-y-4">
+                                        <div>
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">TP trigger</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">{s.tpPrice ? `${s.tpPrice} (Last)` : '--'}</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">TP order</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">Market</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Order amount ({s.symbol})</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">{s.amount}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">SL trigger</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">{s.slPrice ? `${s.slPrice} (Last)` : '--'}</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">SL order</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">Market</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+
                         {/* Empty state placeholder if no orders */}
-                        {openOrders.length === 0 && (
+                        {openOrders.length === 0 && spotTPSL.filter(s => !isCurrentSymbolChecked || s.symbol === baseCoin).length === 0 && positions.filter(p => (!isCurrentSymbolChecked || p.symbol === currentSymbol) && (p.tpPrice || p.slPrice)).length === 0 && (
                             <div className="flex flex-col items-center justify-center py-12 opacity-50">
                                 <div className="w-16 h-16 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center relative mb-4">
                                     <div className="absolute -left-1 bottom-4 w-5 h-4 bg-[#4a5568] rounded-[3px]" />
@@ -1149,12 +1339,16 @@ const TradeView = () => {
                                 .map((pos) => (
                                     <div key={pos.id} className="mb-6">
                                         <div className="flex items-center justify-between mb-3">
-                                            <div className="flex items-center gap-2">
+                                            <div 
+                                                className="flex items-center gap-2 cursor-pointer hover:opacity-80 active:scale-95 transition-all"
+                                                onClick={() => handleNavigateToTrade(pos.symbol.includes('USDT') ? pos.symbol : `${pos.symbol}USDT`, 'futures')}
+                                            >
+                                                <CoinIcon symbol={pos.symbol.replace('1000', '')} size={6} />
                                                 <h4 className="text-[16px] font-bold text-[var(--text-primary)]">{pos.symbol} Perp</h4>
                                                 <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)]" />
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-[12px] text-[var(--text-tertiary)] font-medium flex items-center gap-1 justify-end border-b border-dashed border-[var(--border-color)] w-max ml-auto">PnL (USDT) <FiShare2 className="w-3.5 h-3.5" /></p>
+                                                <p className="text-[12px] text-[var(--text-tertiary)] font-medium flex items-center gap-1 justify-end border-b border-dashed border-[var(--border-color)] w-max ml-auto cursor-pointer" onClick={() => setSharePnLSheetOpen(true, { symbol: pos.symbol, side: pos.side, isFutures: true, leverage: pos.leverage, entryPrice: pos.entryPrice, lastPrice: pos.markPrice, pnl: pos.pnl, pnlPercent: pos.pnlPercent })}>PnL (USDT) <FiShare2 className="w-3.5 h-3.5" /></p>
                                                 <p className={`text-[16px] font-bold ${pos.pnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
                                                     {pos.pnl >= 0 ? '+' : ''}{pos.pnl.toFixed(2)} ({pos.pnlPercent >= 0 ? '+' : ''}{pos.pnlPercent.toFixed(2)}%)
                                                 </p>
@@ -1197,8 +1391,22 @@ const TradeView = () => {
                                                 <p className="text-[15px] font-bold text-[var(--text-primary)]">{pos.liqPrice.toLocaleString('en-US')}</p>
                                             </div>
                                         </div>
+                                        {(pos.tpPrice || pos.slPrice) && (
+                                            <div 
+                                                className="flex items-center justify-between py-2 border-t border-[var(--border-color)] mb-4 cursor-pointer"
+                                                onClick={() => setFuturesTPSLSheetOpen(true, pos)}
+                                            >
+                                                <span className="text-[13px] text-[var(--text-tertiary)] font-medium">Entire position <span className="text-[var(--green)]">{pos.tpPrice || '--'}</span> / <span className="text-[var(--red)]">{pos.slPrice || '--'}</span></span>
+                                                <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)]" />
+                                            </div>
+                                        )}
                                         <div className="flex gap-2">
-                                            <button className="flex-1 py-2.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[14px]">TP/SL</button>
+                                            <button 
+                                                className="flex-1 py-2.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[14px]"
+                                                onClick={() => setFuturesTPSLSheetOpen(true, pos)}
+                                            >
+                                                TP/SL
+                                            </button>
                                             <button
                                                 className="flex-1 py-2.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[14px]"
                                                 onClick={() => handleClosePosition(pos.id, pos.symbol)}
@@ -1238,26 +1446,33 @@ const TradeView = () => {
                                 .map(([symbol, balance]) => {
                                     if (symbol === 'USDT') {
                                         return (
-                                            <div key="spot-USDT" className="mb-6">
-                                                <div className="flex items-center justify-between mb-3">
+                                            <div key="spot-USDT" className="mb-8 last:mb-0">
+                                                <div className="flex items-center justify-between mb-4">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="w-5 h-5 rounded-full bg-[#26a17b] flex items-center justify-center text-[10px] text-white font-bold">T</div>
-                                                        <h4 className="text-[16px] font-bold text-[var(--text-primary)]">USDT</h4>
-                                                        <span className="bg-[var(--bg-secondary)] text-[var(--text-tertiary)] text-[10px] font-bold px-1 rounded-sm">Wallet</span>
+                                                        <CoinIcon symbol="USDT" size={6} />
+                                                        <h4 className="text-[17px] font-bold text-[var(--text-primary)]">USDT</h4>
                                                     </div>
                                                 </div>
-                                                <div className="grid grid-cols-3 gap-y-4 mb-6">
+                                                <div className="grid grid-cols-3 gap-y-4 mb-3">
                                                     <div>
-                                                        <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Available (USDT)</p>
-                                                        <p className="text-[15px] font-bold text-[var(--text-primary)]">{balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                                                        <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1">Equity</p>
+                                                        <p className="text-[15px] font-medium text-[var(--text-primary)] tabular-nums">{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                                        <p className="text-[12px] text-[var(--text-tertiary)] font-medium tabular-nums mt-0.5">${balance.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</p>
                                                     </div>
                                                     <div className="text-center">
-                                                        <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Value (USDT)</p>
-                                                        <p className="text-[15px] font-bold text-[var(--text-primary)]">{balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                                                        <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1">In use</p>
+                                                        <p className="text-[15px] font-medium text-[var(--text-primary)] tabular-nums">0.00</p>
+                                                        <p className="text-[12px] text-[var(--text-tertiary)] font-medium tabular-nums mt-0.5">$0.00</p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Action</p>
-                                                        <button className="text-[13px] font-bold text-[var(--green)]">Deposit</button>
+                                                        <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1">Available</p>
+                                                        <p className="text-[15px] font-medium text-[var(--text-primary)] tabular-nums">{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                                        <p className="text-[12px] text-[var(--text-tertiary)] font-medium tabular-nums mt-0.5">${balance.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1">Balance</p>
+                                                        <p className="text-[15px] font-medium text-[var(--text-primary)] tabular-nums">{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                                        <p className="text-[12px] text-[var(--text-tertiary)] font-medium tabular-nums mt-0.5">${balance.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1273,60 +1488,77 @@ const TradeView = () => {
                                     const hasTrade = costPrice > 0;
 
                                     return (
-                                        <div key={`spot-${symbol}`} className="mb-6">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white font-bold ${symbol === baseCoin ? 'bg-[#f7931a]' : 'bg-[#10b981]'}`}>
-                                                        {symbol[0]}
-                                                    </div>
-                                                    <h4 className="text-[16px] font-bold text-[var(--text-primary)]">{symbol}/USDT</h4>
-                                                    <span className="bg-[var(--bg-secondary)] text-[var(--text-tertiary)] text-[10px] font-bold px-1 rounded-sm">Spot</span>
+                                        <div key={`spot-${symbol}`} className="mb-8 last:mb-0">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div 
+                                                    className="flex items-center gap-2 cursor-pointer hover:opacity-80 active:scale-95 transition-all"
+                                                    onClick={() => handleNavigateToTrade(`${symbol}USDT`, 'spot')}
+                                                >
+                                                    <CoinIcon symbol={symbol} size={6} />
+                                                    <h4 className="text-[17px] font-bold text-[var(--text-primary)] flex items-center gap-1">
+                                                        {symbol} <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)]" />
+                                                    </h4>
                                                 </div>
-                                                {hasTrade && (
-                                                    <div className="text-right">
-                                                        <p className="text-[12px] text-[var(--text-tertiary)] font-medium border-b border-dashed border-[var(--border-color)] w-max ml-auto">PnL (USDT)</p>
-                                                        <p className={`text-[16px] font-bold ${pnlAbsolute >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
-                                                            {pnlAbsolute >= 0 ? '+' : ''}{pnlAbsolute.toFixed(2)} ({pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%)
-                                                        </p>
-                                                    </div>
-                                                )}
+                                                <div className="flex items-center gap-2">
+                                                    <p className={`text-[15px] font-bold ${pnlAbsolute >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'} border-b border-dashed ${pnlAbsolute >= 0 ? 'border-[var(--green)]' : 'border-[var(--red)]'} pb-0.5`}>
+                                                        {pnlAbsolute >= 0 ? '+' : ''}${Math.abs(pnlAbsolute).toFixed(2)} ({pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%)
+                                                    </p>
+                                                    <RiShare2Line 
+                                                        className="w-5 h-5 text-[var(--text-primary)] cursor-pointer active:scale-90 transition-transform" 
+                                                        onClick={() => setSharePnLSheetOpen(true, { symbol, side: 'Buy', isFutures: false, entryPrice: costPrice, lastPrice, pnl: pnlAbsolute, pnlPercent })}
+                                                    />
+                                                </div>
                                             </div>
-                                            <div className="grid grid-cols-3 gap-y-4 mb-6">
+                                            <div className="grid grid-cols-3 gap-y-4 mb-5">
                                                 <div>
-                                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Amount ({symbol})</p>
-                                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{balance.toFixed(symbol === baseCoin ? 4 : 2)}</p>
+                                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1">Equity</p>
+                                                    <p className="text-[15px] font-medium text-[var(--text-primary)] tabular-nums">{balance.toFixed(4)}</p>
+                                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium tabular-nums mt-0.5">${(balance * lastPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                                 </div>
                                                 <div className="text-center">
-                                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Value (USDT)</p>
-                                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{(balance * lastPrice).toFixed(2)}</p>
+                                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1">Cost price</p>
+                                                    <p 
+                                                        className="text-[15px] font-medium text-[var(--text-primary)] flex items-center justify-center gap-1 tabular-nums cursor-pointer hover:bg-[var(--bg-secondary)] rounded-md py-0.5 transition-colors"
+                                                        onClick={() => setSpotCostPriceSheetOpen(true, { symbol, costPrice, balance })}
+                                                    >
+                                                        ${costPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} <FiEdit2 className="w-3.5 h-3.5" />
+                                                    </p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">{hasTrade ? 'Equity' : 'Action'}</p>
-                                                    {hasTrade ? <p className="text-[15px] font-bold text-[var(--text-primary)]">100%</p> : <button className="text-[13px] font-bold text-[var(--green)]">Trade</button>}
+                                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1">Last price</p>
+                                                    <p className="text-[15px] font-medium text-[var(--text-primary)] tabular-nums">${lastPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                                 </div>
-                                                {hasTrade && (
-                                                    <>
-                                                        <div>
-                                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Cost price</p>
-                                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">{costPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                                        </div>
-                                                        <div className="text-center">
-                                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Last price</p>
-                                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">{lastPrice.toLocaleString('en-US')}</p>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Action</p>
-                                                            <button className="text-[13px] font-bold text-[var(--green)]">Buy/Sell</button>
-                                                        </div>
-                                                    </>
-                                                )}
+                                                <div>
+                                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1">Balance</p>
+                                                    <p className="text-[15px] font-medium text-[var(--text-primary)] tabular-nums">{balance.toFixed(4)}</p>
+                                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium tabular-nums mt-0.5">${(balance * lastPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                                </div>
                                             </div>
-                                            {hasTrade && (
-                                                <div className="flex gap-2">
-                                                    <button className="flex-1 py-2.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[14px]">TP/SL</button>
-                                                    <button className="flex-1 py-2.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[14px]">Sell</button>
+
+                                            {spotTPSL.find(s => s.symbol === symbol) && (
+                                                <div 
+                                                    className="flex items-center justify-between py-2 border-t border-[var(--border-color)] mb-4 cursor-pointer"
+                                                    onClick={() => setSpotTPSLSheetOpen(true, { symbol, amount: balance })}
+                                                >
+                                                    <span className="text-[13px] text-[var(--text-tertiary)] font-medium">Entire position <span className="text-[var(--green)]">{spotTPSL.find(s => s.symbol === symbol)?.tpPrice || '--'}</span> / <span className="text-[var(--red)]">{spotTPSL.find(s => s.symbol === symbol)?.slPrice || '--'}</span></span>
+                                                    <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)]" />
                                                 </div>
                                             )}
+
+                                            <div className="flex gap-2.5">
+                                                <button 
+                                                    className="flex-1 py-2.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[14px]"
+                                                    onClick={() => setSpotTPSLSheetOpen(true, { symbol, amount: balance })}
+                                                >
+                                                    TP/SL
+                                                </button>
+                                                <button 
+                                                    className="flex-1 py-2.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[14px]"
+                                                    onClick={() => setSpotTradeSheetOpen(true, { symbol, amount: balance })}
+                                                >
+                                                    Buy/sell
+                                                </button>
+                                            </div>
                                         </div>
                                     );
                                 })}
@@ -1583,6 +1815,8 @@ const TradeView = () => {
                 liqPrice={(pendingOrder?.side || tradeSide) === 'buy' ? liqPriceLong.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : liqPriceShort.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 priceGap={(((((pendingOrder?.side || tradeSide) === 'buy' ? liqPriceLong : liqPriceShort) / currentPrice) - 1) * 100).toFixed(2)}
                 priceGapUsdt={(((pendingOrder?.side || tradeSide) === 'buy' ? liqPriceLong : liqPriceShort) - currentPrice).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                tpPrice={pendingOrder?.tpPrice}
+                slPrice={pendingOrder?.slPrice}
             />
 
             {/* Margin Mode Sheet */}
@@ -1637,6 +1871,12 @@ const TradeView = () => {
                 currentPrice={currentPrice}
                 symbol={currentSymbol}
             />
+
+            {/* TP/SL Sheets */}
+            <FuturesTPSLSheet />
+            <SpotTPSLSheet />
+            <SpotCostPriceSheet />
+            <SharePnLSheet />
 
             {/* Close All Confirmation Modal */}
             <AnimatePresence>
