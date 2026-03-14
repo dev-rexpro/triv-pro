@@ -51,33 +51,37 @@ const TradeHistoryView = () => {
                             No trading history
                         </div>
                     ) : tradeHistory.map((item, idx) => (
-                        <div key={idx} className="px-4 py-4 border-b border-gray-50 flex flex-col gap-2 relative">
-                            <div className="flex justify-between items-start">
+                        <div key={idx} className="px-4 py-4 border-b border-gray-50 flex flex-col relative last:border-b-0">
+                            <div className="flex justify-between items-center mb-1">
                                 <div className="flex items-center gap-1.5 flex-1 line-clamp-1">
                                     <div className="relative">
                                         <CoinIcon symbol={item.symbol.replace('USDT', '')} size={5} className="!w-[18px] !h-[18px]" />
                                     </div>
-                                    <span className="font-bold text-[15px] text-[var(--text-primary)] leading-none">{item.symbol.replace('USDT', '')}</span>
+                                    <span className="font-bold text-[17px] text-[var(--text-primary)] leading-none">{item.symbol.replace('USDT', '')} Perp</span>
                                 </div>
-                                <span className={`font-bold text-[15px] ${item.pnl > 0 ? 'text-[#20b26c]' : (item.pnl < 0 ? 'text-[#ef454a]' : 'text-[var(--text-primary)]')} whitespace-nowrap`}>
-                                    {item.pnl !== undefined ? item.pnl.toFixed(4) : '0.0000'}
+                                <span className={`font-bold text-[15px] ${item.pnl > 0 ? 'text-[var(--green)]' : (item.pnl < 0 ? 'text-[var(--red)]' : 'text-[var(--text-primary)]')} whitespace-nowrap`}>
+                                    {item.pnl !== undefined ? (item.pnl >= 0 ? '+' : '') + item.pnl.toFixed(4) : '0.0000'}
                                 </span>
                             </div>
-                            <div className="flex justify-between items-center mt-1">
-                                <div className="flex items-center gap-1.5 flex-wrap flex-1">
-                                    <span className="font-bold text-[13px] text-[var(--text-primary)]">{item.symbol}</span>
-                                </div>
-                                <div className="text-[12px] text-[var(--text-tertiary)] font-medium flex items-center gap-1 whitespace-nowrap">
-                                    Fee <span className="text-[#ef454a]">{item.fee ? item.fee.toFixed(8) : '0.00000000'}</span>
-                                </div>
+                            
+                            <div className="flex items-center gap-1.5 mb-2">
+                                <span className={`${item.side === 'Buy' ? 'bg-[var(--green-bg)] text-[var(--green)]' : 'bg-[var(--red-bg)] text-[var(--red)]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{item.side}</span>
+                                <span className="text-[12px] text-[var(--text-tertiary)] font-medium">{formatDateTime(item.timestamp)}</span>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <div className="text-[12px] font-medium text-[var(--text-primary)]">
-                                    Spot/Perp - <span className={item.side === 'Buy' ? 'text-[#20b26c]' : 'text-[#ef454a]'}>{item.side}</span> <span className="text-[var(--text-tertiary)] font-normal">{item.amount}</span>
+
+                            <div className="grid grid-cols-3 gap-1">
+                                <div>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">Price</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{item.price.toLocaleString('en-US')}</p>
                                 </div>
-                            </div>
-                            <div className="flex justify-between items-center text-[12px] text-[var(--text-tertiary)] mt-1">
-                                <span>{formatDateTime(item.timestamp)}</span>
+                                <div className="text-center">
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Amount</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{item.amount}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Fee</p>
+                                    <p className="text-[14px] font-medium text-[var(--red)]">{item.fee ? item.fee.toFixed(8) : '0.00000000'}</p>
+                                </div>
                             </div>
                         </div>
                     ))}
@@ -120,32 +124,32 @@ const TradeHistoryView = () => {
                             No data
                         </div>
                     ) : filteredOrders.map((order, idx) => (
-                        <div key={order.id || idx} className="px-4 py-4 border-b border-gray-50">
-                            <div className="flex items-center justify-between mb-3">
+                        <div key={order.id || idx} className="px-4 py-4 border-b border-gray-50 last:border-b-0">
+                            <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center gap-1">
-                                    <h4 className="text-[16px] font-bold text-[var(--text-primary)] flex items-center gap-1">{order.symbol}</h4>
+                                    <h4 className="text-[17px] font-bold text-[var(--text-primary)] flex items-center gap-1">{order.symbol}</h4>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <span className="text-[14px] font-bold text-[var(--text-primary)] cursor-pointer" onClick={() => cancelSpotOrder(order.id)}>Cancel</span>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1.5 mb-4 mt-2">
-                                <span className={`${order.type === 'Limit' ? 'bg-[#e5f7ed] text-[#20b26c]' : 'bg-[#fdeaea] text-[#ef454a]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{order.type}</span>
-                                <span className={`${order.side === 'Buy' ? 'bg-[#e5f7ed] text-[#20b26c]' : 'bg-[#fdeaea] text-[#ef454a]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{order.side}</span>
-                                <span className="text-[12px] text-[var(--text-tertiary)] font-medium ml-1">{formatDateTime(order.timestamp || Date.now())}</span>
+                            <div className="flex items-center gap-1.5 mb-3">
+                                <span className={`${order.side === 'Buy' ? 'bg-[var(--green-bg)] text-[var(--green)]' : 'bg-[var(--red-bg)] text-[var(--red)]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{order.side}</span>
+                                <span className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-[11px] font-medium px-1.5 py-[2px] rounded-[2px]">{order.type}</span>
+                                <span className="text-[12px] text-[var(--text-tertiary)] font-medium ml-0.5">{formatDateTime(order.timestamp || Date.now())}</span>
                             </div>
                             <div className="grid grid-cols-3 gap-1">
                                 <div>
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 w-max border-b border-dashed border-[var(--border-color)]">Order amount</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{order.amount}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 w-max border-b border-dashed border-[var(--border-color)]">Order amount</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{order.amount}</p>
                                 </div>
                                 <div className="text-center">
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 mx-auto w-max border-b border-dashed border-[var(--border-color)]">Filled</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{order.filled || 0}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 mx-auto w-max border-b border-dashed border-[var(--border-color)]">Filled</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{order.filled || 0}</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 ml-auto w-max border-b border-dashed border-[var(--border-color)]">Order price</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{order.price}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 ml-auto w-max border-b border-dashed border-[var(--border-color)]">Order price</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{order.price}</p>
                                 </div>
                             </div>
                         </div>
@@ -176,31 +180,33 @@ const TradeHistoryView = () => {
                             No order history
                         </div>
                     ) : tradeHistory.map((item, idx) => (
-                        <div key={idx} className="px-4 py-5 border-b border-gray-50">
-                            <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-[16px] font-bold text-[var(--text-primary)]">{item.symbol}</h4>
+                        <div key={idx} className="px-4 py-4 border-b border-gray-50 last:border-b-0">
+                            <div className="flex items-center justify-between mb-1">
+                                <h4 className="text-[17px] font-bold text-[var(--text-primary)]">{item.symbol}</h4>
                                 <div className="flex items-center gap-2">
                                     <span className="text-[13px] font-bold text-[var(--text-secondary)]">{item.status || 'Filled'}</span>
                                     {item.type?.toLowerCase() === 'liquidation' && <span className="p-1"><FiShare2 className="w-3.5 h-3.5 text-[var(--text-primary)]" /></span>}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1.5 mb-5 mt-1">
-                                <span className={`${item.type === 'Market' || item.type === 'Liquidation' ? 'bg-[#e5f7ed] text-[#20b26c]' : 'bg-[#fdeaea] text-[#ef454a]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{item.type || 'Market'}</span>
-                                <span className={`${item.side === 'Buy' ? 'bg-[#e5f7ed] text-[#20b26c]' : 'bg-[#fdeaea] text-[#ef454a]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{item.side}</span>
-                                <span className="text-[12px] text-[var(--text-tertiary)] font-medium ml-1">{formatDateTime(item.timestamp)}</span>
+                            <div className="flex items-center gap-1.5 mb-3">
+                                <span className={`${item.side === 'Buy' ? 'bg-[var(--green-bg)] text-[var(--green)]' : 'bg-[var(--red-bg)] text-[var(--red)]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{item.side}</span>
+                                <span className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-[11px] font-medium px-1.5 py-[2px] rounded-[2px]">{item.type || 'Market'}</span>
+                                <span className="text-[12px] text-[var(--text-tertiary)] font-medium ml-0.5">{formatDateTime(item.timestamp)}</span>
                             </div>
                             <div className="grid grid-cols-3 gap-1">
                                 <div>
-                                    <p className={`text-[12px] text-[var(--text-tertiary)] font-medium mb-1 w-max ${item.type?.toLowerCase() === 'liquidation' ? '' : 'border-b border-dashed border-[var(--border-color)]'}`}>{item.type?.toLowerCase() === 'liquidation' ? 'Liquidated' : `Order amount`}</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{item.amount}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 w-max border-b border-dashed border-[var(--border-color)]">{item.type?.toLowerCase() === 'liquidation' ? 'Liquidated' : `Order amount`}</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{item.amount}</p>
                                 </div>
                                 <div className={item.type?.toLowerCase() === 'liquidation' ? 'text-left' : 'text-center'}>
-                                    <p className={`text-[12px] text-[var(--text-tertiary)] font-medium mb-1 w-max ${item.type?.toLowerCase() === 'liquidation' ? '' : 'mx-auto border-b border-dashed border-[var(--border-color)]'}`}>{item.type?.toLowerCase() === 'liquidation' ? 'Liq. price' : `Filled`}</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{item.type?.toLowerCase() === 'liquidation' ? item.price : item.amount}</p>
+                                    <p className={`text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 w-max ${item.type?.toLowerCase() === 'liquidation' ? '' : 'mx-auto border-b border-dashed border-[var(--border-color)]'}`}>{item.type?.toLowerCase() === 'liquidation' ? 'Liq. price' : `Filled`}</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{item.type?.toLowerCase() === 'liquidation' ? item.price : item.amount}</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className={`text-[12px] text-[var(--text-tertiary)] font-medium mb-1 ml-auto w-max ${item.type?.toLowerCase() === 'liquidation' ? '' : 'border-b border-dashed border-[var(--border-color)]'}`}>{item.type?.toLowerCase() === 'liquidation' ? 'Closed PnL' : 'Fill price'}</p>
-                                    <p className={`text-[15px] font-bold ${item.type?.toLowerCase() === 'liquidation' ? 'text-[#ef454a]' : 'text-[var(--text-primary)]'}`}>{item.type?.toLowerCase() === 'liquidation' ? item.pnl?.toFixed(2) : item.price}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 ml-auto w-max border-b border-dashed border-[var(--border-color)]">{item.type?.toLowerCase() === 'liquidation' ? 'Closed PnL' : 'Fill price'}</p>
+                                    <p className={`text-[14px] font-bold ${item.type?.toLowerCase() === 'liquidation' || item.pnl < 0 ? 'text-[var(--red)]' : (item.pnl > 0 ? 'text-[var(--green)]' : 'text-[var(--text-primary)]')}`}>
+                                        {item.type?.toLowerCase() === 'liquidation' || item.pnl !== undefined ? (item.pnl >= 0 ? '+' : '') + item.pnl?.toFixed(2) : item.price}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -252,52 +258,52 @@ const TradeHistoryView = () => {
 
                     {showPositions && positions.map((pos, idx) => (
                         <div key={pos.id || idx} className="bg-[var(--bg-primary)] rounded-xl p-4 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)]">
-                            <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center gap-1">
-                                    <h4 className="text-[16px] font-bold text-[var(--text-primary)]">{pos.pair}</h4>
+                                    <h4 className="text-[17px] font-bold text-[var(--text-primary)]">{pos.pair} Perp</h4>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium flex items-center gap-1 justify-end w-max ml-auto border-b border-dashed border-[var(--border-color)] pb-[1px]">PnL (USDT) <FiShare2 className="w-3 h-3 text-[var(--text-primary)] mb-0.5" /></p>
-                                    <p className={`text-[16px] font-bold ${(pos.pnl || 0) >= 0 ? 'text-[#20b26c]' : 'text-[#ef454a]'}`}>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium flex items-center gap-1 justify-end w-max ml-auto border-b border-dashed border-[var(--border-color)] pb-[1px]">PnL (USDT)</p>
+                                    <p className={`text-[14px] font-semibold ${(pos.pnl || 0) >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
                                         {(pos.pnl || 0) >= 0 ? '+' : ''}{(pos.pnl || 0).toFixed(2)} ({(pos.pnlPercent || 0) >= 0 ? '+' : ''}{(pos.pnlPercent || 0).toFixed(2)}%)
                                     </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1.5 mb-5 -mt-2">
-                                <span className={`${pos.side === 'Buy' || pos.side === 'Long' ? 'bg-[#e5f7ed] text-[#20b26c]' : 'bg-[#fdeaea] text-[#ef454a]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{pos.side}</span>
-                                <span className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">{pos.marginMode || 'Cross'}</span>
+                            <div className="flex items-center gap-1.5 mb-3">
+                                <span className={`${pos.side === 'Buy' || pos.side === 'Long' ? 'bg-[var(--green-bg)] text-[var(--green)]' : 'bg-[var(--red-bg)] text-[var(--red)]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{pos.side}</span>
+                                <span className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-[11px] font-medium px-1.5 py-[2px] rounded-[2px]">{pos.marginMode || 'Cross'}</span>
                                 <span className="bg-[var(--bg-secondary)] text-[var(--text-primary)] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px] flex items-center">{pos.leverage}x <FiEdit2 className="ml-1 w-2.5 h-2.5" /></span>
                             </div>
-                            <div className="grid grid-cols-3 gap-y-4 mb-5">
+                            <div className="grid grid-cols-3 gap-y-2 mb-3">
                                 <div>
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Size</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{pos.size}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">Size</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{pos.size}</p>
                                 </div>
                                 <div className="text-center">
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max flex items-center">Margin (USDT) <LuCirclePlus className="ml-1 w-3.5 h-3.5 text-[var(--text-tertiary)]" /></p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{pos.margin.toFixed(2)}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] mx-auto w-max flex items-center">Margin (USDT) <LuCirclePlus className="ml-1 w-3.5 h-3.5 text-[var(--text-tertiary)]" /></p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{pos.margin.toFixed(2)}</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">MMR</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{(100 / (pos.leverage || 1)).toFixed(2)}%</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] ml-auto w-max">MMR</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{(100 / (pos.leverage || 1)).toFixed(2)}%</p>
                                 </div>
                                 <div>
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Entry price</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{pos.entryPrice}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">Entry price</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{pos.entryPrice}</p>
                                 </div>
                                 <div className="text-center">
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Mark price</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{pos.markPrice || pos.entryPrice}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Mark price</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{pos.markPrice || pos.entryPrice}</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Liq. price</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{pos.liqPrice?.toFixed(2) || '--'}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Liq. price</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{pos.liqPrice?.toFixed(2) || '--'}</p>
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                <button className="flex-1 py-2 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[13px]">TP/SL</button>
-                                <button className="flex-1 py-2 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[13px]" onClick={() => closeFuturesPosition(pos.id)}>Close</button>
-                                <button className="flex-1 py-2 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[13px]" onClick={() => closeFuturesPosition(pos.id)}>Close all</button>
+                                <button className="flex-1 py-1.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[13px]">TP/SL</button>
+                                <button className="flex-1 py-1.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[13px]" onClick={() => closeFuturesPosition(pos.id)}>Close</button>
+                                <button className="flex-1 py-1.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[13px]" onClick={() => closeFuturesPosition(pos.id)}>Close all</button>
                             </div>
                         </div>
                     ))}
@@ -317,24 +323,24 @@ const TradeHistoryView = () => {
                             if (symbol === 'USDT') {
                                 return (
                                     <div key="spot-USDT" className="bg-[var(--bg-primary)] rounded-xl p-4 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)]">
-                                        <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center justify-between mb-1">
                                             <div className="flex items-center gap-1">
-                                                <h4 className="text-[16px] font-bold text-[var(--text-primary)]">USDT</h4>
+                                                <h4 className="text-[17px] font-bold text-[var(--text-primary)]">USDT</h4>
                                                 <span className="bg-[var(--bg-secondary)] text-[var(--text-tertiary)] text-[10px] font-bold px-1 rounded-sm ml-1">Wallet</span>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-y-4 mb-2">
+                                        <div className="grid grid-cols-3 gap-y-2 mb-2">
                                             <div>
-                                                <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Available (USDT)</p>
-                                                <p className="text-[15px] font-bold text-[var(--text-primary)]">{numBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">Available (USDT)</p>
+                                                <p className="text-[14px] font-medium text-[var(--text-primary)]">{numBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                                             </div>
                                             <div className="text-center">
-                                                <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Value (USDT)</p>
-                                                <p className="text-[15px] font-bold text-[var(--text-primary)]">{numBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Value (USDT)</p>
+                                                <p className="text-[14px] font-medium text-[var(--text-primary)]">{numBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Action</p>
-                                                <button className="text-[13px] font-bold text-[#20b26c]">Deposit</button>
+                                                <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Action</p>
+                                                <button className="text-[13px] font-bold text-[var(--green)]">Deposit</button>
                                             </div>
                                         </div>
                                     </div>
@@ -351,54 +357,54 @@ const TradeHistoryView = () => {
 
                             return (
                                 <div key={`spot-${symbol}`} className="bg-[var(--bg-primary)] rounded-xl p-4 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)]">
-                                    <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center justify-between mb-1">
                                         <div className="flex items-center gap-1">
-                                            <h4 className="text-[16px] font-bold text-[var(--text-primary)]">{symbol}/USDT</h4>
+                                            <h4 className="text-[17px] font-bold text-[var(--text-primary)]">{symbol}/USDT</h4>
                                             <span className="bg-[var(--bg-secondary)] text-[var(--text-tertiary)] text-[10px] font-bold px-1 rounded-sm ml-1">Spot</span>
                                         </div>
                                         {hasTrade && (
                                             <div className="text-right">
-                                                <p className="text-[12px] text-[var(--text-tertiary)] font-medium border-b border-dashed border-[var(--border-color)] w-max ml-auto">PnL (USDT)</p>
-                                                <p className={`text-[16px] font-bold ${pnlAbsolute >= 0 ? 'text-[#20b26c]' : 'text-[#ef454a]'}`}>
+                                                <p className="text-[11px] text-[var(--text-tertiary)] font-medium border-b border-dashed border-[var(--border-color)] w-max ml-auto text-right">PnL (USDT)</p>
+                                                <p className={`text-[14px] font-semibold ${pnlAbsolute >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
                                                     {pnlAbsolute >= 0 ? '+' : ''}{pnlAbsolute.toFixed(2)} ({pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%)
                                                 </p>
                                             </div>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-3 gap-y-4 mb-4 mt-2">
+                                    <div className="grid grid-cols-3 gap-y-2 mb-3 mt-1">
                                         <div>
-                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Amount ({symbol})</p>
-                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">{numBalance.toFixed(4)}</p>
+                                            <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">Amount ({symbol})</p>
+                                            <p className="text-[14px] font-medium text-[var(--text-primary)]">{numBalance.toFixed(4)}</p>
                                         </div>
                                         <div className="text-center">
-                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Value (USDT)</p>
-                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">{(numBalance * lastPrice).toFixed(2)}</p>
+                                            <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Value (USDT)</p>
+                                            <p className="text-[14px] font-medium text-[var(--text-primary)]">{(numBalance * lastPrice).toFixed(2)}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">{hasTrade ? 'Equity' : 'Action'}</p>
-                                            {hasTrade ? <p className="text-[15px] font-bold text-[var(--text-primary)]">100%</p> : <button className="text-[13px] font-bold text-[#20b26c]">Trade</button>}
+                                            <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] ml-auto w-max">{hasTrade ? 'Equity' : 'Action'}</p>
+                                            {hasTrade ? <p className="text-[14px] font-medium text-[var(--text-primary)]">100%</p> : <button className="text-[13px] font-bold text-[var(--green)]">Trade</button>}
                                         </div>
                                         {hasTrade && (
                                             <>
                                                 <div>
-                                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Cost price</p>
-                                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{costPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">Cost price</p>
+                                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{costPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                                 </div>
                                                 <div className="text-center">
-                                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Last price</p>
-                                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{lastPrice.toLocaleString('en-US')}</p>
+                                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Last price</p>
+                                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{lastPrice.toLocaleString('en-US')}</p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Action</p>
-                                                    <button className="text-[13px] font-bold text-[#20b26c]">Buy/Sell</button>
+                                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Action</p>
+                                                    <button className="text-[13px] font-bold text-[var(--green)]">Buy/Sell</button>
                                                 </div>
                                             </>
                                         )}
                                     </div>
                                     {hasTrade && (
                                         <div className="flex gap-2">
-                                            <button className="flex-1 py-2 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[13px]">TP/SL</button>
-                                            <button className="flex-1 py-2 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[13px]" onClick={() => cancelSpotOrder(symbol)}>Sell</button>
+                                            <button className="flex-1 py-1.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[13px]">TP/SL</button>
+                                            <button className="flex-1 py-1.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[13px]" onClick={() => cancelSpotOrder(symbol)}>Sell</button>
                                         </div>
                                     )}
                                 </div>
@@ -427,52 +433,52 @@ const TradeHistoryView = () => {
                             No position history
                         </div>
                     ) : positionHistory.map((item, idx) => (
-                        <div key={item.id || idx} className="px-4 py-5 border-b border-gray-50">
-                            <div className="flex items-center justify-between mb-3 border-b border-transparent">
+                        <div key={item.id || idx} className="px-4 py-4 border-b border-gray-50 last:border-b-0">
+                            <div className="flex items-center justify-between mb-1 border-b border-transparent">
                                 <div className="flex items-center gap-1">
-                                    <h4 className="text-[16px] font-bold text-[var(--text-primary)]">{item.pair}</h4>
+                                    <h4 className="text-[17px] font-bold text-[var(--text-primary)]">{item.pair} Perp</h4>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-[13px] font-bold text-[var(--text-secondary)]">Closed</span>
                                     <div className="p-1 -mr-1"><FiShare2 className="w-4 h-4 text-[var(--text-primary)]" /></div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1.5 mb-5 mt-1">
-                                <span className={`${item.side === 'Buy' || item.side === 'Long' ? 'bg-[#e5f7ed] text-[#20b26c]' : 'bg-[#fdeaea] text-[#ef454a]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{item.side}</span>
-                                <span className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">{item.marginMode || 'Cross'}</span>
+                            <div className="flex items-center gap-1.5 mb-3">
+                                <span className={`${item.side === 'Buy' || item.side === 'Long' ? 'bg-[var(--green-bg)] text-[var(--green)]' : 'bg-[var(--red-bg)] text-[var(--red)]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{item.side}</span>
+                                <span className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-[11px] font-medium px-1.5 py-[2px] rounded-[2px]">{item.marginMode || 'Cross'}</span>
                                 <span className="bg-[var(--bg-secondary)] text-[var(--text-primary)] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">{item.leverage}x</span>
                             </div>
-                            <div className="grid grid-cols-3 gap-y-4 mb-4">
+                            <div className="grid grid-cols-3 gap-y-2 mb-3">
                                 <div>
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Entry price</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{item.entryPrice}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">Entry price</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{item.entryPrice}</p>
                                 </div>
                                 <div className="text-center">
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Realized PnL (USDT)</p>
-                                    <p className={`text-[15px] font-bold ${(item.pnl || 0) >= 0 ? 'text-[#20b26c]' : 'text-[#ef454a]'}`}>{(item.pnl || 0) >= 0 ? '+' : ''}{(item.pnl || 0).toFixed(2)}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Realized PnL</p>
+                                    <p className={`text-[14px] font-semibold ${(item.pnl || 0) >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>{(item.pnl || 0) >= 0 ? '+' : ''}{(item.pnl || 0).toFixed(2)}</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Max held</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{item.size}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Max held</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{item.size}</p>
                                 </div>
                                 <div>
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Exit price</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{item.markPrice || item.entryPrice}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">Exit price</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{item.markPrice || item.entryPrice}</p>
                                 </div>
                                 <div className="text-center">
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Realized PnL%</p>
-                                    <p className={`text-[15px] font-bold ${(item.pnlPercent || 0) >= 0 ? 'text-[#20b26c]' : 'text-[#ef454a]'}`}>{(item.pnlPercent || 0) >= 0 ? '+' : ''}{(item.pnlPercent || 0).toFixed(2)}%</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Realized PnL%</p>
+                                    <p className={`text-[14px] font-semibold ${(item.pnlPercent || 0) >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>{(item.pnlPercent || 0) >= 0 ? '+' : ''}{(item.pnlPercent || 0).toFixed(2)}%</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Closed size</p>
-                                    <p className="text-[15px] font-bold text-[var(--text-primary)]">{item.size}</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Closed size</p>
+                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{item.size}</p>
                                 </div>
                             </div>
-                            <div className="flex flex-col gap-1 mb-4 text-[13px] font-medium text-[var(--text-tertiary)] mt-2">
+                            <div className="flex flex-col gap-0.5 mb-3 text-[12px] font-medium text-[var(--text-tertiary)]">
                                 <div className="w-full flex justify-between"><span>Time opened</span><span className="text-[var(--text-primary)]">{formatDateTime(item.timeOpened)}</span></div>
-                                <div className="w-full flex justify-between mt-0.5"><span>Closed</span><span className="text-[var(--text-primary)]">{formatDateTime(item.timeClosed)}</span></div>
+                                <div className="w-full flex justify-between"><span>Time closed</span><span className="text-[var(--text-primary)]">{formatDateTime(item.timeClosed)}</span></div>
                             </div>
-                            <button className="w-full py-2.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[14px]">Linked orders</button>
+                            <button className="w-full py-2 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-bold text-[14px]">Linked orders</button>
                         </div>
                     ))}
                 </div>

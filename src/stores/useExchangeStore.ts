@@ -252,23 +252,29 @@ const useExchangeStore = create<ExchangeState>()(
             fundingRate: 0.0001,
 
             setMarkets: (data) => set({ markets: data.map(m => ({ ...m, isFutures: false })) }),
-            updateMarkets: (updates) => set((state) => {
-                const map = new Map(state.markets.map(m => [m.symbol, m]));
-                updates.forEach(u => {
-                    const existing = map.get(u.symbol);
-                    map.set(u.symbol, existing ? { ...existing, ...u, isFutures: false } : { ...u, isFutures: false } as MarketData);
+            updateMarkets: (updates) => {
+                set((state) => {
+                    const map = new Map(state.markets.map(m => [m.symbol, m]));
+                    updates.forEach(u => {
+                        const existing = map.get(u.symbol);
+                        map.set(u.symbol, existing ? { ...existing, ...u, isFutures: false } : { ...u, isFutures: false } as MarketData);
+                    });
+                    return { markets: Array.from(map.values()) };
                 });
-                return { markets: Array.from(map.values()) };
-            }),
+                get().updateAssetPrices();
+            },
             setFuturesMarkets: (data) => set({ futuresMarkets: data.map(m => ({ ...m, isFutures: true })) }),
-            updateFuturesMarkets: (updates) => set((state) => {
-                const map = new Map(state.futuresMarkets.map(m => [m.symbol, m]));
-                updates.forEach(u => {
-                    const existing = map.get(u.symbol);
-                    map.set(u.symbol, existing ? { ...existing, ...u, isFutures: true } : { ...u, isFutures: true } as MarketData);
+            updateFuturesMarkets: (updates) => {
+                set((state) => {
+                    const map = new Map(state.futuresMarkets.map(m => [m.symbol, m]));
+                    updates.forEach(u => {
+                        const existing = map.get(u.symbol);
+                        map.set(u.symbol, existing ? { ...existing, ...u, isFutures: true } : { ...u, isFutures: true } as MarketData);
+                    });
+                    return { futuresMarkets: Array.from(map.values()) };
                 });
-                return { futuresMarkets: Array.from(map.values()) };
-            }),
+                get().updateAssetPrices();
+            },
             setSpotSymbols: (data) => set({ spotSymbols: data }),
             setFuturesSymbols: (data) => set({ futuresSymbols: data }),
             setCurrency: (currency) => set({ currency }),
@@ -712,16 +718,22 @@ const useExchangeStore = create<ExchangeState>()(
                 set(s => ({ tradeHistory: [tr, ...s.tradeHistory] }));
                 const { user } = get();
                 if (user) {
-                    await supabase.from('orders_spot').insert([{
-                        user_id: user.id,
-                        pair: tr.symbol,
-                        side: tr.side.toLowerCase(),
-                        type: tr.type.toLowerCase(),
-                        price: tr.price,
-                        amount: tr.amount,
-                        filled: tr.amount,
-                        status: 'filled'
-                    }]);
+                    // Deteksi apakah ini order Futures (dari awalan ID nya)
+                    const isFutures = String(tr.id).includes('TR-F') || String(tr.id).includes('LIQ');
+                    
+                    // Hanya insert ke tabel orders_spot kalau ini murni Spot Trade
+                    if (!isFutures) {
+                        await supabase.from('orders_spot').insert([{
+                            user_id: user.id,
+                            pair: tr.symbol,
+                            side: tr.side.toLowerCase(),
+                            type: tr.type.toLowerCase(),
+                            price: tr.price,
+                            amount: tr.amount,
+                            filled: tr.amount,
+                            status: 'filled'
+                        }]);
+                    }
                 }
             },
             initializeUserData: async () => {
@@ -729,8 +741,11 @@ const useExchangeStore = create<ExchangeState>()(
                 get().startFundingCron();
                 if (!user) return;
                 
+                // WAJIB: Tarik wallet duluan biar saldo futures gak 0 saat divalidasi engine
+                await get().fetchSupabaseWallets();
+                
+                // Baru tarik sisanya
                 await Promise.all([
-                    get().fetchSupabaseWallets(),
                     get().fetchSupabaseHistory(),
                     get().fetchSupabaseFavorites(),
                     get().fetchSupabasePositions()
@@ -783,9 +798,10 @@ const useExchangeStore = create<ExchangeState>()(
                 const { user } = get();
                 if (!user) return;
 
-                const [txData, tradeData] = await Promise.all([
+                const [txData, tradeData, futuresData] = await Promise.all([
                     supabase.from('transactions').select('*').eq('user_id', user.id).order('timestamp', { ascending: false }),
-                    supabase.from('orders_spot').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+                    supabase.from('orders_spot').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+                    supabase.from('history_futures').select('*').eq('user_id', user.id).order('time_closed', { ascending: false })
                 ]);
 
                 if (!txData.error) {
@@ -809,6 +825,8 @@ const useExchangeStore = create<ExchangeState>()(
                     set({ transactionHistory: mappedTx });
                 }
 
+                let allTrades: any[] = [];
+
                 if (!tradeData.error) {
                     const seenTradeIds = new Set();
                     const mappedTrades = (tradeData.data || [])
@@ -828,8 +846,46 @@ const useExchangeStore = create<ExchangeState>()(
                             pnl: 0,
                             timestamp: new Date(t.created_at).getTime()
                         }));
-                    set({ tradeHistory: mappedTrades });
+                    allTrades = [...mappedTrades];
                 }
+
+                if (!futuresData.error && futuresData.data) {
+                    const mappedPosHistory = futuresData.data.map(h => ({
+                        id: h.id,
+                        pair: h.pair,
+                        side: h.side === 'long' ? 'Buy' : 'Sell',
+                        size: parseFloat(h.size),
+                        margin: parseFloat(h.margin),
+                        entryPrice: parseFloat(h.entry_price),
+                        markPrice: parseFloat(h.close_price),
+                        leverage: h.leverage,
+                        pnl: parseFloat(h.pnl),
+                        pnlPercent: 0,
+                        timeOpened: new Date(h.time_opened).getTime(),
+                        timeClosed: new Date(h.time_closed).getTime(),
+                        marginMode: h.margin_type === 'cross' ? 'Cross' : 'Isolated'
+                    }));
+                    
+                    // Terjemahin closed futures ke format trade log biar UI sinkron
+                    const futuresTrades = futuresData.data.map(h => ({
+                        id: `FUT-TR-${h.id}`,
+                        symbol: h.pair,
+                        side: h.side === 'long' ? 'Sell' : 'Buy', // Logika saat posisi di-close
+                        type: 'Market',
+                        price: parseFloat(h.close_price),
+                        amount: parseFloat(h.size),
+                        fee: 0,
+                        pnl: parseFloat(h.pnl),
+                        timestamp: new Date(h.time_closed).getTime()
+                    }));
+
+                    allTrades = [...allTrades, ...futuresTrades];
+                    set({ positionHistory: mappedPosHistory });
+                }
+                
+                // Sort terbaru ke terlama
+                allTrades.sort((a, b) => b.timestamp - a.timestamp);
+                set({ tradeHistory: allTrades });
             },
             addPosition: (pos) => set(s => ({ positions: [...s.positions, pos] })),
             setFuturesTPSL: async (positionId, tpPrice, slPrice) => {
@@ -1132,7 +1188,9 @@ const useExchangeStore = create<ExchangeState>()(
                             entry_price: currentPrice,
                             size: order.amount,
                             liquidation_price: liqPrice,
-                            margin: marginRequired
+                            margin: marginRequired,
+                            tp_price: tpPrice, // <-- Tambahin ini
+                            sl_price: slPrice  // <-- Tambahin ini
                         }]);
                     }
                     get().syncWalletsToSupabase();
@@ -1270,19 +1328,20 @@ const useExchangeStore = create<ExchangeState>()(
             // Auto-Calculation: recalculate asset values from latest market prices and wallets
             // Auto-PnL: compute daily PnL from weighted asset × priceChangePercent
             updateAssetPrices: (force = false) => {
-                // Throttle: skip if called too frequently (e.g. from earn yield every 1s)
                 const now = Date.now();
-                if (!force && now - lastPortfolioCalc < PORTFOLIO_THROTTLE_MS) return;
+                if (!force && now - lastPortfolioCalc < 3000) return;
                 lastPortfolioCalc = now;
 
-                let triggeredClosures: { id: string; type: string }[] = [];
+                let triggeredClosures: { id: string; type: string; symbol?: string }[] = [];
+                let filledSpotOrders: any[] = [];
+                let isLiquidated = false;
+                let liquidatedPositions: any[] = [];
 
                 set((state) => {
                     const { wallets, markets, futuresMarkets, openOrders, positions, spotCostBasis, tradeHistory, spotTPSL } = state;
 
-                    // 1. --- Matcher Simulation (for Spot Limit Orders) ---
                     let fillOccurred = false;
-                    const remainingOrders = [];
+                    const remainingOrders: any[] = [];
                     const updatedWallets = JSON.parse(JSON.stringify(wallets));
                     const updatedCostBasis = { ...spotCostBasis };
                     const updatedTradeHistory = [...tradeHistory];
@@ -1301,7 +1360,9 @@ const useExchangeStore = create<ExchangeState>()(
 
                         if (shouldFill) {
                             fillOccurred = true;
+                            filledSpotOrders.push(order);
                             const symbol = order.symbol.replace('USDT', '');
+                            
                             if (order.side === 'Buy') {
                                 const oldAmount = new Decimal(updatedWallets.spot[symbol] || 0);
                                 const oldCost = new Decimal(updatedCostBasis[symbol] || currentPrice);
@@ -1315,6 +1376,7 @@ const useExchangeStore = create<ExchangeState>()(
                                 updatedWallets.spot.USDT = new Decimal(updatedWallets.spot.USDT || 0).plus(sellValue).toNumber();
                                 updatedWallets.spot[symbol] = new Decimal(updatedWallets.spot[symbol] || 0).minus(order.amount).toNumber();
                             }
+                            
                             updatedTradeHistory.push({
                                 id: Math.random().toString(36).substr(2, 9),
                                 symbol: order.symbol,
@@ -1330,7 +1392,6 @@ const useExchangeStore = create<ExchangeState>()(
                         }
                     });
 
-                    // 1.5 --- Detect Spot TP/SL Triggers ---
                     const triggeredSpotSell: any[] = [];
                     spotTPSL.forEach(s => {
                         const market = markets.find(m => m.symbol === `${s.symbol}USDT` || m.symbol === `${s.symbol}USD`);
@@ -1341,7 +1402,6 @@ const useExchangeStore = create<ExchangeState>()(
                         let trigger = false;
                         let type = '';
                         
-                        // Treat spot TP/SL as order relative to cost basis
                         if (s.tpPrice && currentPrice >= s.tpPrice) {
                             trigger = true;
                             type = 'Take Profit';
@@ -1354,9 +1414,8 @@ const useExchangeStore = create<ExchangeState>()(
                         if (trigger) {
                             fillOccurred = true;
                             triggeredSpotSell.push(s);
-                            triggeredClosures.push({ id: 'SPOT', symbol: s.symbol, type });
+                            triggeredClosures.push({ id: 'SPOT', type, symbol: s.symbol });
                             
-                            // Execute Sell
                             const sellAmount = s.amount;
                             const sellValue = new Decimal(sellAmount).times(currentPrice).toNumber();
                             const fee = new Decimal(sellValue).times(0.001).toNumber();
@@ -1379,7 +1438,6 @@ const useExchangeStore = create<ExchangeState>()(
                         }
                     });
 
-                    // 2. --- Sync Futures Unrealized PnL & Monitor Liquidations ---
                     let dFuturesUnrealizedPnl = new Decimal(0);
                     let totalMaintenanceMargin = new Decimal(0);
                     let updatedPositions: any[] = [];
@@ -1433,6 +1491,8 @@ const useExchangeStore = create<ExchangeState>()(
 
                     if (updatedPositions.length > 0 && futuresEquity.lte(totalMaintenanceMargin)) {
                         fillOccurred = true;
+                        isLiquidated = true;
+                        liquidatedPositions = [...updatedPositions];
                         
                         updatedPositions.forEach(pos => {
                             updatedTradeHistory.push({
@@ -1451,10 +1511,8 @@ const useExchangeStore = create<ExchangeState>()(
                         
                         updatedWallets.futures.USDT = 0; 
                         updatedPositions = [];
-                        get().showToast('Liquidation Alert', 'Futures account liquidated due to insufficient margin.', 'error');
                     }
 
-                    // 3. --- Calculate Balances & Asset Values ---
                     let dSpotTotal = new Decimal(0);
                     let dFuturesTotal = new Decimal(0);
                     let dEarnTotal = new Decimal(0);
@@ -1503,13 +1561,11 @@ const useExchangeStore = create<ExchangeState>()(
                         ? dTotalUnrealizedPnl.div(dTotalValue).times(100).toNumber()
                         : 0;
 
-                    // 4. --- Update BTC Rate ---
                     const btcMarket = markets.find(m => m.symbol === 'BTCUSDT');
                     const btcPrice = btcMarket ? parseFloat(btcMarket.lastPrice) : 0;
                     const newRates = { ...state.rates };
                     if (btcPrice > 0) newRates.BTC = 1 / btcPrice;
 
-                    // 5. --- Snapshot logic ---
                     const today = new Date().toISOString().split('T')[0];
                     const nextSnapshots = { ...state.snapshots };
                     if (state.snapshots[today] === undefined) nextSnapshots[today] = totalValue;
@@ -1535,13 +1591,57 @@ const useExchangeStore = create<ExchangeState>()(
                     };
                 });
 
+                const store = get();
+                const user = store.user;
+
+                if (isLiquidated && user) {
+                    store.showToast('Liquidation Alert', 'Futures account liquidated due to insufficient margin.', 'error');
+                    
+                    // 1. Simpan ke history dulu biar log trading dapet datanya
+                    const historyInserts = liquidatedPositions.map(pos => ({
+                        user_id: user.id,
+                        pair: pos.pair,
+                        leverage: pos.leverage,
+                        margin_type: pos.marginMode?.toLowerCase() || 'cross',
+                        side: pos.side === 'Buy' ? 'long' : 'short',
+                        entry_price: pos.entryPrice,
+                        close_price: pos.markPrice || pos.entryPrice,
+                        size: pos.size,
+                        margin: pos.margin,
+                        pnl: pos.pnl,
+                        time_opened: new Date(Date.now() - 3600000).toISOString(),
+                        time_closed: new Date().toISOString()
+                    }));
+
+                    supabase.from('history_futures').insert(historyInserts).then(() => {
+                        // 2. Baru hapus dari engine posisi aktif
+                        supabase.from('positions_futures').delete().eq('user_id', user.id).then(() => {
+                            store.syncWalletsToSupabase();
+                            store.fetchSupabaseHistory(); // Update UI
+                        });
+                    });
+                }
+
+                if (filledSpotOrders.length > 0 && user) {
+                    filledSpotOrders.forEach(async (order) => {
+                        await supabase.from('orders_spot')
+                            .update({ status: 'filled', filled: order.amount })
+                            .eq('user_id', user.id)
+                            .eq('pair', order.symbol)
+                            .eq('side', order.side.toLowerCase())
+                            .eq('status', 'open');
+                    });
+                    store.syncWalletsToSupabase();
+                }
+
                 if (triggeredClosures.length > 0) {
                     triggeredClosures.forEach(c => {
                         if (c.id === 'SPOT') {
-                            get().showToast(`${c.type} Triggered`, `Spot asset ${c.symbol} sold.`, 'info');
+                            store.showToast(`${c.type} Triggered`, `Spot asset ${c.symbol} sold.`, 'info');
+                            store.syncWalletsToSupabase();
                         } else {
-                            get().showToast(`${c.type} Triggered`, `Position auto-closed.`, 'info');
-                            get().closeFuturesPosition(c.id);
+                            store.showToast(`${c.type} Triggered`, `Position auto-closed.`, 'info');
+                            store.closeFuturesPosition(c.id);
                         }
                     });
                 }

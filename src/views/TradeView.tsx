@@ -1050,16 +1050,16 @@ const TradeView = () => {
                                 </div>
 
                                 <div className="relative h-full flex items-center justify-between z-10 pointer-events-none">
-                                    <div className="flex items-center h-full text-[var(--green)] font-bold text-[10px]">
-                                        <div className="h-full w-[18px] flex items-center justify-center border border-[var(--green)] rounded-[4px] mr-2 text-[9px] bg-transparent">
+                                    <div className="flex items-center h-full text-[var(--green)] font-medium text-[12px]">
+                                        <div className="h-full w-[18px] flex items-center justify-center border border-[var(--green)] rounded-[4px] mr-1 text-[13px] bg-transparent font-medium">
                                             B
                                         </div>
                                         {Math.round(buyRatio)}%
                                     </div>
 
-                                    <div className="flex items-center h-full text-[var(--red)] font-bold text-[10px]">
+                                    <div className="flex items-center h-full text-[var(--red)] font-medium text-[12px]">
                                         {Math.round(sellRatio)}%
-                                        <div className="h-full w-[18px] flex items-center justify-center border border-[var(--red)] rounded-[4px] ml-2 text-[9px] bg-transparent">
+                                        <div className="h-full w-[18px] flex items-center justify-center border border-[var(--red)] rounded-[4px] ml-1 text-[13px] bg-transparent font-medium">
                                             S
                                         </div>
                                     </div>
@@ -1371,7 +1371,7 @@ const TradeView = () => {
                                                     <div className="w-[3px] h-3 bg-[var(--bg-secondary)]" />
                                                 </div>
                                             </div>
-                                            <p className={`text-[15px] font-semibold ${pos.pnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
+                                            <p className={`text-[14px] font-semibold ${pos.pnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
                                                 {pos.pnl >= 0 ? '+' : ''}{pos.pnl.toFixed(2)} ({pos.pnlPercent >= 0 ? '+' : ''}{pos.pnlPercent.toFixed(2)}%)
                                             </p>
                                         </div>
@@ -1529,7 +1529,7 @@ const TradeView = () => {
                                                 </div>
                                                 {costPrice > 0 && (
                                                     <div className="flex items-center gap-2">
-                                                        <p className={`text-[15px] font-semibold ${pnlAbsolute >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'} border-b border-dashed ${pnlAbsolute >= 0 ? 'border-[var(--green)]' : 'border-[var(--red)]'} pb-0.5`}>
+                                                        <p className={`text-[14px] font-semibold ${pnlAbsolute >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'} border-b border-dashed ${pnlAbsolute >= 0 ? 'border-[var(--green)]' : 'border-[var(--red)]'} pb-0.5`}>
                                                             {pnlAbsolute >= 0 ? '+' : ''}${Math.abs(pnlAbsolute).toFixed(2)} ({pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%)
                                                         </p>
                                                         <RiShare2Line 

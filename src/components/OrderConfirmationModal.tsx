@@ -52,26 +52,26 @@ const OrderConfirmationModal: React.FC<OrderConfirmationModalProps> = ({
                         animate={{ y: 0 }}
                         exit={{ y: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="relative bg-[var(--bg-card)] w-full max-w-[500px] rounded-t-[24px] px-6 pt-2 pb-10 shadow-2xl z-20"
+                        className="relative bg-[var(--bg-card)] w-full max-w-[500px] rounded-t-[20px] px-6 pt-2 pb-8 shadow-2xl z-20"
                     >
                         {/* Handle */}
-                        <div className="flex justify-center mb-6">
+                        <div className="flex justify-center mb-4">
                             <div className="w-10 h-1 bg-[var(--bg-secondary)] rounded-full" />
                         </div>
                         {/* Header */}
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-[20px] font-semibold text-[var(--text-primary)]">Order confirmation</h3>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-[18px] font-semibold text-[var(--text-primary)]">Order confirmation</h3>
                             <button onClick={onClose} className="p-1 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]">
-                                <IoClose size={24} />
+                                <IoClose size={22} />
                             </button>
                         </div>
 
                         {/* Symbol & Side & Leverage */}
-                        <div className="flex items-center gap-2 mb-8">
+                        <div className="flex items-center gap-2 mb-4">
                             {isFutures && (
                                 <span className="bg-[#faad14]/10 text-[#faad14] text-[10px] font-bold px-1.5 py-[2px] rounded-[4px] leading-none">Futures</span>
                             )}
-                            <span className="text-[18px] font-bold text-[var(--text-primary)]">
+                            <span className="text-[17px] font-bold text-[var(--text-primary)]">
                                 {isFutures ? `${symbol.replace('USDT', '')} Perpetual` : `${symbol.replace('USDT', '')}/USDT`}
                             </span>
                             <span className={`px-2 py-0.5 rounded-[4px] text-[12px] font-bold ${isBuy ? 'bg-[var(--green-bg)] text-[var(--green)]' : 'bg-[var(--red-bg)] text-[var(--red)]'
@@ -86,66 +86,66 @@ const OrderConfirmationModal: React.FC<OrderConfirmationModalProps> = ({
                         </div>
 
                         {/* Details Table */}
-                        <div className="space-y-4 mb-8">
+                        <div className="space-y-3 mb-5">
                             <div className="flex justify-between items-center">
-                                <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Order price</span>
-                                <span className="text-[16px] font-bold text-[var(--text-primary)]">{price}</span>
+                                <span className="text-[14px] font-medium text-[var(--text-tertiary)]">Order price</span>
+                                <span className="text-[15px] font-bold text-[var(--text-primary)]">{price}</span>
                             </div>
 
                             {isFutures ? (
                                 <>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Amount</span>
-                                        <span className="text-[16px] font-bold text-[var(--text-primary)]">{amount} {symbol.replace('USDT', '')}</span>
+                                        <span className="text-[14px] font-medium text-[var(--text-tertiary)]">Amount</span>
+                                        <span className="text-[15px] font-bold text-[var(--text-primary)]">{amount} {symbol.replace('USDT', '')}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Type</span>
-                                        <span className="text-[16px] font-bold text-[var(--text-primary)]">{type}</span>
+                                        <span className="text-[14px] font-medium text-[var(--text-tertiary)]">Type</span>
+                                        <span className="text-[15px] font-bold text-[var(--text-primary)]">{type}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Liq. price</span>
-                                        <span className="text-[16px] font-bold text-[var(--text-primary)]">{liqPrice} USDT</span>
+                                        <span className="text-[14px] font-medium text-[var(--text-tertiary)]">Liq. price</span>
+                                        <span className="text-[15px] font-bold text-[var(--text-primary)]">{liqPrice} USDT</span>
                                     </div>
                                     <div className="flex justify-between items-start">
-                                        <span className="text-[15px] font-medium text-[var(--text-tertiary)] mt-1">Price gap</span>
+                                        <span className="text-[14px] font-medium text-[var(--text-tertiary)] mt-0.5">Price gap</span>
                                         <div className="flex flex-col items-end">
-                                            <span className="text-[16px] font-bold text-[var(--text-primary)]">{priceGap}%</span>
-                                            <span className="text-[13px] font-medium text-[var(--text-tertiary)]">{priceGapUsdt} USDT</span>
+                                            <span className="text-[15px] font-bold text-[var(--text-primary)]">{priceGap}%</span>
+                                            <span className="text-[12px] font-medium text-[var(--text-tertiary)]">{priceGapUsdt} USDT</span>
                                         </div>
                                     </div>
                                     {tpPrice && (
                                         <div className="flex justify-between items-center">
-                                            <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Take profit</span>
-                                            <span className="text-[16px] font-bold text-[#2ebd85]">{tpPrice} USDT</span>
+                                            <span className="text-[14px] font-medium text-[var(--text-tertiary)]">Take profit</span>
+                                            <span className="text-[15px] font-bold text-[#2ebd85]">{tpPrice} USDT</span>
                                         </div>
                                     )}
                                     {slPrice && (
                                         <div className="flex justify-between items-center">
-                                            <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Stop loss</span>
-                                            <span className="text-[16px] font-bold text-[#f6465d]">{slPrice} USDT</span>
+                                            <span className="text-[14px] font-medium text-[var(--text-tertiary)]">Stop loss</span>
+                                            <span className="text-[15px] font-bold text-[#f6465d]">{slPrice} USDT</span>
                                         </div>
                                     )}
                                 </>
                             ) : (
                                 <>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Total</span>
-                                        <span className="text-[16px] font-bold text-[var(--text-primary)]">{total} USDT</span>
+                                        <span className="text-[14px] font-medium text-[var(--text-tertiary)]">Total</span>
+                                        <span className="text-[15px] font-bold text-[var(--text-primary)]">{total} USDT</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Type</span>
-                                        <span className="text-[16px] font-bold text-[var(--text-primary)]">{type}</span>
+                                        <span className="text-[14px] font-medium text-[var(--text-tertiary)]">Type</span>
+                                        <span className="text-[15px] font-bold text-[var(--text-primary)]">{type}</span>
                                     </div>
                                     {tpPrice && (
                                         <div className="flex justify-between items-center">
-                                            <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Take profit</span>
-                                            <span className="text-[16px] font-bold text-[#2ebd85]">{tpPrice} USDT</span>
+                                            <span className="text-[14px] font-medium text-[var(--text-tertiary)]">Take profit</span>
+                                            <span className="text-[15px] font-bold text-[#2ebd85]">{tpPrice} USDT</span>
                                         </div>
                                     )}
                                     {slPrice && (
                                         <div className="flex justify-between items-center">
-                                            <span className="text-[15px] font-medium text-[var(--text-tertiary)]">Stop loss</span>
-                                            <span className="text-[16px] font-bold text-[#f6465d]">{slPrice} USDT</span>
+                                            <span className="text-[14px] font-medium text-[var(--text-tertiary)]">Stop loss</span>
+                                            <span className="text-[15px] font-bold text-[#f6465d]">{slPrice} USDT</span>
                                         </div>
                                     )}
                                 </>
@@ -153,16 +153,16 @@ const OrderConfirmationModal: React.FC<OrderConfirmationModalProps> = ({
                         </div>
 
                         {/* Note */}
-                        <p className="text-[13px] text-[var(--text-tertiary)] font-medium leading-relaxed mb-10">
+                        <p className="text-[12px] text-[var(--text-tertiary)] font-medium leading-[1.4] mb-5 opacity-80">
                             Note: The final amount and price of the market order will depend on the actual transaction.
                         </p>
 
                         {/* Don't show again checkbox */}
-                        <label className="flex items-center gap-3 mb-8 cursor-pointer select-none text-[var(--text-primary)]" onClick={() => setDontShowAgain(!dontShowAgain)}>
-                            <div className={`w-[18px] h-[18px] rounded-[4px] flex items-center justify-center border transition-colors ${dontShowAgain ? 'bg-[var(--btn-primary-bg)] border-[var(--btn-primary-bg)]' : 'border-[var(--border-strong)] bg-[var(--bg-card)]'}`}>
-                                {dontShowAgain && <Check size={14} color="var(--btn-primary-text)" />}
+                        <label className="flex items-center gap-2.5 mb-5 cursor-pointer select-none text-[var(--text-primary)]" onClick={() => setDontShowAgain(!dontShowAgain)}>
+                            <div className={`w-[16px] h-[16px] rounded-[3px] flex items-center justify-center border transition-colors ${dontShowAgain ? 'bg-[var(--btn-primary-bg)] border-[var(--btn-primary-bg)]' : 'border-[var(--border-strong)] bg-[var(--bg-card)]'}`}>
+                                {dontShowAgain && <Check size={12} color="var(--btn-primary-text)" />}
                             </div>
-                            <span className="text-[15px] font-medium">Don't show again</span>
+                            <span className="text-[14px] font-medium">Don't show again</span>
                         </label>
 
                         {/* Confirm Button */}

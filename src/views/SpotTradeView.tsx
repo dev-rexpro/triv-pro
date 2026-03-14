@@ -557,13 +557,13 @@ export default function SpotTradeView() {
                             const sellDisplay = 100 - buyDisplay;
 
                             return (
-                                <div className="flex mt-2 mb-3 h-[24px] text-[13px] px-1 w-full gap-[2px]">
+                                <div className="flex mt-2 mb-3 h-[24px] text-[12px] px-1 w-full gap-[2px]">
                                     <div className="bg-[var(--green-bg)] text-[var(--green)] h-full flex items-center px-1 font-medium relative transition-all duration-300" style={{ width: `${buyRatio}%`, clipPath: 'polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%)', borderRadius: '4px 0 0 4px' }}>
-                                        <span className="border border-[var(--green)] rounded-[3px] px-[4px] mr-1.5 bg-transparent text-[11px] leading-tight pb-[1px]">B</span> {buyDisplay}%
+                                        <span className="border border-[var(--green)] rounded-[3px] px-[4px] mr-1 bg-transparent text-[13px] font-medium leading-tight pb-[1px]">B</span> {buyDisplay}%
                                     </div>
                                     <div className="bg-[var(--red-bg)] text-[var(--red)] h-full flex items-center justify-end px-1.5 font-medium relative pr-[26px] transition-all duration-300" style={{ width: `${100 - buyRatio}%`, clipPath: 'polygon(6px 0, 100% 0, 100% 100%, 0 100%)', borderRadius: '0 4px 4px 0' }}>
                                         {sellDisplay}%
-                                        <span className="border border-[var(--red)] rounded-[3px] px-[4px] ml-1.5 bg-transparent text-[11px] leading-tight pb-[1px] absolute right-1">S</span>
+                                        <span className="border border-[var(--red)] rounded-[3px] px-[4px] ml-1 bg-transparent text-[13px] font-medium leading-tight pb-[1px] absolute right-1">S</span>
                                     </div>
                                 </div>
                             );
