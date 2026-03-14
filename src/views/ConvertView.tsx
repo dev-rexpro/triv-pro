@@ -75,6 +75,7 @@ const ConvertView = () => {
 
             addTrade({
                 id: `CONV-${Date.now()}`,
+                symbol: `${fromAsset}/${toAsset}`,
                 pair: `${fromAsset}/${toAsset}`,
                 side: 'Buy',
                 type: 'Market',

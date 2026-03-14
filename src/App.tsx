@@ -24,6 +24,7 @@ import TradeHistoryView from './views/TradeHistoryView';
 import AuthView from './views/AuthView';
 import ProfileView from './views/ProfileView';
 import UserCenterView from './views/UserCenterView';
+import PreSetupView from './views/PreSetupView';
 
 // Overlays
 import SearchOverlay from './components/SearchOverlay';
@@ -44,7 +45,7 @@ export default function App() {
   const {
     session, setSession,
     activePage, setActivePage, setMarkets, setFuturesMarkets, setRates, setSpotSymbols, setFuturesSymbols, isSearchOpen, setSearchOpen, isManageGroupsOpen, setManageGroupsOpen, isDepositOptionOpen, setDepositOptionOpen, isPairPickerOpen, setPairPickerOpen, updateAssetPrices, setTradeType,
-    theme
+    theme, isPreSetupOpen, isInitializing
   } = useExchangeStore();
 
   // Bootstrap and Sync Theme (DOM + Meta Tags)
@@ -71,6 +72,9 @@ export default function App() {
       // Initialize or re-sync on login or persistent session discovery
       if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
         useExchangeStore.getState().initializeUserData();
+      } else if (!session) {
+        // If logged out, stop initializing
+        useExchangeStore.setState({ isInitializing: false });
       }
     });
 
@@ -182,9 +186,98 @@ export default function App() {
     window.history.pushState(newState, '', window.location.href);
   }, [activePage, isSearchOpen, isManageGroupsOpen, isPairPickerOpen, isDepositOptionOpen]);
 
+  // Loading / Splash State
+  if (session && isInitializing) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[var(--bg-primary)]">
+        <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] relative overflow-hidden font-sans">
-      {!session && <AuthView />}
+      {!session ? (
+        <AuthView />
+      ) : isPreSetupOpen ? (
+        <>
+          <PreSetupView />
+          <AnimatePresence>
+             {/* Allow deposit views to overlay on PreSetupView */}
+             {activePage === 'deposit-crypto' && <CryptoDepositView key="deposit-crypto" />}
+             {activePage === 'deposit-fiat' && <FiatDepositView key="deposit-fiat" />}
+             {activePage === 'deposit-card' && <CardDepositView key="deposit-card" />}
+             {activePage === 'withdraw' && <WithdrawalView key="withdraw" />}
+             {activePage === 'transfer' && <TransferView key="transfer" />}
+          </AnimatePresence>
+          <DepositBottomSheet />
+          <GlobalToast />
+        </>
+      ) : (
+        <>
+          <AnimatePresence mode="popLayout">
+            {isSearchOpen && <SearchOverlay />}
+            {isManageGroupsOpen && <ManageGroupsView />}
+            {isPairPickerOpen && <PairPickerOverlay />}
+
+            {/* Subpages / Overlays */}
+            {activePage === 'deposit-crypto' && <CryptoDepositView key="deposit-crypto" />}
+            {activePage === 'deposit-fiat' && <FiatDepositView key="deposit-fiat" />}
+            {activePage === 'deposit-card' && <CardDepositView key="deposit-card" />}
+            {activePage === 'withdraw' && <WithdrawalView key="withdraw" />}
+            {activePage === 'transfer' && <TransferView key="transfer" />}
+            {activePage === 'convert' && <ConvertView key="convert" />}
+            {activePage === 'history' && <HistoryView key="history" />}
+            {activePage === 'trade-history' && <TradeHistoryView key="trade-history" />}
+            {activePage === 'chart-trade' && <ChartTradeView key="chart-trade" />}
+            {activePage === 'profile' && <ProfileView key="profile" />}
+            {activePage === 'user-center' && <UserCenterView key="user-center" />}
+          </AnimatePresence>
+          
+          <DepositBottomSheet />
+
+          <div className="flex-1 overflow-y-auto no-scrollbar">
+            {activePage === 'home' && <HomeView />}
+            {activePage === 'market' && <MarketView />}
+            {activePage === 'trade' && <TradeView />}
+            {activePage === 'futures' && <TradeView />}
+            {activePage === 'assets' && <AssetsView />}
+          </div>
+
+          {activePage !== 'chart-trade' && activePage !== 'profile' && activePage !== 'user-center' && (
+            <nav className="fixed bottom-0 left-0 right-0 bg-[var(--nav-bg)] border-t border-[var(--nav-border)] flex justify-around items-center pt-2 pb-[calc(10px+var(--safe-area-bottom))] z-[200] px-2">
+              <button onClick={() => setActivePage('home')} className={`flex flex-col items-center gap-2 ${activePage === 'home' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
+                <img src={homeIcon} alt="Home" className={`w-[24px] h-[24px] ${activePage === 'home' ? 'opacity-100' : 'opacity-40'}`} style={{ filter: 'var(--home-icon-filter)' }} />
+                <span className="text-[10px] font-medium">Home</span>
+              </button>
+              <button onClick={() => setActivePage('market')} className={`flex flex-col items-center gap-2 ${activePage === 'market' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
+                <RiFundsBoxLine size={24} />
+                <span className="text-[10px] font-medium">Markets</span>
+              </button>
+
+              <button onClick={() => { setActivePage('trade'); setTradeType('spot'); }} className={`flex flex-col items-center gap-2 relative ${activePage === 'trade' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
+                <div className="w-[24px] h-[24px]"></div>
+                <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-[46px] h-[46px] bg-[var(--accent)] rounded-full flex items-center justify-center text-white shadow-sm active:scale-95 transition-transform">
+                  <div className={`transition-all duration-200 flex items-center justify-center ${activePage === 'trade' ? 'scale-110' : 'scale-100'}`}>
+                    {activePage === 'trade' ? <TbTransferVertical size={28} strokeWidth={2} /> : <TbTransfer size={28} strokeWidth={2} />}
+                  </div>
+                </div>
+                <span className="text-[10px] font-medium">Trade</span>
+              </button>
+
+              <button onClick={() => { setActivePage('futures'); setTradeType('futures'); }} className={`flex flex-col items-center gap-2 ${activePage === 'futures' ? 'text-[var(--text-primary)]' : 'text(--text-tertiary)]'}`}>
+                <RiNewspaperLine size={24} />
+                <span className="text-[10px] font-medium">Futures</span>
+              </button>
+              <button onClick={() => setActivePage('assets')} className={`flex flex-col items-center gap-2 ${activePage === 'assets' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
+                <RiWalletLine size={24} />
+                <span className="text-[10px] font-medium">Assets</span>
+              </button>
+            </nav>
+          )}
+          <GlobalToast />
+        </>
+      )}
       <style>{`
         @font-face {
           font-family: 'System Font';
@@ -195,67 +288,6 @@ export default function App() {
         *::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
-
-      <AnimatePresence mode="popLayout">
-        {isSearchOpen && <SearchOverlay />}
-        {isManageGroupsOpen && <ManageGroupsView />}
-        {isPairPickerOpen && <PairPickerOverlay />}
-
-        {/* Subpages / Overlays */}
-        {activePage === 'deposit-crypto' && <CryptoDepositView key="deposit-crypto" />}
-        {activePage === 'deposit-fiat' && <FiatDepositView key="deposit-fiat" />}
-        {activePage === 'deposit-card' && <CardDepositView key="deposit-card" />}
-        {activePage === 'withdraw' && <WithdrawalView key="withdraw" />}
-        {activePage === 'transfer' && <TransferView key="transfer" />}
-        {activePage === 'convert' && <ConvertView key="convert" />}
-        {activePage === 'history' && <HistoryView key="history" />}
-        {activePage === 'trade-history' && <TradeHistoryView key="trade-history" />}
-        {activePage === 'chart-trade' && <ChartTradeView key="chart-trade" />}
-        {activePage === 'profile' && <ProfileView key="profile" />}
-        {activePage === 'user-center' && <UserCenterView key="user-center" />}
-      </AnimatePresence>
-      <DepositBottomSheet />
-
-      <div className="flex-1 overflow-y-auto no-scrollbar">
-        {activePage === 'home' && <HomeView />}
-        {activePage === 'market' && <MarketView />}
-        {activePage === 'trade' && <TradeView />}
-        {activePage === 'futures' && <TradeView />}
-        {activePage === 'assets' && <AssetsView />}
-      </div>
-
-      {activePage !== 'chart-trade' && activePage !== 'profile' && activePage !== 'user-center' && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-[var(--nav-bg)] border-t border-[var(--nav-border)] flex justify-around items-center pt-2 pb-[calc(10px+var(--safe-area-bottom))] z-[200] px-2">
-          <button onClick={() => setActivePage('home')} className={`flex flex-col items-center gap-2 ${activePage === 'home' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
-            <img src={homeIcon} alt="Home" className={`w-[24px] h-[24px] ${activePage === 'home' ? 'opacity-100' : 'opacity-40'}`} style={{ filter: 'var(--home-icon-filter)' }} />
-            <span className="text-[10px] font-medium">Home</span>
-          </button>
-          <button onClick={() => setActivePage('market')} className={`flex flex-col items-center gap-2 ${activePage === 'market' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
-            <RiFundsBoxLine size={24} />
-            <span className="text-[10px] font-medium">Markets</span>
-          </button>
-
-          <button onClick={() => { setActivePage('trade'); setTradeType('spot'); }} className={`flex flex-col items-center gap-2 relative ${activePage === 'trade' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
-            <div className="w-[24px] h-[24px]"></div>
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-[46px] h-[46px] bg-[var(--accent)] rounded-full flex items-center justify-center text-white shadow-sm active:scale-95 transition-transform">
-              <div className={`transition-all duration-200 flex items-center justify-center ${activePage === 'trade' ? 'scale-110' : 'scale-100'}`}>
-                {activePage === 'trade' ? <TbTransferVertical size={28} strokeWidth={2} /> : <TbTransfer size={28} strokeWidth={2} />}
-              </div>
-            </div>
-            <span className="text-[10px] font-medium">Trade</span>
-          </button>
-
-          <button onClick={() => { setActivePage('futures'); setTradeType('futures'); }} className={`flex flex-col items-center gap-2 ${activePage === 'futures' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
-            <RiNewspaperLine size={24} />
-            <span className="text-[10px] font-medium">Futures</span>
-          </button>
-          <button onClick={() => setActivePage('assets')} className={`flex flex-col items-center gap-2 ${activePage === 'assets' ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
-            <RiWalletLine size={24} />
-            <span className="text-[10px] font-medium">Assets</span>
-          </button>
-        </nav>
-      )}
-      <GlobalToast />
     </div>
   );
 }

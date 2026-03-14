@@ -52,19 +52,25 @@ const AuthView = () => {
                 return;
             }
 
-            if (data?.session) {
-                setSession(data.session);
+            if (authMode === 'signup' && data?.user) {
+                // Always create profile and force Step 4 (Check Email) for signup
+                const { error: profileError } = await supabase.from('profiles').upsert({
+                    id: data.user.id,
+                    username: email.split('@')[0],
+                    country: country
+                });
+                if (profileError) console.error("Profile creation error:", profileError);
 
-                // If signup, insert profile data using the new user ID
-                if (authMode === 'signup' && data.user) {
-                    const { error: profileError } = await supabase.from('profiles').upsert({
-                        id: data.user.id,
-                        username: email.split('@')[0],
-                        country: country
-                    });
-                    if (profileError) console.error("Profile creation error:", profileError);
+                // If Supabase auto-logged in (session exists), sign out to force manual login
+                if (data.session) {
+                    await supabase.auth.signOut();
                 }
+                setStep(4);
+            } else if (data?.session) {
+                // Normal login successful
+                setSession(data.session);
             } else if (data?.user && !data.session) {
+                // Standard Supabase signup (no session returned)
                 setStep(4);
             }
         } catch (err) {

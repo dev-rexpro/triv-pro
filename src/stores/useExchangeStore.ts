@@ -52,6 +52,14 @@ interface ExchangeState {
     isFuturesTPSLSheetOpen: boolean;
     activeSpotAsset: Asset | null;
     activeFuturesPosition: FuturesPosition | null;
+    isPreSetupOpen: boolean;
+    setupStep: number;
+    isInitializing: boolean;
+    preferences: {
+        setup_completed?: boolean;
+        show_deposit_offer?: boolean;
+        [key: string]: any;
+    };
 
     isSpotTPSLSheetOpen: boolean;
     setSpotTPSLSheetOpen: (open: boolean, asset?: { symbol: string; amount: number }) => void;
@@ -162,6 +170,11 @@ interface ExchangeState {
     signOut: () => Promise<void>;
     fetchSupabasePositions: () => Promise<void>;
     setSpotCostPrice: (coin: string, price: number) => Promise<void>;
+    setPreSetupOpen: (val: boolean) => void;
+    setSetupStep: (step: number) => void;
+    updateProfile: (updates: any) => Promise<void>;
+    fetchProfile: () => Promise<void>;
+    completeSetup: () => Promise<void>;
 
     // Global Toast
     toastMessage: { isOpen: boolean; title: string; message: string; type: 'success' | 'error' } | null;
@@ -174,7 +187,8 @@ interface ExchangeState {
     setFuturesTPSLSheetOpen: (open: boolean, position?: FuturesPosition) => void;
 
     // Theme
-    theme: 'light' | 'dark';
+    theme: 'light' | 'dark' | 'system';
+    setTheme: (theme: 'light' | 'dark' | 'system') => void;
     toggleTheme: () => void;
     setSelectedCoin: (coin: string) => void;
 }
@@ -221,6 +235,10 @@ const useExchangeStore = create<ExchangeState>()(
             isFuturesTPSLSheetOpen: false,
             activeSpotAsset: null,
             activeFuturesPosition: null,
+            isPreSetupOpen: false,
+            setupStep: 1,
+            isInitializing: true,
+            preferences: {},
 
             isSpotTPSLSheetOpen: false,
             setSpotTPSLSheetOpen: (open, asset) => set({ isSpotTPSLSheetOpen: open, activeSpotTPSLAsset: asset || null }),
@@ -234,7 +252,7 @@ const useExchangeStore = create<ExchangeState>()(
             activeShareData: null,
             setSharePnLSheetOpen: (open, data) => set({ isSharePnLSheetOpen: open, activeShareData: data || null }),
             toastMessage: null,
-            theme: 'light',
+            theme: 'system',
 
             // Engine State (Not persisted)
             wallets: {
@@ -280,7 +298,10 @@ const useExchangeStore = create<ExchangeState>()(
             },
             setSpotSymbols: (data) => set({ spotSymbols: data }),
             setFuturesSymbols: (data) => set({ futuresSymbols: data }),
-            setCurrency: (currency) => set({ currency }),
+            setCurrency: (currency) => {
+                set({ currency });
+                get().updateProfile({ currency });
+            },
             setRates: (rates) => set({ rates }),
             setHideBalance: (val) => set({ hideBalance: val }),
             setActivePage: (page) => set({ activePage: page }),
@@ -641,6 +662,35 @@ const useExchangeStore = create<ExchangeState>()(
                 }
             },
 
+            setPreSetupOpen: (val) => set({ isPreSetupOpen: val }),
+            setSetupStep: (step) => set({ setupStep: step }),
+
+            updateProfile: async (updates) => {
+                const { user, preferences } = get();
+                if (!user) return;
+                const newPrefs = { ...preferences, ...updates };
+                const { error } = await supabase.from('profiles').update({ preferences: newPrefs }).eq('id', user.id);
+                if (!error) set({ preferences: newPrefs });
+            },
+
+            fetchProfile: async () => {
+                const { user } = get();
+                if (!user) return;
+                const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+                if (!error && data) {
+                    const prefs = data.preferences || {};
+                    set({ preferences: prefs });
+                    if (prefs.currency) set({ currency: prefs.currency });
+                    if (prefs.theme) set({ theme: prefs.theme });
+                }
+            },
+
+            completeSetup: async () => {
+                const { updateProfile } = get();
+                await updateProfile({ setup_completed: true });
+                set({ isPreSetupOpen: false });
+            },
+
             setSession: (session) => {
                 const currentUser = get().user;
                 const nextUser = session?.user ?? null;
@@ -678,6 +728,7 @@ const useExchangeStore = create<ExchangeState>()(
             setWallets: (w) => {
                 set({ wallets: w });
                 get().updateAssetPrices();
+                get().syncWalletsToSupabase();
             },
             setDepositOptionOpen: (val) => set({ isDepositOptionOpen: val }),
             showToast: (title, message, type = 'success') => set({ toastMessage: { isOpen: true, title, message, type } }),
@@ -690,9 +741,20 @@ const useExchangeStore = create<ExchangeState>()(
                 isFuturesTPSLSheetOpen: open,
                 activeFuturesPosition: position || null
             }),
-            toggleTheme: () => {
-                const newTheme = get().theme === 'light' ? 'dark' : 'light';
+            setTheme: (newTheme) => {
                 set({ theme: newTheme });
+                get().updateProfile({ theme: newTheme });
+                
+                let effectiveTheme = newTheme;
+                if (newTheme === 'system') {
+                    effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                document.documentElement.classList.toggle('dark', effectiveTheme === 'dark');
+            },
+            toggleTheme: () => {
+                const currentTheme = get().theme;
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                get().setTheme(newTheme);
             },
             addTransaction: async (tx) => {
                 set(s => ({ transactionHistory: [tx, ...s.transactionHistory] }));
@@ -740,19 +802,43 @@ const useExchangeStore = create<ExchangeState>()(
                 }
             },
             initializeUserData: async () => {
-                const { user } = get();
-                get().startFundingCron();
-                if (!user) return;
+                const { user, fetchProfile, fetchSupabaseWallets, fetchSupabaseHistory, fetchSupabaseFavorites, fetchSupabasePositions } = get();
                 
-                // WAJIB: Tarik wallet duluan biar saldo futures gak 0 saat divalidasi engine
-                await get().fetchSupabaseWallets();
+                if (!user) {
+                    set({ isInitializing: false });
+                    return;
+                }
+
+                get().startFundingCron();
+                
+                // WAJIB: Tarik profile dan wallet duluan
+                await Promise.all([
+                    fetchProfile(),
+                    fetchSupabaseWallets()
+                ]);
                 
                 // Baru tarik sisanya
                 await Promise.all([
-                    get().fetchSupabaseHistory(),
-                    get().fetchSupabaseFavorites(),
-                    get().fetchSupabasePositions()
+                    fetchSupabaseHistory(),
+                    fetchSupabaseFavorites(),
+                    fetchSupabasePositions()
                 ]);
+
+                // Check Pre-Setup
+                const { preferences, transactionHistory } = get();
+                const isSetupDone = preferences.setup_completed;
+                
+                if (!isSetupDone) {
+                    const hasHistory = transactionHistory.length > 0;
+                    set({ 
+                        isPreSetupOpen: true, 
+                        setupStep: 1,
+                        preferences: { ...preferences, skip_deposit: hasHistory },
+                        isInitializing: false
+                    });
+                } else {
+                    set({ isInitializing: false });
+                }
             },
 
             startFundingCron: () => {

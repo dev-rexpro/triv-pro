@@ -25,13 +25,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.wallets (user_id, type, coin_symbol, balance)
-    VALUES (NEW.id, 'funding', 'USDT', 500)
-    ON CONFLICT (user_id, type, coin_symbol) DO NOTHING;
-
-    INSERT INTO public.transactions (user_id, type, amount, currency, to_wallet, status)
-    VALUES (NEW.id, 'deposit', 500, 'USDT', 'funding', 'completed');
-    
+    -- Removed automatic 500 USDT deposit
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -202,11 +196,7 @@ BEGIN
     DELETE FROM public.history_futures WHERE user_id = p_user_id;
     DELETE FROM public.wallets WHERE user_id = p_user_id;
     
-    INSERT INTO public.wallets (user_id, type, coin_symbol, balance)
-    VALUES (p_user_id, 'funding', 'USDT', 500);
-
-    INSERT INTO public.transactions (user_id, type, amount, currency, to_wallet, status)
-    VALUES (p_user_id, 'deposit', 500, 'USDT', 'funding', 'completed');
+    -- Removed automatic 500 USDT deposit during reset
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

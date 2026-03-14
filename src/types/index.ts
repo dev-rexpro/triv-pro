@@ -64,6 +64,7 @@ export interface TradeRecord {
     amount: number;
     fee?: number;
     pnl?: number;
+    total?: number;
     type: 'Market' | 'Limit' | 'Liquidation';
 }
 
