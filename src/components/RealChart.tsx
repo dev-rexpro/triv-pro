@@ -9,11 +9,11 @@ interface RealChartProps {
     pricePrecision?: number;
 }
 
-const RealChart: React.FC<RealChartProps> = ({ data, height, pricePrecision = 2 }) => {
+const RealChart: React.FC<RealChartProps> = React.memo(({ data, height, pricePrecision = 2 }) => {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<any>(null);
     const seriesRef = useRef<any>(null);
-    const { theme } = useExchangeStore();
+    const theme = useExchangeStore(state => state.theme);
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
@@ -151,6 +151,6 @@ const RealChart: React.FC<RealChartProps> = ({ data, height, pricePrecision = 2 
     return (
         <div ref={chartContainerRef} className="w-full h-full relative overflow-hidden" style={height ? { height: `${height}px` } : { height: '100%' }} />
     );
-};
+});
 
 export default RealChart;

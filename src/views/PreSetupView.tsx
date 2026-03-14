@@ -9,26 +9,34 @@ import useExchangeStore from '../stores/useExchangeStore';
 export default function PreSetupView() {
     const { 
         setupStep, setSetupStep, theme, setTheme, currency, setCurrency, 
-        completeSetup, setDepositOptionOpen, wallets
+        completeSetup, wallets, preferences, setActivePage
     } = useExchangeStore();
     
-    const hasFunds = Object.values(wallets.spot).some(v => (v as number) > 0);
+    // Check total balance across all wallets
+    const totalBalance = Object.values(wallets.spot).reduce((a, b) => a + (b as number), 0) +
+                        Object.values(wallets.futures).reduce((a, b) => a + (b as number), 0) +
+                        Object.values(wallets.earn).reduce((a, b) => a + (b as number), 0);
+    
+    // Use preferences.skip_deposit as a secondary check if wallets are not yet synced
+    const shouldSkipDeposit = totalBalance > 0 || preferences.skip_deposit;
 
     const [direction, setDirection] = useState(1);
+    const [subFlow, setSubFlow] = useState<'main' | 'deposit'>('main');
 
     // Auto-advance logic
     React.useEffect(() => {
         // If on step 3 and funds are detected, auto-advance to step 4
-        if (setupStep === 3 && hasFunds) {
+        if (setupStep === 3 && totalBalance > 0) {
             setDirection(1);
             setSetupStep(4);
+            setSubFlow('main');
         }
-    }, [hasFunds, setupStep, setSetupStep]);
+    }, [totalBalance, setupStep, setSetupStep]);
 
     const nextStep = () => {
         setDirection(1);
-        // Special logic for skipping deposit step if user already has funds
-        if (setupStep === 2 && hasFunds) {
+        // Condition A: Skip Setup Deposit if balance > 0
+        if (setupStep === 2 && shouldSkipDeposit) {
             setSetupStep(4);
         } else {
             setSetupStep(setupStep + 1);
@@ -38,7 +46,7 @@ export default function PreSetupView() {
     const prevStep = () => {
         setDirection(-1);
         // If going back from step 4 and user has funds, they likely skipped step 3, so go to step 2
-        if (setupStep === 4 && hasFunds) {
+        if (setupStep === 4 && shouldSkipDeposit) {
             setSetupStep(2);
         } else {
             setSetupStep(setupStep - 1);
@@ -176,30 +184,74 @@ export default function PreSetupView() {
                         exit="exit"
                         className="w-full max-w-[320px] flex flex-col items-center text-center"
                     >
-                        <div className="w-14 h-14 bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-2xl flex items-center justify-center mb-6">
-                            <RiBankCardLine size={28} />
-                        </div>
-                        <h2 className="text-xl font-bold mb-1">Add Funds</h2>
-                        <p className="text-[13px] text-[var(--text-tertiary)] mb-10 px-6 leading-tight">
-                            Start trading by adding funds to your account now or skip and do it later.
-                        </p>
-                        
-                        <div className="flex flex-col gap-3 w-full">
-                            <button 
-                                onClick={() => setDepositOptionOpen(true)}
-                                className="w-full h-14 bg-[var(--text-primary)] text-[var(--bg-primary)] rounded-full font-bold flex items-center justify-center gap-3 active:scale-95 transition-transform"
-                            >
-                                <RiWallet3Line size={20} /> Deposit Now
-                            </button>
-                            <button 
-                                onClick={nextStep}
-                                className="w-full h-14 rounded-full font-bold text-[var(--text-tertiary)] hover:text-[var(--text-primary)] text-[14px]"
-                            >
-                                I'll do it later
-                            </button>
-                        </div>
-                        
-                        <button onClick={prevStep} className="mt-6 text-[12px] font-bold text-[var(--text-quaternary)]">Back</button>
+                        {subFlow === 'main' ? (
+                            <>
+                                <div className="w-14 h-14 bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-2xl flex items-center justify-center mb-6">
+                                    <RiBankCardLine size={28} />
+                                </div>
+                                <h2 className="text-xl font-bold mb-1">Add Funds</h2>
+                                <p className="text-[13px] text-[var(--text-tertiary)] mb-10 px-6 leading-tight">
+                                    Start trading by adding funds to your account now or skip and do it later.
+                                </p>
+                                
+                                <div className="flex flex-col gap-3 w-full">
+                                    <button 
+                                        onClick={() => setSubFlow('deposit')}
+                                        className="w-full h-14 bg-[var(--text-primary)] text-[var(--bg-primary)] rounded-full font-bold flex items-center justify-center gap-3 active:scale-95 transition-transform"
+                                    >
+                                        <RiWallet3Line size={20} /> Deposit Now
+                                    </button>
+                                    <button 
+                                        onClick={nextStep}
+                                        className="w-full h-14 rounded-full font-bold text-[var(--text-tertiary)] hover:text-[var(--text-primary)] text-[14px]"
+                                    >
+                                        I'll do it later
+                                    </button>
+                                </div>
+                                
+                                <button onClick={prevStep} className="mt-6 text-[12px] font-bold text-[var(--text-quaternary)]">Back</button>
+                            </>
+                        ) : (
+                            <div className="w-full flex flex-col gap-4">
+                                <h2 className="text-xl font-bold mb-2">Deposit Funds</h2>
+                                <p className="text-[13px] text-[var(--text-tertiary)] mb-4">Choose your preferred deposit method</p>
+                                
+                                <div className="flex flex-col gap-3">
+                                    <button 
+                                        onClick={() => setActivePage('deposit-crypto')}
+                                        className="w-full p-4 bg-[var(--bg-secondary)] rounded-2xl flex items-center gap-4 hover:bg-[var(--bg-hover)] transition-colors text-left"
+                                    >
+                                        <div className="w-10 h-10 bg-[var(--accent)]/10 text-[var(--accent)] rounded-xl flex items-center justify-center">
+                                            <RiRocketLine size={20} />
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-[15px]">Crypto Deposit</div>
+                                            <div className="text-[11px] text-[var(--text-tertiary)]">Transfer USDT, BTC, or ETH</div>
+                                        </div>
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={() => setActivePage('deposit-fiat')}
+                                        className="w-full p-4 bg-[var(--bg-secondary)] rounded-2xl flex items-center gap-4 hover:bg-[var(--bg-hover)] transition-colors text-left"
+                                    >
+                                        <div className="w-10 h-10 bg-[var(--green)]/10 text-[var(--green)] rounded-xl flex items-center justify-center">
+                                            <RiBankCardLine size={20} />
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-[15px]">Fiat Deposit</div>
+                                            <div className="text-[11px] text-[var(--text-tertiary)]">Bank Transfer or E-Wallet</div>
+                                        </div>
+                                    </button>
+                                </div>
+                                
+                                <button 
+                                    onClick={() => setSubFlow('main')}
+                                    className="mt-6 text-[13px] font-bold text-[var(--text-tertiary)]"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        )}
                     </motion.div>
                 );
             case 4:

@@ -36,17 +36,40 @@ import { useOrderBookSocket } from '../hooks/useOrderBookSocket';
 import { useTickerSocket } from '../hooks/useTickerSocket';
 
 const TradeView = () => {
-    const {
-        setActivePage, wallets, markets, openOrders, positions,
-        spotCostBasis, placeSpotOrder, cancelSpotOrder, placeFuturesOrder,
-        closeFuturesPosition, showOrderConfirmation, setShowOrderConfirmation,
-        closeAll, tradeType, setTradeType, selectedCoin, setSearchOpen,
-        futuresSymbols, nextFundingTime, fundingRate,
-        setSpotTradeSheetOpen, setFuturesTPSLSheetOpen, setSpotTPSLSheetOpen,
-        isSpotCostPriceSheetOpen, activeSpotCostPriceAsset, setSpotCostPriceSheetOpen,
-        isSharePnLSheetOpen, activeShareData, setSharePnLSheetOpen,
-        spotTPSL, setFuturesTPSL, setSpotTPSL, showToast
-    } = useExchangeStore();
+    const setActivePage = useExchangeStore(state => state.setActivePage);
+    const wallets = useExchangeStore(state => state.wallets);
+    const markets = useExchangeStore(state => state.markets);
+    const openOrders = useExchangeStore(state => state.openOrders);
+    const positions = useExchangeStore(state => state.positions);
+    const spotCostBasis = useExchangeStore(state => state.spotCostBasis);
+    const placeSpotOrder = useExchangeStore(state => state.placeSpotOrder);
+    const cancelSpotOrder = useExchangeStore(state => state.cancelSpotOrder);
+    const placeFuturesOrder = useExchangeStore(state => state.placeFuturesOrder);
+    const closeFuturesPosition = useExchangeStore(state => state.closeFuturesPosition);
+    const showOrderConfirmation = useExchangeStore(state => state.showOrderConfirmation);
+    const setShowOrderConfirmation = useExchangeStore(state => state.setShowOrderConfirmation);
+    const closeAll = useExchangeStore(state => state.closeAll);
+    const tradeType = useExchangeStore(state => state.tradeType);
+    const setTradeType = useExchangeStore(state => state.setTradeType);
+    const selectedCoin = useExchangeStore(state => state.selectedCoin);
+    const setSearchOpen = useExchangeStore(state => state.setSearchOpen);
+    const futuresSymbols = useExchangeStore(state => state.futuresSymbols);
+    const nextFundingTime = useExchangeStore(state => state.nextFundingTime);
+    const fundingRate = useExchangeStore(state => state.fundingRate);
+    const setSpotTradeSheetOpen = useExchangeStore(state => state.setSpotTradeSheetOpen);
+    const setFuturesTPSLSheetOpen = useExchangeStore(state => state.setFuturesTPSLSheetOpen);
+    const setSpotTPSLSheetOpen = useExchangeStore(state => state.setSpotTPSLSheetOpen);
+    const isSpotCostPriceSheetOpen = useExchangeStore(state => state.isSpotCostPriceSheetOpen);
+    const activeSpotCostPriceAsset = useExchangeStore(state => state.activeSpotCostPriceAsset);
+    const setSpotCostPriceSheetOpen = useExchangeStore(state => state.setSpotCostPriceSheetOpen);
+    const isSharePnLSheetOpen = useExchangeStore(state => state.isSharePnLSheetOpen);
+    const activeShareData = useExchangeStore(state => state.activeShareData);
+    const setSharePnLSheetOpen = useExchangeStore(state => state.setSharePnLSheetOpen);
+    const spotTPSL = useExchangeStore(state => state.spotTPSL);
+    const setFuturesTPSL = useExchangeStore(state => state.setFuturesTPSL);
+    const setSpotTPSL = useExchangeStore(state => state.setSpotTPSL);
+    const cancelAllOrders = useExchangeStore(state => state.cancelAllOrders);
+    const showToast = useExchangeStore(state => state.showToast);
 
     const [activeTopTab, setActiveTopTab] = useState<'Spot' | 'Futures' | 'Bots' | 'Convert'>(tradeType === 'futures' ? 'Futures' : 'Spot');
     const currentSymbol = selectedCoin || 'BTCUSDT';
@@ -101,6 +124,7 @@ const TradeView = () => {
     const [isCloseSheetOpen, setIsCloseSheetOpen] = useState(false);
     const [isPositionCloseModalOpen, setIsPositionCloseModalOpen] = useState(false);
     const [selectedPositionForClose, setSelectedPositionForClose] = useState<any>(null);
+    const [isPriceAuto, setIsPriceAuto] = useState(true);
     const { setSelectedCoin } = useExchangeStore();
 
     const handleNavigateToTrade = (symbol: string, type: 'spot' | 'futures') => {
@@ -132,10 +156,22 @@ const TradeView = () => {
 
     // Auto-fill price input saat pertama kali buka koin (Reactive from WebSocket)
     useEffect(() => {
-        if (ticker?.lastPrice && !isPriceFocused && (priceInputRef.current === '0' || priceInputRef.current === '')) {
+        if (ticker?.lastPrice && !isPriceFocused && isPriceAuto && (priceInputRef.current === '0' || priceInputRef.current === '')) {
             setPriceInput(formatInput(ticker.lastPrice.toString()));
         }
-    }, [ticker?.lastPrice, isPriceFocused]);
+    }, [ticker?.lastPrice, isPriceFocused, isPriceAuto]);
+
+    // Intelligent Auto-Fetch logic for Limit orders
+    useEffect(() => {
+        if (isPriceAuto && ticker?.lastPrice && orderType === 'Limit' && !isPriceFocused) {
+            const mPrice = parseFloat(ticker.lastPrice);
+            // Buy slightly below, Sell slightly above (0.02% offset)
+            const offset = mPrice * 0.0002;
+            const autoPrice = tradeSide === 'buy' ? mPrice - offset : mPrice + offset;
+            
+            setPriceInput(formatInput(autoPrice.toFixed(precisionDecimals)));
+        }
+    }, [ticker?.lastPrice, isPriceAuto, orderType, tradeSide, precisionDecimals, isPriceFocused]);
 
     // Keep ref in sync for the interval closure
     useEffect(() => {
@@ -248,6 +284,7 @@ const TradeView = () => {
         setAmountInput('');
         setSliderPercent(0);
         setTickSize(null); // Clear tickSize so the fetch in the other effect updates it correctly
+        setIsPriceAuto(true); // Reset auto-fetch on symbol/tab change
     }, [currentSymbol, activeTopTab]);
 
     const handleTradeSideSwitch = (side: 'buy' | 'sell') => {
@@ -366,6 +403,7 @@ const TradeView = () => {
     const handlePriceInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const raw = e.target.value.replace(/[^0-9.]/g, '');
         setPriceInput(formatInput(raw));
+        setIsPriceAuto(false); // Manual override
     };
 
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -966,7 +1004,10 @@ const TradeView = () => {
                         return (orderBookView === 'both' || orderBookView === 'sell') && (
                             <div className="flex flex-col flex-1 justify-end relative gap-[1px]">
                                 {asksWithDepth.map((ask: any, i: number) => (
-                                    <div key={`ask-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-[var(--bg-hover)]" onClick={() => setPriceInput(formatInput(ask.price.toFixed(precisionDecimals)))}>
+                                    <div key={`ask-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-[var(--bg-hover)]" onClick={() => {
+                                        setPriceInput(formatInput(ask.price.toFixed(precisionDecimals)));
+                                        setIsPriceAuto(false);
+                                    }}>
                                         <div className="absolute right-0 top-0 h-full bg-[var(--red-bg)] transition-all duration-300" style={{ width: `${(ask.depth / maxDAsks) * 100}%` }} />
                                         <span className="text-[var(--red)] font-medium relative z-10 text-[12px] tracking-tight">
                                             {ask.price.toLocaleString('en-US', { minimumFractionDigits: precisionDecimals, maximumFractionDigits: precisionDecimals })}
@@ -1006,7 +1047,10 @@ const TradeView = () => {
                         return (orderBookView === 'both' || orderBookView === 'buy') && (
                             <div className="flex flex-col flex-1 relative gap-[1px]">
                                 {bidsWithDepth.map((bid: any, i: number) => (
-                                    <div key={`bid-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-[var(--bg-hover)]" onClick={() => setPriceInput(formatInput(bid.price.toFixed(precisionDecimals)))}>
+                                    <div key={`bid-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-[var(--bg-hover)]" onClick={() => {
+                                        setPriceInput(formatInput(bid.price.toFixed(precisionDecimals)));
+                                        setIsPriceAuto(false);
+                                    }}>
                                         <div className="absolute right-0 top-0 h-full bg-[var(--green-bg)] transition-all duration-300" style={{ width: `${(bid.depth / maxDBids) * 100}%` }} />
                                         <span className="text-[var(--green)] font-medium relative z-10 text-[12px] tracking-tight">
                                             {bid.price.toLocaleString('en-US', { minimumFractionDigits: precisionDecimals, maximumFractionDigits: precisionDecimals })}
@@ -1174,9 +1218,15 @@ const TradeView = () => {
                         <span className="text-[13px] font-medium text-[var(--text-primary)] transition-colors group-hover:text-[var(--text-secondary)]">Current symbol</span>
                     </label>
                     <button
-                        className={`text-[12px] font-semibold px-3 py-1.5 rounded-full transition-colors ${(openOrders.length > 0 || (activeTab === 'positions' && (positions.length > 0 || Object.keys(spotCostBasis).length > 0))) ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--bg-hover)]' : 'bg-[var(--input-bg)] text-[var(--text-tertiary)] cursor-not-allowed'}`}
-                        disabled={!(openOrders.length > 0 || (activeTab === 'positions' && (positions.length > 0 || Object.keys(spotCostBasis).length > 0)))}
-                        onClick={() => setIsCloseAllConfirmOpen(true)}
+                        className={`text-[12px] font-semibold px-3 py-1.5 rounded-full transition-colors ${(openOrders.length > 0 || spotTPSL.length > 0 || (activeTab === 'positions' && (positions.length > 0 || Object.keys(spotCostBasis).length > 0))) ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] active:bg-[var(--bg-hover)]' : 'bg-[var(--input-bg)] text-[var(--text-tertiary)] cursor-not-allowed'}`}
+                        disabled={!(openOrders.length > 0 || spotTPSL.length > 0 || (activeTab === 'positions' && (positions.length > 0 || Object.keys(spotCostBasis).length > 0)))}
+                        onClick={() => {
+                            if (activeTab === 'positions') {
+                                setIsCloseAllConfirmOpen(true);
+                            } else {
+                                cancelAllOrders(isCurrentSymbolChecked ? currentSymbol : undefined);
+                            }
+                        }}
                     >
                         {activeTab === 'positions' ? 'Close all' : 'Cancel all'}
                     </button>

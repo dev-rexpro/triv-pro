@@ -46,7 +46,24 @@ import { useThrottledOrder } from '../hooks/useThrottledOrder';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const HomeView = () => {
-    const { balance, todayPnl, pnlPercent, markets, futuresMarkets, setActivePage, setSearchOpen, homeFilter, setHomeFilter, favorites, favoriteGroups, hiddenGroups, currency: globalCurrency, rates, setDepositOptionOpen, hideBalance, setHideBalance, getPnLForTimeframe } = useExchangeStore();
+    const balance = useExchangeStore(state => state.balance);
+    const todayPnl = useExchangeStore(state => state.todayPnl);
+    const pnlPercent = useExchangeStore(state => state.pnlPercent);
+    const markets = useExchangeStore(state => state.markets);
+    const futuresMarkets = useExchangeStore(state => state.futuresMarkets);
+    const setActivePage = useExchangeStore(state => state.setActivePage);
+    const setSearchOpen = useExchangeStore(state => state.setSearchOpen);
+    const homeFilter = useExchangeStore(state => state.homeFilter);
+    const setHomeFilter = useExchangeStore(state => state.setHomeFilter);
+    const favorites = useExchangeStore(state => state.favorites);
+    const favoriteGroups = useExchangeStore(state => state.favoriteGroups);
+    const hiddenGroups = useExchangeStore(state => state.hiddenGroups);
+    const globalCurrency = useExchangeStore(state => state.currency);
+    const rates = useExchangeStore(state => state.rates);
+    const setDepositOptionOpen = useExchangeStore(state => state.setDepositOptionOpen);
+    const hideBalance = useExchangeStore(state => state.hideBalance);
+    const setHideBalance = useExchangeStore(state => state.setHideBalance);
+    const getPnLForTimeframe = useExchangeStore(state => state.getPnLForTimeframe);
     const currency = (globalCurrency === 'BTC' || globalCurrency === 'USDT') ? 'USD' : globalCurrency;
     const [isFavSheetOpen, setIsFavSheetOpen] = useState(false);
     const [favSubFilter, setFavSubFilter] = useState('All');

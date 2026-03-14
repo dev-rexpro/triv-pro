@@ -13,7 +13,10 @@ import useExchangeStore from '../stores/useExchangeStore';
 import CoinIcon from './CoinIcon';
 
 const MarketOverview = () => {
-    const { markets, futuresMarkets, currency, rates } = useExchangeStore();
+    const markets = useExchangeStore(state => state.markets);
+    const futuresMarkets = useExchangeStore(state => state.futuresMarkets);
+    const currency = useExchangeStore(state => state.currency);
+    const rates = useExchangeStore(state => state.rates);
     const [chartMode, setChartMode] = useState<'mcap' | 'turnover' | 'dominance'>('mcap');
 
     const formatCurrency = (valUsd: number) => {

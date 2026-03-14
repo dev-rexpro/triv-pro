@@ -57,14 +57,17 @@ const AuthView = () => {
                 const { error: profileError } = await supabase.from('profiles').upsert({
                     id: data.user.id,
                     username: email.split('@')[0],
-                    country: country
+                    country: country,
+                    setup_completed: false // Explicitly mark as not completed
                 });
                 if (profileError) console.error("Profile creation error:", profileError);
 
+                // STRICT RULE: Do NOT implement auto-login after sign-up.
                 // If Supabase auto-logged in (session exists), sign out to force manual login
-                if (data.session) {
-                    await supabase.auth.signOut();
-                }
+                await supabase.auth.signOut();
+                
+                // Ensure local state is cleared for the next login attempt
+                setSession(null); 
                 setStep(4);
             } else if (data?.session) {
                 // Normal login successful

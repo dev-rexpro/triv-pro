@@ -169,6 +169,7 @@ interface ExchangeState {
     setSession: (session: Session | null) => void;
     signOut: () => Promise<void>;
     fetchSupabasePositions: () => Promise<void>;
+    fetchSupabaseOpenOrders: () => Promise<void>;
     setSpotCostPrice: (coin: string, price: number) => Promise<void>;
     setPreSetupOpen: (val: boolean) => void;
     setSetupStep: (step: number) => void;
@@ -435,47 +436,57 @@ const useExchangeStore = create<ExchangeState>()(
             },
 
             syncWalletsToSupabase: async () => {
-                const { user, wallets } = get();
-                if (!user) return;
+                try {
+                    const { user, wallets } = get();
+                    if (!user) return;
 
-                const updates: any[] = [];
-                const typeMap: Record<string, string> = { 'spot': 'funding', 'futures': 'trading', 'earn': 'earn' };
+                    const updates: any[] = [];
+                    const typeMap: Record<string, string> = { 'spot': 'funding', 'futures': 'trading', 'earn': 'earn' };
 
-                ['spot', 'futures', 'earn'].forEach(type => {
-                    Object.entries(wallets[type as keyof typeof wallets] || {}).forEach(([coin, balance]) => {
-                        updates.push({
-                            user_id: user.id,
-                            type: typeMap[type],
-                            coin_symbol: coin,
-                            balance: balance
+                    ['spot', 'futures', 'earn'].forEach(type => {
+                        Object.entries(wallets[type as keyof typeof wallets] || {}).forEach(([coin, balance]) => {
+                            updates.push({
+                                user_id: user.id,
+                                type: typeMap[type],
+                                coin_symbol: coin,
+                                balance: balance
+                            });
                         });
                     });
-                });
 
-                if (updates.length > 0) {
-                    await supabase.from('wallets').upsert(updates, { onConflict: 'user_id, type, coin_symbol' });
+                    if (updates.length > 0) {
+                        const { error: walletError } = await supabase.from('wallets').upsert(updates, { onConflict: 'user_id, type, coin_symbol' });
+                        if (walletError) throw walletError;
+                    }
+
+                    // Also sync spotCostBasis into preferences
+                    const { spotCostBasis } = get();
+                    const { data: profile, error: profileFetchError } = await supabase
+                        .from('profiles')
+                        .select('preferences')
+                        .eq('id', user.id)
+                        .maybeSingle();
+
+                    if (profileFetchError) throw profileFetchError;
+
+                    const updatedPreferences = {
+                        ...(profile?.preferences || {}),
+                        spotCostBasis
+                    };
+
+                    const { error: profileUpsertError } = await supabase
+                        .from('profiles')
+                        .upsert({ 
+                            id: user.id, 
+                            preferences: updatedPreferences,
+                            updated_at: new Date().toISOString()
+                        }, { onConflict: 'id' });
+
+                    if (profileUpsertError) throw profileUpsertError;
+                } catch (error) {
+                    console.error('Sync Error:', error);
+                    get().showToast('Sync Warning', 'Failed to sync with server. Your data is saved locally and will retry.', 'error');
                 }
-
-                // Also sync spotCostBasis into preferences
-                const { spotCostBasis } = get();
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('preferences')
-                    .eq('id', user.id)
-                    .maybeSingle();
-
-                const updatedPreferences = {
-                    ...(profile?.preferences || {}),
-                    spotCostBasis
-                };
-
-                await supabase
-                    .from('profiles')
-                    .upsert({ 
-                        id: user.id, 
-                        preferences: updatedPreferences,
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'id' });
             },
 
             fetchSupabaseWallets: async () => {
@@ -586,13 +597,13 @@ const useExchangeStore = create<ExchangeState>()(
                     .maybeSingle();
 
                 if (!error && data?.preferences) {
-                    const { favorites, favoriteGroups, hiddenGroups, spotCostBasis } = data.preferences;
+                    const { favorites, favoriteGroups, hiddenGroups, spotCostBasis, spotTPSL } = data.preferences;
                     if (favorites) set({ favorites });
                     if (favoriteGroups) set({ favoriteGroups });
                     if (hiddenGroups) set({ hiddenGroups });
                     if (spotCostBasis) set({ spotCostBasis });
+                    if (spotTPSL) set({ spotTPSL });
                 } else if (!data) {
-                    // Profile doesn't exist, create it
                     await get().syncFavoritesToSupabase();
                 }
             },
@@ -606,7 +617,6 @@ const useExchangeStore = create<ExchangeState>()(
                     Object.keys(earnWallets).forEach(coin => {
                         const balance = earnWallets[coin] || 0;
                         if (balance > 0) {
-                            // Simulate 5% APY -> yield per second
                             const yieldPerSecond = (balance * 0.05) / (365 * 24 * 3600);
                             earnWallets[coin] = balance + yieldPerSecond;
                             hasUpdate = true;
@@ -615,9 +625,16 @@ const useExchangeStore = create<ExchangeState>()(
 
                     if (hasUpdate) {
                         set({ wallets: { ...wallets, earn: earnWallets } });
-                        get().updateAssetPrices(); // throttled — earn yield is background
+                        get().updateAssetPrices();
                     }
                 }, 1000);
+
+                setInterval(() => {
+                    const { user, wallets } = get();
+                    if (user && Object.keys(wallets.earn).length > 0) {
+                        get().syncWalletsToSupabase();
+                    }
+                }, 60000);
             },
 
             fetchSupabasePositions: async () => {
@@ -645,7 +662,10 @@ const useExchangeStore = create<ExchangeState>()(
                         liqPrice: parseFloat(p.liquidation_price),
                         marginMode: p.margin_type === 'cross' ? 'Cross' : 'Isolated',
                         tpPrice: p.tp_price ? parseFloat(p.tp_price) : null,
-                        slPrice: p.sl_price ? parseFloat(p.sl_price) : null
+                        slPrice: p.sl_price ? parseFloat(p.sl_price) : null,
+                        tpOrders: p.tp_orders || [],
+                        slOrders: p.sl_orders || [],
+                        trailingStop: p.trailing_stop || undefined
                     }));
                     
                     set({ positions: mappedPositions });
@@ -821,19 +841,26 @@ const useExchangeStore = create<ExchangeState>()(
                 await Promise.all([
                     fetchSupabaseHistory(),
                     fetchSupabaseFavorites(),
-                    fetchSupabasePositions()
+                    fetchSupabasePositions(),
+                    get().fetchSupabaseOpenOrders() 
                 ]);
 
                 // Check Pre-Setup
-                const { preferences, transactionHistory } = get();
-                const isSetupDone = preferences.setup_completed;
+                const { preferences, wallets } = get();
+                const isSetupDone = preferences.setup_completed === true;
                 
+                // Calculate total balance across all wallets
+                const totalBalance = Object.values(wallets.spot).reduce((a, b) => a + (b as number), 0) +
+                                    Object.values(wallets.futures).reduce((a, b) => a + (b as number), 0) +
+                                    Object.values(wallets.earn).reduce((a, b) => a + (b as number), 0);
+                
+                const skipDeposit = totalBalance > 0;
+
                 if (!isSetupDone) {
-                    const hasHistory = transactionHistory.length > 0;
                     set({ 
                         isPreSetupOpen: true, 
                         setupStep: 1,
-                        preferences: { ...preferences, skip_deposit: hasHistory },
+                        preferences: { ...preferences, skip_deposit: skipDeposit },
                         isInitializing: false
                     });
                 } else {
@@ -844,17 +871,16 @@ const useExchangeStore = create<ExchangeState>()(
             startFundingCron: () => {
                 setInterval(() => {
                     const now = Date.now();
-                    const { nextFundingTime, fundingRate, positions, wallets, addTransaction, updateAssetPrices } = get();
+                    const { nextFundingTime, fundingRate, positions, wallets, addTransaction, updateAssetPrices, syncWalletsToSupabase } = get();
 
                     if (now >= nextFundingTime) {
                         if (positions.length > 0) {
-                            const newWallets = { ...wallets };
+                            const newWallets = JSON.parse(JSON.stringify(wallets));
                             let totalFee = new Decimal(0);
-                            // logic...
 
                             positions.forEach(pos => {
-                                const notional = new Decimal(pos.size).times(pos.markPrice || pos.entryPrice);
-                                const fee = notional.times(fundingRate);
+                                const notional = new Decimal(pos.size).times(new Decimal(pos.markPrice || pos.entryPrice));
+                                const fee = notional.times(new Decimal(fundingRate));
 
                                 if (pos.side === 'Buy') {
                                     totalFee = totalFee.minus(fee);
@@ -865,7 +891,7 @@ const useExchangeStore = create<ExchangeState>()(
 
                             newWallets.futures.USDT = new Decimal(newWallets.futures.USDT || 0).plus(totalFee).toNumber();
 
-                            set({ wallets: newWallets });
+                            set({ wallets: newWallets, nextFundingTime: nextFundingTime + (8 * 3600 * 1000) });
                             updateAssetPrices(true);
 
                             addTransaction({
@@ -877,23 +903,30 @@ const useExchangeStore = create<ExchangeState>()(
                                 timestamp: Date.now(),
                                 to: 'Futures'
                             });
+                            
+                            syncWalletsToSupabase();
+                        } else {
+                            set({ nextFundingTime: nextFundingTime + (8 * 3600 * 1000) });
                         }
-                        set({ nextFundingTime: nextFundingTime + (8 * 3600 * 1000) });
                     }
-                }, 1000);
+                }, 30000); 
             },
 
             fetchSupabaseHistory: async () => {
-                const { user } = get();
-                if (!user) return;
+                try {
+                    const { user } = get();
+                    if (!user) return;
 
-                const [txData, tradeData, futuresData] = await Promise.all([
-                    supabase.from('transactions').select('*').eq('user_id', user.id).order('timestamp', { ascending: false }),
-                    supabase.from('orders_spot').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-                    supabase.from('history_futures').select('*').eq('user_id', user.id).order('time_closed', { ascending: false })
-                ]);
+                    const [txData, tradeData, futuresData] = await Promise.all([
+                        supabase.from('transactions').select('*').eq('user_id', user.id).order('timestamp', { ascending: false }),
+                        supabase.from('orders_spot').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+                        supabase.from('history_futures').select('*').eq('user_id', user.id).order('time_closed', { ascending: false })
+                    ]);
 
-                if (!txData.error) {
+                    if (txData.error) throw txData.error;
+                    if (tradeData.error) throw tradeData.error;
+                    if (futuresData.error) throw futuresData.error;
+
                     const seenIds = new Set();
                     const mappedTx = (txData.data || [])
                         .filter(t => {
@@ -912,11 +945,9 @@ const useExchangeStore = create<ExchangeState>()(
                             to: t.to_wallet
                         }));
                     set({ transactionHistory: mappedTx });
-                }
 
-                let allTrades: any[] = [];
+                    let allTrades: any[] = [];
 
-                if (!tradeData.error) {
                     const seenTradeIds = new Set();
                     const mappedTrades = (tradeData.data || [])
                         .filter(t => {
@@ -933,54 +964,74 @@ const useExchangeStore = create<ExchangeState>()(
                             amount: parseFloat(t.amount),
                             fee: 0,
                             pnl: 0,
-                            timestamp: new Date(t.created_at).getTime()
+                            timestamp: new Date(t.created_at).getTime(),
+                            status: t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : 'Filled'
                         }));
                     allTrades = [...mappedTrades];
-                }
 
-                if (!futuresData.error && futuresData.data) {
-                    const mappedPosHistory = futuresData.data.map(h => ({
-                        id: h.id,
-                        pair: h.pair,
-                        side: h.side === 'long' ? 'Buy' : 'Sell',
-                        size: parseFloat(h.size),
-                        margin: parseFloat(h.margin),
-                        entryPrice: parseFloat(h.entry_price),
-                        markPrice: parseFloat(h.close_price),
-                        leverage: h.leverage,
-                        pnl: parseFloat(h.pnl),
-                        pnlPercent: 0,
-                        timeOpened: new Date(h.time_opened).getTime(),
-                        timeClosed: new Date(h.time_closed).getTime(),
-                        marginMode: h.margin_type === 'cross' ? 'Cross' : 'Isolated'
-                    }));
+                    if (futuresData.data) {
+                        const mappedPosHistory = futuresData.data.map(h => ({
+                            id: h.id,
+                            pair: h.pair,
+                            side: h.side === 'long' ? 'Buy' : 'Sell',
+                            size: parseFloat(h.size),
+                            margin: parseFloat(h.margin),
+                            entryPrice: parseFloat(h.entry_price),
+                            markPrice: parseFloat(h.close_price),
+                            leverage: h.leverage,
+                            pnl: parseFloat(h.pnl),
+                            pnlPercent: 0,
+                            timeOpened: new Date(h.time_opened).getTime(),
+                            timeClosed: new Date(h.time_closed).getTime(),
+                            marginMode: h.margin_type === 'cross' ? 'Cross' : 'Isolated'
+                        }));
+                        
+                        const futuresTrades = futuresData.data.map(h => ({
+                            id: `FUT-TR-${h.id}`,
+                            symbol: h.pair,
+                            side: h.side === 'long' ? 'Sell' : 'Buy',
+                            type: h.type || 'Market',
+                            price: parseFloat(h.close_price),
+                            amount: parseFloat(h.size),
+                            fee: 0,
+                            pnl: parseFloat(h.pnl),
+                            timestamp: new Date(h.time_closed).getTime(),
+                            status: h.type === 'Liquidation' ? 'Liquidated' : 'Completed'
+                        }));
+
+                        allTrades = [...allTrades, ...futuresTrades];
+                        set({ positionHistory: mappedPosHistory });
+                    }
                     
-                    // Terjemahin closed futures ke format trade log biar UI sinkron
-                    const futuresTrades = futuresData.data.map(h => ({
-                        id: `FUT-TR-${h.id}`,
-                        symbol: h.pair,
-                        side: h.side === 'long' ? 'Sell' : 'Buy', // Logika saat posisi di-close
-                        type: 'Market',
-                        price: parseFloat(h.close_price),
-                        amount: parseFloat(h.size),
-                        fee: 0,
-                        pnl: parseFloat(h.pnl),
-                        timestamp: new Date(h.time_closed).getTime()
-                    }));
-
-                    allTrades = [...allTrades, ...futuresTrades];
-                    set({ positionHistory: mappedPosHistory });
+                    allTrades.sort((a, b) => b.timestamp - a.timestamp);
+                    set({ tradeHistory: allTrades });
+                } catch (error) {
+                    console.error('Fetch History Error:', error);
+                    get().showToast('Network Error', 'Could not load trading history.', 'error');
                 }
-                
-                // Sort terbaru ke terlama
-                allTrades.sort((a, b) => b.timestamp - a.timestamp);
-                set({ tradeHistory: allTrades });
             },
             addPosition: (pos) => set(s => ({ positions: [...s.positions, pos] })),
             setFuturesTPSL: async (positionId, tpPrice, slPrice) => {
-                const { positions, user } = get();
+                const { positions, user, tradeHistory } = get();
                 const pos = positions.find(p => p.id === positionId);
                 if (!pos) return;
+
+                // If both are null, it's a cancellation
+                if (tpPrice === null && slPrice === null && (pos.tpPrice !== null || pos.slPrice !== null)) {
+                    const canceledTrade = {
+                        id: `CANC-F-${Date.now()}-${pos.id}`,
+                        symbol: pos.symbol,
+                        side: pos.side === 'Buy' ? 'Sell' : 'Buy', // Closing side
+                        type: 'TP/SL',
+                        price: pos.tpPrice || pos.slPrice || 0,
+                        amount: pos.size,
+                        fee: 0,
+                        pnl: 0,
+                        timestamp: Date.now(),
+                        status: 'Canceled'
+                    };
+                    set({ tradeHistory: [canceledTrade, ...tradeHistory] });
+                }
 
                 const updatedPositions = positions.map(p => 
                     p.id === positionId ? { ...p, tpPrice, slPrice } : p
@@ -992,7 +1043,32 @@ const useExchangeStore = create<ExchangeState>()(
                     await supabase.from('positions_futures').update({
                         tp_price: tpPrice,
                         sl_price: slPrice
-                    }).eq('user_id', user.id).eq('pair', pos.symbol).eq('side', pos.side === 'Buy' ? 'long' : 'short');
+                    }).eq('id', pos.id).eq('user_id', user.id);
+                }
+            },
+
+            fetchSupabaseOpenOrders: async () => {
+                const { user } = get();
+                if (!user) return;
+
+                const { data, error } = await supabase
+                    .from('orders_spot')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .eq('status', 'open');
+
+                if (!error && data) {
+                    const mappedOrders = data.map((o: any) => ({
+                        id: o.id,
+                        symbol: o.pair,
+                        side: o.side.charAt(0).toUpperCase() + o.side.slice(1),
+                        type: o.type.charAt(0).toUpperCase() + o.type.slice(1),
+                        price: parseFloat(o.price),
+                        amount: parseFloat(o.amount),
+                        filled: parseFloat(o.filled),
+                        timestamp: new Date(o.created_at).getTime()
+                    }));
+                    set({ openOrders: mappedOrders });
                 }
             },
             setSpotTPSL: async (symbol, tpPrice, slPrice, amount) => {
@@ -1001,6 +1077,34 @@ const useExchangeStore = create<ExchangeState>()(
                 let newSpotTPSL;
                 
                 if (tpPrice === null && slPrice === null) {
+                    if (existing) {
+                        const canceledTrade = {
+                            id: `CANC-S-TPSL-${Date.now()}-${symbol}`,
+                            symbol: `${symbol}USDT`,
+                            side: 'Sell',
+                            type: 'TP/SL',
+                            price: existing.tpPrice || existing.slPrice || 0,
+                            amount: existing.amount,
+                            fee: 0,
+                            pnl: 0,
+                            timestamp: Date.now(),
+                            status: 'Canceled'
+                        };
+                        set({ tradeHistory: [canceledTrade, ...get().tradeHistory] });
+                        
+                        if (user) {
+                            supabase.from('orders_spot').insert([{
+                                id: crypto.randomUUID(),
+                                user_id: user.id,
+                                pair: `${symbol}USDT`,
+                                side: 'sell',
+                                type: 'limit',
+                                price: existing.tpPrice || existing.slPrice || 0,
+                                amount: existing.amount,
+                                status: 'canceled'
+                            }]);
+                        }
+                    }
                     newSpotTPSL = spotTPSL.filter(s => s.symbol !== symbol);
                 } else if (existing) {
                     newSpotTPSL = spotTPSL.map(s => s.symbol === symbol ? { ...s, tpPrice, slPrice, amount } : s);
@@ -1010,8 +1114,18 @@ const useExchangeStore = create<ExchangeState>()(
                 
                 set({ spotTPSL: newSpotTPSL });
                 
-                // For now, we don't have a dedicated Supabase table for spot TP/SL triggers,
-                // so we use local state persistence via Zustand.
+                if (user) {
+                    const { data: profile } = await supabase.from('profiles').select('preferences').eq('id', user.id).maybeSingle();
+                    const updatedPreferences = {
+                        ...(profile?.preferences || {}),
+                        spotTPSL: newSpotTPSL
+                    };
+                    await supabase.from('profiles').upsert({
+                        id: user.id,
+                        preferences: updatedPreferences,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'id' });
+                }
             },
             removePosition: (id) => set(s => ({ positions: s.positions.filter(p => p.id !== id) })),
             updatePosition: (id, updates) => set(s => ({
@@ -1021,26 +1135,27 @@ const useExchangeStore = create<ExchangeState>()(
                 const { wallets, openOrders, markets, spotCostBasis, user } = get();
                 const symbol = order.symbol.replace('USDT', '');
                 const newWallets = JSON.parse(JSON.stringify(wallets));
-                const feeRate = 0.001;
+                const feeRate = new Decimal(0.001);
 
                 if (order.type === 'Limit') {
-                    const cost = new Decimal(order.price).times(order.amount).toNumber();
+                    const cost = new Decimal(order.price).times(new Decimal(order.amount));
                     if (order.side === 'Buy') {
-                        if ((newWallets.spot.USDT || 0) < cost) {
-                            get().showToast('Insufficient Balance', `Required ${cost.toFixed(2)} USDT`, 'error');
+                        if (new Decimal(newWallets.spot.USDT || 0).lt(cost)) {
+                            get().showToast('Insufficient Balance', `Required ${cost.toDecimalPlaces(8).toNumber()} USDT`, 'error');
                             return;
                         }
                         newWallets.spot.USDT = new Decimal(newWallets.spot.USDT || 0).minus(cost).toNumber();
                     } else {
-                        if ((newWallets.spot[symbol] || 0) < order.amount) {
+                        if (new Decimal(newWallets.spot[symbol] || 0).lt(new Decimal(order.amount))) {
                             get().showToast('Insufficient Balance', `Required ${order.amount} ${symbol}`, 'error');
                             return;
                         }
-                        newWallets.spot[symbol] = new Decimal(newWallets.spot[symbol] || 0).minus(order.amount).toNumber();
+                        newWallets.spot[symbol] = new Decimal(newWallets.spot[symbol] || 0).minus(new Decimal(order.amount)).toNumber();
                     }
 
+                    const orderId = crypto.randomUUID();
                     const newOrder: PendingOrder = {
-                        id: `ord-${Date.now()}`,
+                        id: orderId,
                         ...order,
                         filled: 0,
                         timestamp: Date.now()
@@ -1048,11 +1163,12 @@ const useExchangeStore = create<ExchangeState>()(
 
                     set({ wallets: newWallets, openOrders: [newOrder, ...openOrders] });
                     get().showToast('Limit Order Placed', `Submitted Limit ${order.side} order for ${order.amount} ${symbol} at ${order.price} USDT`, 'success');
+                    
                     get().addTransaction({
                         id: `TX-${Date.now()}`,
                         type: 'Trade',
                         status: 'Pending',
-                        amount: order.side === 'Buy' ? cost : order.amount,
+                        amount: order.side === 'Buy' ? cost.toNumber() : order.amount,
                         currency: order.side === 'Buy' ? 'USDT' : symbol,
                         timestamp: Date.now(),
                         to: 'Spot'
@@ -1060,6 +1176,7 @@ const useExchangeStore = create<ExchangeState>()(
 
                     if (user) {
                         await supabase.from('orders_spot').insert([{
+                            id: orderId,
                             user_id: user.id,
                             pair: order.symbol,
                             side: order.side.toLowerCase(),
@@ -1072,62 +1189,66 @@ const useExchangeStore = create<ExchangeState>()(
                     }
                 } else {
                     const market = markets.find(m => m.symbol === order.symbol);
-                    const fillPrice = market ? parseFloat(market.lastPrice) : order.price;
+                    const fillPrice = market ? new Decimal(market.lastPrice) : new Decimal(order.price);
                     
-                    const slippage = 0.0005; 
+                    const slippage = new Decimal(0.0005);
                     const executedPrice = order.side === 'Buy' 
-                        ? new Decimal(fillPrice).times(1 + slippage).toNumber()
-                        : new Decimal(fillPrice).times(1 - slippage).toNumber();
+                        ? fillPrice.times(new Decimal(1).plus(slippage))
+                        : fillPrice.times(new Decimal(1).minus(slippage));
 
-                    const cost = new Decimal(executedPrice).times(order.amount).toNumber();
-                    const fee = new Decimal(cost).times(feeRate).toNumber();
+                    const dAmount = new Decimal(order.amount);
+                    const cost = executedPrice.times(dAmount);
+                    const fee = cost.times(feeRate);
                     const newCostBasis = { ...spotCostBasis };
 
                     if (order.side === 'Buy') {
-                        const totalCost = new Decimal(cost).plus(fee).toNumber();
-                        if ((newWallets.spot.USDT || 0) < totalCost) {
-                            get().showToast('Insufficient Balance', `Required ${totalCost.toFixed(2)} USDT`, 'error');
+                        const totalCost = cost.plus(fee);
+                        if (new Decimal(newWallets.spot.USDT || 0).lt(totalCost)) {
+                            get().showToast('Insufficient Balance', `Required ${totalCost.toDecimalPlaces(8).toNumber()} USDT`, 'error');
                             return;
                         }
                         
-                        const oldAmount = newWallets.spot[symbol] || 0;
-                        const oldCost = newCostBasis[symbol] || executedPrice;
-                        const newAmount = new Decimal(oldAmount).plus(order.amount).toNumber();
-                        newCostBasis[symbol] = new Decimal(oldAmount).times(oldCost).plus(cost).div(newAmount).toNumber();
-
+                        const oldAmount = new Decimal(newWallets.spot[symbol] || 0);
+                        const oldCost = new Decimal(newCostBasis[symbol] || executedPrice);
+                        const newAmount = oldAmount.plus(dAmount);
+                        
+                        newCostBasis[symbol] = oldAmount.times(oldCost).plus(cost).div(newAmount).toDecimalPlaces(8).toNumber();
                         newWallets.spot.USDT = new Decimal(newWallets.spot.USDT || 0).minus(totalCost).toNumber();
-                        newWallets.spot[symbol] = newAmount;
+                        newWallets.spot[symbol] = newAmount.toNumber();
                     } else {
-                        if ((newWallets.spot[symbol] || 0) < order.amount) {
+                        if (new Decimal(newWallets.spot[symbol] || 0).lt(dAmount)) {
                             get().showToast('Insufficient Balance', `Required ${order.amount} ${symbol}`, 'error');
                             return;
                         }
-                        const receiveAmount = new Decimal(cost).minus(fee).toNumber();
-                        newWallets.spot[symbol] = new Decimal(newWallets.spot[symbol] || 0).minus(order.amount).toNumber();
+                        const receiveAmount = cost.minus(fee);
+                        newWallets.spot[symbol] = new Decimal(newWallets.spot[symbol] || 0).minus(dAmount).toNumber();
                         newWallets.spot.USDT = new Decimal(newWallets.spot.USDT || 0).plus(receiveAmount).toNumber();
                     }
 
                     set({ wallets: newWallets, spotCostBasis: newCostBasis });
-                    get().showToast('Market Order Filled', `${order.side === 'Buy' ? 'Bought' : 'Sold'} ${order.amount} ${symbol} at avg. ${executedPrice.toFixed(2)} USDT`, 'success');
+                    get().showToast('Market Order Filled', `${order.side === 'Buy' ? 'Bought' : 'Sold'} ${order.amount} ${symbol} at avg. ${executedPrice.toDecimalPlaces(8).toNumber()} USDT`, 'success');
+                    
+                    const orderId = crypto.randomUUID();
                     get().addTrade({
-                        id: `TR-${Date.now()}`,
+                        id: orderId,
                         symbol: order.symbol,
                         side: order.side,
                         type: 'Market',
-                        price: executedPrice,
+                        price: executedPrice.toNumber(),
                         amount: order.amount,
-                        fee: fee,
+                        fee: fee.toNumber(),
                         pnl: 0,
                         timestamp: Date.now()
                     });
                     
                     if (user) {
                         await supabase.from('orders_spot').insert([{
+                            id: orderId,
                             user_id: user.id,
                             pair: order.symbol,
                             side: order.side.toLowerCase(),
                             type: 'market',
-                            price: executedPrice,
+                            price: executedPrice.toNumber(),
                             amount: order.amount,
                             filled: order.amount,
                             status: 'filled'
@@ -1135,7 +1256,6 @@ const useExchangeStore = create<ExchangeState>()(
                         get().syncWalletsToSupabase();
                     }
 
-                    // Set TP/SL if provided
                     if (tpPrice || slPrice) {
                         await get().setSpotTPSL(symbol, tpPrice, slPrice, order.amount);
                     }
@@ -1143,69 +1263,118 @@ const useExchangeStore = create<ExchangeState>()(
                 get().updateAssetPrices(true);
             },
 
-            cancelSpotOrder: (orderId) => {
-                const { openOrders, wallets } = get();
+            cancelSpotOrder: async (orderId) => {
+                const { openOrders, wallets, tradeHistory, user } = get();
                 const order = openOrders.find(o => o.id === orderId);
                 if (!order) return;
 
-                const newWallets = { ...wallets };
+                const newWallets = JSON.parse(JSON.stringify(wallets));
                 const symbol = order.symbol.replace('USDT', '');
 
                 if (order.side === 'Buy') {
-                    const cost = order.price * order.amount;
-                    newWallets.spot.USDT = (newWallets.spot.USDT || 0) + cost;
+                    const cost = new Decimal(order.price).times(new Decimal(order.amount));
+                    newWallets.spot.USDT = new Decimal(newWallets.spot.USDT || 0).plus(cost).toNumber();
                 } else {
-                    newWallets.spot[symbol] = (newWallets.spot[symbol] || 0) + order.amount;
+                    newWallets.spot[symbol] = new Decimal(newWallets.spot[symbol] || 0).plus(new Decimal(order.amount)).toNumber();
                 }
+
+                const canceledTrade = {
+                    id: `CANC-S-${Date.now()}-${order.id}`,
+                    symbol: order.symbol,
+                    side: order.side,
+                    type: order.type,
+                    price: order.price,
+                    amount: order.amount,
+                    fee: 0,
+                    pnl: 0,
+                    timestamp: Date.now(),
+                    status: 'Canceled'
+                };
 
                 set({
                     wallets: newWallets,
-                    openOrders: openOrders.filter(o => o.id !== orderId)
+                    openOrders: openOrders.filter(o => o.id !== orderId),
+                    tradeHistory: [canceledTrade, ...tradeHistory]
                 });
+
+                if (user) {
+                    await supabase.from('orders_spot')
+                        .update({ status: 'canceled' })
+                        .eq('id', orderId);
+                    get().syncWalletsToSupabase();
+                }
+
                 get().showToast('Order Canceled', `Spot order successfully canceled.`, 'success');
+            },
+
+            cancelAllOrders: async (symbolFilter?: string) => {
+                const { openOrders, spotTPSL, positions } = get();
+                
+                // 1. Cancel Spot Limit Orders
+                const ordersToCancel = openOrders.filter(o => !symbolFilter || o.symbol === symbolFilter);
+                for (const order of ordersToCancel) {
+                    await get().cancelSpotOrder(order.id);
+                }
+
+                // 2. Cancel Spot TPSL
+                const spotTpslToCancel = spotTPSL.filter(s => !symbolFilter || s.symbol === symbolFilter.replace('USDT', ''));
+                for (const s of spotTpslToCancel) {
+                    await get().setSpotTPSL(s.symbol, null, null, 0);
+                }
+
+                // 3. Cancel Futures TPSL
+                const futuresTpslToCancel = positions.filter(p => (!symbolFilter || p.symbol === symbolFilter) && (p.tpPrice || p.slPrice));
+                for (const p of futuresTpslToCancel) {
+                    await get().setFuturesTPSL(p.id, null, null);
+                }
+
+                get().showToast('All Orders Canceled', 'All pending orders have been canceled.', 'success');
             },
 
             placeFuturesOrder: async (order, tpPrice = null, slPrice = null) => {
                 const { wallets, positions, futuresMarkets, user } = get();
                 const market = futuresMarkets.find(m => m.symbol === order.symbol);
-                const currentPrice = market ? parseFloat(market.lastPrice) : order.price;
+                const currentPrice = market ? new Decimal(market.lastPrice) : new Decimal(order.price);
 
-                const notionalValue = new Decimal(order.amount).times(currentPrice);
-                const marginRequired = notionalValue.div(order.leverage).toNumber();
-                const feeRate = 0.0005;
-                const fee = notionalValue.times(feeRate).toNumber();
+                const dAmount = new Decimal(order.amount);
+                const notionalValue = dAmount.times(currentPrice);
+                const marginRequired = notionalValue.div(new Decimal(order.leverage));
+                const feeRate = new Decimal(0.0005);
+                const fee = notionalValue.times(feeRate);
 
-                const totalUnrealizedPnl = positions.reduce((sum, p) => sum + (p.pnl || 0), 0);
-                const currentEquity = new Decimal(wallets.futures.USDT || 0).plus(totalUnrealizedPnl).toNumber();
-                const totalLockedMargin = positions.reduce((sum, p) => sum + p.margin, 0);
-                const availableMargin = new Decimal(currentEquity).minus(totalLockedMargin).toNumber();
+                const totalUnrealizedPnl = positions.reduce((sum, p) => new Decimal(sum).plus(new Decimal(p.pnl || 0)), new Decimal(0));
+                const currentEquity = new Decimal(wallets.futures.USDT || 0).plus(totalUnrealizedPnl);
+                const totalLockedMargin = positions.reduce((sum, p) => new Decimal(sum).plus(new Decimal(p.margin)), new Decimal(0));
+                const availableMargin = currentEquity.minus(totalLockedMargin);
 
-                if (availableMargin < (marginRequired + fee)) {
-                    get().showToast('Margin Call', `Required ${(marginRequired + fee).toFixed(2)} USDT`, 'error');
+                const totalRequired = marginRequired.plus(fee);
+                if (availableMargin.lt(totalRequired)) {
+                    get().showToast('Margin Call', `Required ${totalRequired.toDecimalPlaces(8).toNumber()} USDT`, 'error');
                     return;
                 }
 
                 const newWallets = JSON.parse(JSON.stringify(wallets));
                 newWallets.futures.USDT = new Decimal(newWallets.futures.USDT || 0).minus(fee).toNumber();
 
-                const mmr = 0.005;
+                const mmr = new Decimal(0.005);
                 const liqPrice = order.side === 'Buy'
-                    ? new Decimal(currentPrice).times(new Decimal(1).minus(new Decimal(1).div(order.leverage)).plus(mmr)).toNumber()
-                    : new Decimal(currentPrice).times(new Decimal(1).plus(new Decimal(1).div(order.leverage)).minus(mmr)).toNumber();
+                    ? currentPrice.times(new Decimal(1).minus(new Decimal(1).div(new Decimal(order.leverage))).plus(mmr))
+                    : currentPrice.times(new Decimal(1).plus(new Decimal(1).div(new Decimal(order.leverage))).minus(mmr));
 
+                const posId = crypto.randomUUID();
                 const newPosition: FuturesPosition = {
-                    id: `pos-${Date.now()}`,
+                    id: posId,
                     symbol: order.symbol,
                     pair: order.symbol,
                     side: order.side,
                     size: order.amount,
-                    entryPrice: currentPrice,
-                    markPrice: currentPrice,
-                    margin: marginRequired,
+                    entryPrice: currentPrice.toNumber(),
+                    markPrice: currentPrice.toNumber(),
+                    margin: marginRequired.toNumber(),
                     leverage: order.leverage,
                     pnl: 0,
                     pnlPercent: 0,
-                    liqPrice,
+                    liqPrice: liqPrice.toNumber(),
                     marginMode: order.marginMode
                 };
 
@@ -1214,81 +1383,74 @@ const useExchangeStore = create<ExchangeState>()(
 
                 if (existingPosIdx > -1) {
                     const existing = positions[existingPosIdx];
-                    const newSize = new Decimal(existing.size).plus(order.amount).toNumber();
-                    const oldNotional = new Decimal(existing.entryPrice).times(existing.size);
-                    const newNotional = new Decimal(currentPrice).times(order.amount);
-                    const newEntry = oldNotional.plus(newNotional).div(newSize).toNumber();
+                    const oldSize = new Decimal(existing.size);
+                    const newSize = oldSize.plus(dAmount);
+                    const oldNotional = new Decimal(existing.entryPrice).times(oldSize);
+                    const newNotional = currentPrice.times(dAmount);
+                    const newEntry = oldNotional.plus(newNotional).div(newSize);
                     
                     nextPositions[existingPosIdx] = {
                         ...existing,
-                        size: newSize,
-                        entryPrice: newEntry,
+                        size: newSize.toNumber(),
+                        entryPrice: newEntry.toNumber(),
                         margin: new Decimal(existing.margin).plus(marginRequired).toNumber(),
-                        liqPrice
+                        liqPrice: liqPrice.toNumber()
                     };
                 } else {
                     nextPositions = [newPosition, ...positions];
                 }
 
                 set({ positions: nextPositions, wallets: newWallets });
-                get().showToast('Position Opened', `${order.leverage}x ${order.side === 'Buy' ? 'Long' : 'Short'} ${order.symbol} opened at ${currentPrice.toFixed(2)} USDT`, 'success');
-                get().updateAssetPrices(true);
-
+                get().showToast('Position Opened', `${order.leverage}x ${order.side === 'Buy' ? 'Long' : 'Short'} ${order.symbol} opened at ${currentPrice.toDecimalPlaces(8).toNumber()} USDT`, 'success');
+                
+                const tradeId = crypto.randomUUID();
                 get().addTrade({
-                    id: `TR-F-${Date.now()}`,
+                    id: tradeId,
                     symbol: order.symbol,
                     side: order.side,
                     type: order.type,
-                    price: currentPrice,
+                    price: currentPrice.toNumber(),
                     amount: order.amount,
-                    fee: fee,
+                    fee: fee.toNumber(),
                     pnl: 0,
                     timestamp: Date.now()
                 });
 
                 if (user) {
                     const dbSide = order.side === 'Buy' ? 'long' : 'short';
-                    const existingPosIdx = positions.findIndex(p => p.symbol === order.symbol && p.side === order.side);
 
                     if (existingPosIdx > -1) {
-                        const existing = positions[existingPosIdx];
-                        const newSize = new Decimal(existing.size).plus(order.amount).toNumber();
-                        const oldNotional = new Decimal(existing.entryPrice).times(existing.size);
-                        const newNotional = new Decimal(currentPrice).times(order.amount);
-                        const newEntry = oldNotional.plus(newNotional).div(newSize).toNumber();
-                        const newMargin = new Decimal(existing.margin).plus(marginRequired).toNumber();
-
+                        const updatedPos = nextPositions[existingPosIdx];
                         await supabase.from('positions_futures').update({
-                            entry_price: newEntry,
-                            size: newSize,
-                            margin: newMargin,
-                            liquidation_price: liqPrice
+                            entry_price: updatedPos.entryPrice,
+                            size: updatedPos.size,
+                            margin: updatedPos.margin,
+                            liquidation_price: updatedPos.liqPrice
                         })
                         .eq('user_id', user.id)
                         .eq('pair', order.symbol)
                         .eq('side', dbSide);
                     } else {
                         await supabase.from('positions_futures').insert([{
+                            id: posId,
                             user_id: user.id,
                             pair: order.symbol,
                             leverage: order.leverage,
                             margin_type: order.marginMode.toLowerCase(),
                             side: dbSide,
-                            entry_price: currentPrice,
-                            size: order.amount,
-                            liquidation_price: liqPrice,
-                            margin: marginRequired,
-                            tp_price: tpPrice, // <-- Tambahin ini
-                            sl_price: slPrice  // <-- Tambahin ini
+                            entry_price: newPosition.entryPrice,
+                            size: newPosition.size,
+                            liquidation_price: newPosition.liqPrice,
+                            margin: newPosition.margin,
+                            tp_price: tpPrice,
+                            sl_price: slPrice
                         }]);
                     }
                     get().syncWalletsToSupabase();
                 }
 
-                // Set TP/SL if provided
                 if (tpPrice || slPrice) {
-                    const latestPositions = get().positions;
-                    const targetPos = latestPositions.find(p => p.symbol === order.symbol && p.side === order.side);
+                    const targetPos = get().positions.find(p => p.symbol === order.symbol && p.side === order.side);
                     if (targetPos) {
                         await get().setFuturesTPSL(targetPos.id, tpPrice, slPrice);
                     }
@@ -1303,30 +1465,29 @@ const useExchangeStore = create<ExchangeState>()(
                 if (!pos) return;
 
                 const amountToClose = closeAmount !== undefined ? Math.min(closeAmount, pos.size) : pos.size;
-                const isFullClose = amountToClose >= pos.size;
+                const isFullClose = new Decimal(amountToClose).gte(pos.size);
                 const price = closePrice || pos.markPrice || pos.entryPrice;
 
-                // Hitung proporsional PnL dan Fee untuk jumlah yang ditutup
-                const ratio = amountToClose / pos.size;
-                const portionPnl = pos.pnl * ratio;
+                const ratio = new Decimal(amountToClose).div(pos.size);
+                const portionPnl = new Decimal(pos.pnl).times(ratio);
                 const notionalValue = new Decimal(amountToClose).times(price);
-                const fee = notionalValue.times(0.0005).toNumber();
-                const realizedUsdt = new Decimal(portionPnl).minus(fee).toNumber();
+                const fee = notionalValue.times(0.0005);
+                const realizedUsdt = portionPnl.minus(fee).toNumber();
 
                 const newWallets = JSON.parse(JSON.stringify(wallets));
                 newWallets.futures.USDT = new Decimal(newWallets.futures.USDT || 0).plus(realizedUsdt).toNumber();
 
                 const newHistoryRecord: PositionHistoryRecord = {
-                    id: Math.random().toString(36).substr(2, 9), // ID baru untuk record history partial
+                    id: Math.random().toString(36).substr(2, 9),
                     pair: pos.pair,
                     side: pos.side,
                     size: amountToClose,
-                    margin: pos.margin * ratio,
+                    margin: new Decimal(pos.margin).times(ratio).toNumber(),
                     entryPrice: pos.entryPrice,
                     markPrice: price,
                     leverage: pos.leverage,
                     pnl: realizedUsdt,
-                    pnlPercent: (portionPnl / (pos.margin * ratio)) * 100,
+                    pnlPercent: portionPnl.div(new Decimal(pos.margin).times(ratio)).times(100).toNumber(),
                     timeOpened: Date.now() - 3600000,
                     timeClosed: Date.now(),
                     marginMode: pos.marginMode || 'Cross'
@@ -1338,13 +1499,10 @@ const useExchangeStore = create<ExchangeState>()(
                 } else {
                     updatedPositions = positions.map(p => {
                         if (p.id === id) {
-                            const newSize = p.size - amountToClose;
-                            const newMargin = p.margin * (1 - ratio);
                             return {
                                 ...p,
-                                size: newSize,
-                                margin: newMargin,
-                                // PnL sisa akan dihitung ulang oleh updateAssetPrices
+                                size: new Decimal(p.size).minus(amountToClose).toNumber(),
+                                margin: new Decimal(p.margin).times(new Decimal(1).minus(ratio)).toNumber()
                             };
                         }
                         return p;
@@ -1365,7 +1523,6 @@ const useExchangeStore = create<ExchangeState>()(
                 );
 
                 if (user) {
-                    // Log to history_futures table
                     await supabase.from('history_futures').insert([{
                         user_id: user.id,
                         pair: pos.pair,
@@ -1375,21 +1532,25 @@ const useExchangeStore = create<ExchangeState>()(
                         entry_price: pos.entryPrice,
                         close_price: price,
                         size: amountToClose,
-                        margin: pos.margin * ratio,
+                        margin: new Decimal(pos.margin).times(ratio).toNumber(),
                         pnl: realizedUsdt,
+                        type: 'Market',
                         time_opened: new Date(newHistoryRecord.timeOpened).toISOString(),
                         time_closed: new Date(newHistoryRecord.timeClosed).toISOString()
                     }]);
 
-                    // Sync or update position in Supabase
                     if (isFullClose) {
                         await supabase.from('positions_futures').delete()
                             .eq('user_id', user.id)
                             .eq('pair', pos.pair)
                             .eq('side', pos.side === 'Buy' ? 'long' : 'short');
                     } else {
-                        // Update remaining position (updateAssetPrices handles sync to some extent, but let's be explicit if needed)
-                        // Actually, updateAssetPrices calls syncPositionsToSupabase if needed.
+                        await supabase.from('positions_futures').update({
+                            size: new Decimal(pos.size).minus(amountToClose).toNumber(),
+                            margin: new Decimal(pos.margin).times(new Decimal(1).minus(ratio)).toNumber()
+                        }).eq('user_id', user.id)
+                          .eq('pair', pos.pair)
+                          .eq('side', pos.side === 'Buy' ? 'long' : 'short');
                     }
                     get().syncWalletsToSupabase();
                 }
@@ -1451,13 +1612,13 @@ const useExchangeStore = create<ExchangeState>()(
                 get().showToast('Account Reset', 'All data cleared and balance reset to default.', 'success');
             },
 
-            setPartialTPSL: (positionId, type, price, amount) => {
-                const { positions } = get();
+            setPartialTPSL: async (positionId, type, price, amount) => {
+                const { positions, user } = get();
                 const pos = positions.find(p => p.id === positionId);
                 if (!pos) return;
 
                 const newOrder: TriggerOrder = {
-                    id: `trig-${Date.now()}`,
+                    id: crypto.randomUUID(),
                     price,
                     amount
                 };
@@ -1472,27 +1633,42 @@ const useExchangeStore = create<ExchangeState>()(
                 });
 
                 set({ positions: updatedPositions });
+
+                if (user) {
+                    const updatedPos = updatedPositions.find(p => p.id === positionId);
+                    await supabase.from('positions_futures').update({
+                        tp_orders: updatedPos?.tpOrders || [],
+                        sl_orders: updatedPos?.slOrders || []
+                    }).eq('id', positionId).eq('user_id', user.id);
+                }
             },
 
-            setTrailingStop: (positionId, activationPrice, callbackRate) => {
-                const { positions } = get();
-                const updatedPositions = positions.map(p => {
-                    if (p.id !== positionId) return p;
-                    return {
-                        ...p,
-                        trailingStop: {
-                            activationPrice,
-                            callbackRate,
-                            watermarkPrice: p.markPrice || p.entryPrice,
-                            isActive: false
-                        }
-                    };
-                });
+            setTrailingStop: async (positionId, activationPrice, callbackRate) => {
+                const { positions, user } = get();
+                const pos = positions.find(p => p.id === positionId);
+                if (!pos) return;
+
+                const trailingStop = {
+                    activationPrice,
+                    callbackRate,
+                    watermarkPrice: pos.markPrice || pos.entryPrice,
+                    isActive: false
+                };
+
+                const updatedPositions = positions.map(p => 
+                    p.id === positionId ? { ...p, trailingStop } : p
+                );
                 set({ positions: updatedPositions });
+
+                if (user) {
+                    await supabase.from('positions_futures').update({
+                        trailing_stop: trailingStop
+                    }).eq('id', positionId).eq('user_id', user.id);
+                }
             },
 
-            processPartialClosure: (id, price, amount, type) => {
-                const { positions, wallets, tradeHistory } = get();
+            processPartialClosure: async (id, price, amount, type) => {
+                const { positions, wallets, tradeHistory, user } = get();
                 const pos = positions.find(p => p.id === id);
                 if (!pos) return;
 
@@ -1525,6 +1701,38 @@ const useExchangeStore = create<ExchangeState>()(
                     wallets: newWallets,
                     tradeHistory: updatedHistory
                 });
+
+                if (user) {
+                    const remainingSize = new Decimal(pos.size).minus(amount).toNumber();
+                    const ratio = remainingSize / pos.size;
+                    const newMargin = new Decimal(pos.margin).times(ratio).toNumber();
+
+                    await supabase.from('positions_futures').update({
+                        size: remainingSize,
+                        margin: newMargin
+                    })
+                    .eq('user_id', user.id)
+                    .eq('pair', pos.symbol)
+                    .eq('side', pos.side === 'Buy' ? 'long' : 'short');
+
+                    await supabase.from('history_futures').insert([{
+                        user_id: user.id,
+                        pair: pos.symbol,
+                        leverage: pos.leverage,
+                        margin_type: pos.marginMode?.toLowerCase() || 'cross',
+                        side: pos.side === 'Buy' ? 'long' : 'short',
+                        entry_price: pos.entryPrice,
+                        close_price: price,
+                        size: amount,
+                        margin: pos.margin - newMargin,
+                        pnl: realizedPnl,
+                        type: type,
+                        time_opened: new Date(Date.now() - 3600000).toISOString(),
+                        time_closed: new Date().toISOString()
+                    }]);
+                    
+                    get().syncWalletsToSupabase();
+                }
                 
                 get().showToast('Partial Target Reached', `${amount} ${pos.symbol} closed at ${price} USDT. PnL: ${realizedPnl > 0 ? '+' : ''}${realizedPnl.toFixed(2)} USDT`, 'success');
             },
@@ -1558,10 +1766,11 @@ const useExchangeStore = create<ExchangeState>()(
                             return;
                         }
 
-                        const currentPrice = parseFloat(market.lastPrice);
+                        const currentPrice = new Decimal(market.lastPrice);
+                        const dOrderPrice = new Decimal(order.price);
                         const shouldFill = order.side === 'Buy'
-                            ? currentPrice <= order.price
-                            : currentPrice >= order.price;
+                            ? currentPrice.lte(dOrderPrice)
+                            : currentPrice.gte(dOrderPrice);
 
                         if (shouldFill) {
                             fillOccurred = true;
@@ -1570,23 +1779,24 @@ const useExchangeStore = create<ExchangeState>()(
                             
                             if (order.side === 'Buy') {
                                 const oldAmount = new Decimal(updatedWallets.spot[symbol] || 0);
-                                const oldCost = new Decimal(updatedCostBasis[symbol] || currentPrice);
-                                const newAmount = oldAmount.plus(order.amount);
+                                const oldCost = new Decimal(updatedCostBasis[symbol] || currentPrice.toNumber());
+                                const dOrderAmount = new Decimal(order.amount);
+                                const newAmount = oldAmount.plus(dOrderAmount);
                                 
-                                updatedCostBasis[symbol] = oldAmount.times(oldCost).plus(new Decimal(order.amount).times(currentPrice)).div(newAmount).toNumber();
+                                updatedCostBasis[symbol] = oldAmount.times(oldCost).plus(dOrderAmount.times(currentPrice)).div(newAmount).toNumber();
                                 updatedWallets.spot[symbol] = newAmount.toNumber();
-                                updatedWallets.spot.USDT = new Decimal(updatedWallets.spot.USDT || 0).minus(new Decimal(order.amount).times(currentPrice)).toNumber();
+                                updatedWallets.spot.USDT = new Decimal(updatedWallets.spot.USDT || 0).minus(dOrderAmount.times(currentPrice)).toNumber();
                             } else {
-                                const sellValue = new Decimal(currentPrice).times(order.amount);
+                                const sellValue = currentPrice.times(new Decimal(order.amount));
                                 updatedWallets.spot.USDT = new Decimal(updatedWallets.spot.USDT || 0).plus(sellValue).toNumber();
-                                updatedWallets.spot[symbol] = new Decimal(updatedWallets.spot[symbol] || 0).minus(order.amount).toNumber();
+                                updatedWallets.spot[symbol] = new Decimal(updatedWallets.spot[symbol] || 0).minus(new Decimal(order.amount)).toNumber();
                             }
                             
                             updatedTradeHistory.push({
                                 id: Math.random().toString(36).substr(2, 9),
                                 symbol: order.symbol,
                                 side: order.side,
-                                price: currentPrice,
+                                price: currentPrice.toNumber(),
                                 amount: order.amount,
                                 timestamp: Date.now(),
                                 pnl: 0,
@@ -1602,16 +1812,16 @@ const useExchangeStore = create<ExchangeState>()(
                         const market = markets.find(m => m.symbol === `${s.symbol}USDT` || m.symbol === `${s.symbol}USD`);
                         if (!market) return;
                         
-                        const currentPrice = parseFloat(market.lastPrice);
-                        const costBasis = spotCostBasis[s.symbol] || currentPrice;
+                        const currentPrice = new Decimal(market.lastPrice);
+                        const costBasis = new Decimal(spotCostBasis[s.symbol] || currentPrice.toNumber());
                         let trigger = false;
                         let type = '';
                         
-                        if (s.tpPrice && currentPrice >= s.tpPrice) {
+                        if (s.tpPrice && currentPrice.gte(new Decimal(s.tpPrice))) {
                             trigger = true;
                             type = 'Take Profit';
                         }
-                        if (s.slPrice && currentPrice <= s.slPrice && !trigger) {
+                        if (s.slPrice && currentPrice.lte(new Decimal(s.slPrice)) && !trigger) {
                             trigger = true;
                             type = 'Stop Loss';
                         }
@@ -1621,9 +1831,9 @@ const useExchangeStore = create<ExchangeState>()(
                             triggeredSpotSell.push(s);
                             triggeredClosures.push({ id: 'SPOT', type, symbol: s.symbol });
                             
-                            const sellAmount = s.amount;
-                            const sellValue = new Decimal(sellAmount).times(currentPrice).toNumber();
-                            const fee = new Decimal(sellValue).times(0.001).toNumber();
+                            const sellAmount = new Decimal(s.amount);
+                            const sellValue = sellAmount.times(currentPrice);
+                            const fee = sellValue.times(new Decimal(0.001));
                             
                             updatedWallets.spot[s.symbol] = new Decimal(updatedWallets.spot[s.symbol] || 0).minus(sellAmount).toNumber();
                             updatedWallets.spot.USDT = new Decimal(updatedWallets.spot.USDT || 0).plus(sellValue).minus(fee).toNumber();
@@ -1632,10 +1842,10 @@ const useExchangeStore = create<ExchangeState>()(
                                 id: `SPOT-TPSL-${Date.now()}-${s.symbol}`,
                                 symbol: `${s.symbol}USDT`,
                                 side: 'Sell',
-                                price: currentPrice,
-                                amount: sellAmount,
-                                fee,
-                                pnl: new Decimal(currentPrice).minus(costBasis).times(sellAmount).toNumber(),
+                                price: currentPrice.toNumber(),
+                                amount: sellAmount.toNumber(),
+                                fee: fee.toNumber(),
+                                pnl: currentPrice.minus(costBasis).times(sellAmount).toNumber(),
                                 timestamp: Date.now(),
                                 type: 'Market',
                                 status: 'Completed'
@@ -1644,47 +1854,53 @@ const useExchangeStore = create<ExchangeState>()(
                     });
 
                     let dFuturesUnrealizedPnl = new Decimal(0);
-                    let totalMaintenanceMargin = new Decimal(0);
+                    let totalCrossMaintMargin = new Decimal(0);
+                    let totalCrossPnl = new Decimal(0);
+                    let totalIsolatedMargin = new Decimal(0);
+
                     let updatedPositions: any[] = [];
 
                     positions.forEach(pos => {
                         const market = futuresMarkets.find(m => m.symbol === pos.symbol);
-                        const markPrice = market ? parseFloat(market.lastPrice) : pos.markPrice;
+                        const markPrice = market ? new Decimal(market.lastPrice) : new Decimal(pos.markPrice);
                         
                         const priceDiff = pos.side === 'Buy' 
-                            ? new Decimal(markPrice).minus(pos.entryPrice) 
+                            ? markPrice.minus(new Decimal(pos.entryPrice)) 
                             : new Decimal(pos.entryPrice).minus(markPrice);
                         
-                        const pnl = priceDiff.times(pos.size);
-                        const pnlPercent = pnl.div(pos.margin).times(100);
+                        const pnl = priceDiff.times(new Decimal(pos.size));
+                        const pnlPercent = pnl.div(new Decimal(pos.margin)).times(new Decimal(100));
                         
-                        const maintenanceMargin = new Decimal(pos.size).times(markPrice).times(0.005); 
+                        const maintenanceMargin = new Decimal(pos.size).times(markPrice).times(new Decimal(0.005));
 
                         let triggerCloseEntire = false;
                         let closeType = '';
-                        let remainingSize = pos.size;
+                        let remainingSize = new Decimal(pos.size);
 
-                        // Trailing Stop Logic
                         if (pos.trailingStop) {
                             let ts = { ...pos.trailingStop };
+                            const dActivation = new Decimal(ts.activationPrice);
+                            const dWatermark = new Decimal(ts.watermarkPrice);
+                            const dCallback = new Decimal(ts.callbackRate);
+
                             if (!ts.isActive) {
-                                if ((pos.side === 'Buy' && markPrice >= ts.activationPrice) || 
-                                    (pos.side === 'Sell' && markPrice <= ts.activationPrice)) {
+                                if ((pos.side === 'Buy' && markPrice.gte(dActivation)) || 
+                                    (pos.side === 'Sell' && markPrice.lte(dActivation))) {
                                     ts.isActive = true;
-                                    ts.watermarkPrice = markPrice;
+                                    ts.watermarkPrice = markPrice.toNumber();
                                 }
                             } else {
                                 if (pos.side === 'Buy') {
-                                    if (markPrice > ts.watermarkPrice) ts.watermarkPrice = markPrice;
-                                    const triggerPrice = ts.watermarkPrice * (1 - ts.callbackRate);
-                                    if (markPrice <= triggerPrice) {
+                                    if (markPrice.gt(dWatermark)) ts.watermarkPrice = markPrice.toNumber();
+                                    const triggerPrice = new Decimal(ts.watermarkPrice).times(new Decimal(1).minus(dCallback));
+                                    if (markPrice.lte(triggerPrice)) {
                                         triggerCloseEntire = true;
                                         closeType = 'Trailing Stop';
                                     }
                                 } else {
-                                    if (markPrice < ts.watermarkPrice) ts.watermarkPrice = markPrice;
-                                    const triggerPrice = ts.watermarkPrice * (1 + ts.callbackRate);
-                                    if (markPrice >= triggerPrice) {
+                                    if (markPrice.lt(dWatermark)) ts.watermarkPrice = markPrice.toNumber();
+                                    const triggerPrice = new Decimal(ts.watermarkPrice).times(new Decimal(1).plus(dCallback));
+                                    if (markPrice.gte(triggerPrice)) {
                                         triggerCloseEntire = true;
                                         closeType = 'Trailing Stop';
                                     }
@@ -1693,30 +1909,29 @@ const useExchangeStore = create<ExchangeState>()(
                             pos.trailingStop = ts;
                         }
 
-                        // Full TP/SL Logic
                         if (!triggerCloseEntire && pos.tpPrice) {
-                            if ((pos.side === 'Buy' && markPrice >= pos.tpPrice) || (pos.side === 'Sell' && markPrice <= pos.tpPrice)) {
+                            if ((pos.side === 'Buy' && markPrice.gte(new Decimal(pos.tpPrice))) || (pos.side === 'Sell' && markPrice.lte(new Decimal(pos.tpPrice)))) {
                                 triggerCloseEntire = true;
                                 closeType = 'Take Profit';
                             }
                         }
                         if (!triggerCloseEntire && pos.slPrice) {
-                            if ((pos.side === 'Buy' && markPrice <= pos.slPrice) || (pos.side === 'Sell' && markPrice >= pos.slPrice)) {
+                            if ((pos.side === 'Buy' && markPrice.lte(new Decimal(pos.slPrice))) || (pos.side === 'Sell' && markPrice.gte(new Decimal(pos.slPrice)))) {
                                 triggerCloseEntire = true;
                                 closeType = 'Stop Loss';
                             }
                         }
 
-                        // Partial TP/SL Logic (Reduce-Only)
                         if (!triggerCloseEntire) {
                             if (pos.tpOrders && pos.tpOrders.length > 0) {
                                 const pendingTps = [];
                                 for (const tp of pos.tpOrders) {
-                                    const isTriggered = pos.side === 'Buy' ? markPrice >= tp.price : markPrice <= tp.price;
-                                    if (isTriggered && remainingSize > 0) {
-                                        const execAmount = Math.min(tp.amount, remainingSize);
-                                        remainingSize = new Decimal(remainingSize).minus(execAmount).toNumber();
-                                        partialExecutions.push({ id: pos.id, price: tp.price, amount: execAmount, type: 'Partial TP' });
+                                    const dTpPrice = new Decimal(tp.price);
+                                    const isTriggered = pos.side === 'Buy' ? markPrice.gte(dTpPrice) : markPrice.lte(dTpPrice);
+                                    if (isTriggered && remainingSize.gt(0)) {
+                                        const execAmount = Decimal.min(new Decimal(tp.amount), remainingSize);
+                                        remainingSize = remainingSize.minus(execAmount);
+                                        partialExecutions.push({ id: pos.id, price: tp.price, amount: execAmount.toNumber(), type: 'Partial TP' });
                                     } else {
                                         pendingTps.push(tp);
                                     }
@@ -1727,11 +1942,12 @@ const useExchangeStore = create<ExchangeState>()(
                             if (pos.slOrders && pos.slOrders.length > 0) {
                                 const pendingSls = [];
                                 for (const sl of pos.slOrders) {
-                                    const isTriggered = pos.side === 'Buy' ? markPrice <= sl.price : markPrice >= sl.price;
-                                    if (isTriggered && remainingSize > 0) {
-                                        const execAmount = Math.min(sl.amount, remainingSize);
-                                        remainingSize = new Decimal(remainingSize).minus(execAmount).toNumber();
-                                        partialExecutions.push({ id: pos.id, price: sl.price, amount: execAmount, type: 'Partial SL' });
+                                    const dSlPrice = new Decimal(sl.price);
+                                    const isTriggered = pos.side === 'Buy' ? markPrice.lte(dSlPrice) : markPrice.gte(dSlPrice);
+                                    if (isTriggered && remainingSize.gt(0)) {
+                                        const execAmount = Decimal.min(new Decimal(sl.amount), remainingSize);
+                                        remainingSize = remainingSize.minus(execAmount);
+                                        partialExecutions.push({ id: pos.id, price: sl.price, amount: execAmount.toNumber(), type: 'Partial SL' });
                                     } else {
                                         pendingSls.push(sl);
                                     }
@@ -1740,7 +1956,7 @@ const useExchangeStore = create<ExchangeState>()(
                             }
                         }
 
-                        if (remainingSize <= 0 && !triggerCloseEntire) {
+                        if (remainingSize.lte(0) && !triggerCloseEntire) {
                             triggerCloseEntire = true;
                             closeType = 'All Partials Filled';
                         }
@@ -1748,29 +1964,55 @@ const useExchangeStore = create<ExchangeState>()(
                         if (triggerCloseEntire) {
                             triggeredClosures.push({ id: pos.id, type: closeType });
                         } else {
+                            const isCross = pos.marginMode?.toLowerCase() === 'cross';
+                            if (isCross) {
+                                totalCrossPnl = totalCrossPnl.plus(pnl);
+                                totalCrossMaintMargin = totalCrossMaintMargin.plus(maintenanceMargin);
+                            } else {
+                                totalIsolatedMargin = totalIsolatedMargin.plus(new Decimal(pos.margin));
+                                const isolatedEquity = new Decimal(pos.margin).plus(pnl);
+                                if (isolatedEquity.lte(maintenanceMargin)) {
+                                    liquidatedPositions.push(pos);
+                                    return;
+                                }
+                            }
+
                             dFuturesUnrealizedPnl = dFuturesUnrealizedPnl.plus(pnl);
-                            totalMaintenanceMargin = totalMaintenanceMargin.plus(maintenanceMargin);
 
                             updatedPositions.push({
                                 ...pos,
-                                size: remainingSize,
-                                markPrice,
-                                pnl: parseFloat(pnl.toFixed(2)),
-                                pnlPercent: parseFloat(pnlPercent.toFixed(2))
+                                size: remainingSize.toNumber(),
+                                markPrice: markPrice.toNumber(),
+                                pnl: pnl.toDecimalPlaces(8).toNumber(),
+                                pnlPercent: pnlPercent.toDecimalPlaces(2).toNumber()
                             });
                         }
                     });
 
-                    const lockedFuturesMargin = updatedPositions.reduce((sum, pos) => sum + (pos.margin || 0), 0);
                     const futuresWalletBalance = new Decimal(updatedWallets.futures.USDT || 0);
-                    const futuresEquity = futuresWalletBalance.plus(lockedFuturesMargin).plus(dFuturesUnrealizedPnl);
+                    const crossAvailableBalance = futuresWalletBalance.minus(totalIsolatedMargin);
+                    const crossEquity = crossAvailableBalance.plus(totalCrossPnl);
 
-                    if (updatedPositions.length > 0 && futuresEquity.lte(totalMaintenanceMargin)) {
+                    if (crossEquity.lte(totalCrossMaintMargin) && totalCrossMaintMargin.gt(0)) {
                         fillOccurred = true;
-                        isLiquidated = true;
-                        liquidatedPositions = [...updatedPositions];
-                        
+                        const survivingPositions: any[] = [];
                         updatedPositions.forEach(pos => {
+                            if (pos.marginMode?.toLowerCase() === 'cross') {
+                                liquidatedPositions.push(pos);
+                            } else {
+                                survivingPositions.push(pos);
+                            }
+                        });
+                        updatedPositions = survivingPositions;
+                        updatedWallets.futures.USDT = totalIsolatedMargin.toNumber(); 
+                    }
+
+                    if (liquidatedPositions.length > 0) {
+                        fillOccurred = true;
+                        liquidatedPositions.forEach(pos => {
+                            if (pos.marginMode?.toLowerCase() !== 'cross') {
+                                updatedWallets.futures.USDT = new Decimal(updatedWallets.futures.USDT || 0).minus(new Decimal(pos.margin)).toNumber();
+                            }
                             updatedTradeHistory.push({
                                 id: `LIQ-${Date.now()}-${pos.id}`,
                                 symbol: pos.symbol,
@@ -1784,30 +2026,23 @@ const useExchangeStore = create<ExchangeState>()(
                                 status: 'Completed'
                             });
                         });
-                        
-                        updatedWallets.futures.USDT = 0; 
-                        updatedPositions = [];
                     }
-
-                    let dSpotTotal = new Decimal(0);
-                    let dFuturesTotal = new Decimal(0);
-                    let dEarnTotal = new Decimal(0);
-                    let dSpotUnrealizedPnl = new Decimal(0);
 
                     const finalWallets = fillOccurred ? updatedWallets : wallets;
 
+                    let dSpotTotal = new Decimal(0);
+                    let dSpotUnrealizedPnl = new Decimal(0);
                     const updatedAssets = Object.entries(finalWallets.spot).map(([symbol, amount]) => {
                         let valueUsdt = new Decimal(amount as number);
                         if (symbol !== 'USDT' && symbol !== 'USDC') {
                             const market = markets.find(m => m.symbol === `${symbol}USDT` || m.symbol === `${symbol}USD`);
-                            const currentPrice = market ? market.lastPrice : 0;
+                            const currentPrice = market ? new Decimal(market.lastPrice) : new Decimal(0);
                             
                             if (market) {
                                 valueUsdt = new Decimal(amount as number).times(currentPrice);
-                                
-                                const costPrice = spotCostBasis[symbol];
-                                if (costPrice && costPrice > 0) {
-                                    const pnl = new Decimal(currentPrice).minus(costPrice).times(amount as number);
+                                const costPrice = new Decimal(spotCostBasis[symbol] || 0);
+                                if (costPrice.gt(0)) {
+                                    const pnl = currentPrice.minus(costPrice).times(new Decimal(amount as number));
                                     dSpotUnrealizedPnl = dSpotUnrealizedPnl.plus(pnl);
                                 }
                             }
@@ -1816,35 +2051,34 @@ const useExchangeStore = create<ExchangeState>()(
                         return { symbol, amount: amount as number, valueUsdt: valueUsdt.toNumber() };
                     }).filter(a => a.amount > 0 || a.symbol === 'USDT');
 
-                    dFuturesTotal = new Decimal(finalWallets.futures.USDT || 0).plus(lockedFuturesMargin);
-                    const totalFuturesUnrealizedPnl = updatedPositions.reduce((sum, pos) => sum + (pos.pnl || 0), 0);
-                    dFuturesUnrealizedPnl = new Decimal(totalFuturesUnrealizedPnl);
-
+                    let dEarnTotal = new Decimal(0);
                     Object.entries(finalWallets.earn).forEach(([symbol, amount]) => {
                         let valueUsdt = new Decimal(amount as number);
                         if (symbol !== 'USDT' && symbol !== 'USDC') {
                             const market = markets.find(m => m.symbol === `${symbol}USDT` || m.symbol === `${symbol}USD`);
-                            if (market) valueUsdt = new Decimal(amount as number).times(market.lastPrice);
+                            if (market) valueUsdt = new Decimal(amount as number).times(new Decimal(market.lastPrice));
                         }
                         dEarnTotal = dEarnTotal.plus(valueUsdt);
                     });
 
-                    const dTotalValue = dSpotTotal.plus(dFuturesTotal).plus(dEarnTotal).plus(dFuturesUnrealizedPnl);
-                    const totalValue = dTotalValue.toNumber();
-                    
+                    const dFuturesWallet = new Decimal(finalWallets.futures.USDT || 0);
+                    let dFuturesTotal = dFuturesWallet.plus(dFuturesUnrealizedPnl);
+                    if (dFuturesTotal.lt(0)) dFuturesTotal = new Decimal(0);
+
+                    const dTotalValue = dSpotTotal.plus(dFuturesTotal).plus(dEarnTotal);
                     const dTotalUnrealizedPnl = dSpotUnrealizedPnl.plus(dFuturesUnrealizedPnl);
                     const pnlPercentValue = dTotalValue.gt(0)
-                        ? dTotalUnrealizedPnl.div(dTotalValue).times(100).toNumber()
+                        ? dTotalUnrealizedPnl.div(dTotalValue).times(new Decimal(100)).toNumber()
                         : 0;
 
                     const btcMarket = markets.find(m => m.symbol === 'BTCUSDT');
-                    const btcPrice = btcMarket ? parseFloat(btcMarket.lastPrice) : 0;
+                    const btcPrice = btcMarket ? new Decimal(btcMarket.lastPrice) : new Decimal(0);
                     const newRates = { ...state.rates };
-                    if (btcPrice > 0) newRates.BTC = 1 / btcPrice;
+                    if (btcPrice.gt(0)) newRates.BTC = new Decimal(1).div(btcPrice).toNumber();
 
                     const today = new Date().toISOString().split('T')[0];
                     const nextSnapshots = { ...state.snapshots };
-                    if (state.snapshots[today] === undefined) nextSnapshots[today] = totalValue;
+                    if (state.snapshots[today] === undefined) nextSnapshots[today] = dTotalValue.toNumber();
 
                     return {
                         wallets: finalWallets,
@@ -1854,12 +2088,12 @@ const useExchangeStore = create<ExchangeState>()(
                         tradeHistory: fillOccurred ? updatedTradeHistory : tradeHistory,
                         positions: updatedPositions,
                         assets: updatedAssets,
-                        balance: new Decimal(totalValue).toDecimalPlaces(8).toNumber(),
-                        spotBalance: new Decimal(dSpotTotal.toNumber()).toDecimalPlaces(8).toNumber(),
-                        futuresBalance: new Decimal(dFuturesTotal.toNumber()).toDecimalPlaces(8).toNumber(),
-                        earnBalance: new Decimal(dEarnTotal.toNumber()).toDecimalPlaces(8).toNumber(),
-                        todayPnl: new Decimal(dTotalUnrealizedPnl.toNumber()).toDecimalPlaces(8).toNumber(),
-                        todaySpotPnl: new Decimal(dSpotUnrealizedPnl.toNumber()).toDecimalPlaces(8).toNumber(),
+                        balance: dTotalValue.toDecimalPlaces(8).toNumber(),
+                        spotBalance: dSpotTotal.toDecimalPlaces(8).toNumber(),
+                        futuresBalance: dFuturesTotal.toDecimalPlaces(8).toNumber(),
+                        earnBalance: dEarnTotal.toDecimalPlaces(8).toNumber(),
+                        todayPnl: dTotalUnrealizedPnl.toDecimalPlaces(8).toNumber(),
+                        todaySpotPnl: dSpotUnrealizedPnl.toDecimalPlaces(8).toNumber(),
                         pnlPercent: new Decimal(pnlPercentValue).toDecimalPlaces(2).toNumber(),
                         futuresUnrealizedPnl: dFuturesUnrealizedPnl.toDecimalPlaces(8).toNumber(),
                         rates: newRates,
@@ -1878,10 +2112,9 @@ const useExchangeStore = create<ExchangeState>()(
                 const store = get();
                 const user = store.user;
 
-                if (isLiquidated && user) {
-                    store.showToast('Liquidation Alert', 'Futures account liquidated due to insufficient margin.', 'error');
+                if (liquidatedPositions.length > 0 && user) {
+                    store.showToast('Liquidation Alert', 'Positions liquidated due to insufficient margin.', 'error');
                     
-                    // 1. Simpan ke history dulu biar log trading dapet datanya
                     const historyInserts = liquidatedPositions.map(pos => ({
                         user_id: user.id,
                         pair: pos.pair,
@@ -1893,40 +2126,75 @@ const useExchangeStore = create<ExchangeState>()(
                         size: pos.size,
                         margin: pos.margin,
                         pnl: pos.pnl,
+                        type: 'Liquidation',
                         time_opened: new Date(Date.now() - 3600000).toISOString(),
                         time_closed: new Date().toISOString()
                     }));
 
-                    supabase.from('history_futures').insert(historyInserts).then(() => {
-                        // 2. Baru hapus dari engine posisi aktif
-                        supabase.from('positions_futures').delete().eq('user_id', user.id).then(() => {
-                            store.syncWalletsToSupabase();
-                            store.fetchSupabaseHistory(); // Update UI
+                    import('../utils/supabase').then(({ supabase }) => {
+                        supabase.from('history_futures').insert(historyInserts).then(() => {
+                            const deletePromises = liquidatedPositions.map(pos => 
+                                supabase.from('positions_futures').delete().eq('user_id', user.id).eq('pair', pos.pair).eq('side', pos.side === 'Buy' ? 'long' : 'short')
+                            );
+                            Promise.all(deletePromises).then(() => {
+                                store.syncWalletsToSupabase();
+                                store.fetchSupabaseHistory();
+                            });
                         });
                     });
                 }
 
                 if (filledSpotOrders.length > 0 && user) {
-                    filledSpotOrders.forEach(async (order) => {
-                        await supabase.from('orders_spot')
-                            .update({ status: 'filled', filled: order.amount })
-                            .eq('user_id', user.id)
-                            .eq('pair', order.symbol)
-                            .eq('side', order.side.toLowerCase())
-                            .eq('status', 'open');
+                    import('../utils/supabase').then(({ supabase }) => {
+                        filledSpotOrders.forEach(async (order) => {
+                            await supabase.from('orders_spot')
+                                .update({ status: 'filled', filled: order.amount })
+                                .eq('user_id', user.id)
+                                .eq('pair', order.symbol)
+                                .eq('side', order.side.toLowerCase())
+                                .eq('status', 'open');
+                        });
+                        store.syncWalletsToSupabase();
                     });
-                    store.syncWalletsToSupabase();
                 }
 
-                if (triggeredClosures.length > 0) {
-                    triggeredClosures.forEach(c => {
-                        if (c.id === 'SPOT') {
-                            store.showToast(`${c.type} Triggered`, `Spot asset ${c.symbol} sold.`, 'info');
-                            store.syncWalletsToSupabase();
-                        } else {
-                            store.showToast(`${c.type} Triggered`, `Position auto-closed.`, 'info');
-                            store.closeFuturesPosition(c.id);
-                        }
+                if (triggeredClosures.length > 0 && user) {
+                    import('../utils/supabase').then(({ supabase }) => {
+                        triggeredClosures.forEach(async c => {
+                            if (c.id === 'SPOT') {
+                                store.showToast(`${c.type} Triggered`, `Spot asset ${c.symbol} sold.`, 'info');
+                                
+                                const spotMarket = store.markets.find(m => m.symbol === `${c.symbol}USDT` || m.symbol === `${c.symbol}USD`);
+                                const execPrice = spotMarket ? parseFloat(spotMarket.lastPrice) : 0;
+                                const spAsset = store.spotTPSL.find(s => s.symbol === c.symbol);
+
+                                if (spAsset) {
+                                    await supabase.from('orders_spot').insert([{
+                                        id: crypto.randomUUID(),
+                                        user_id: user.id,
+                                        pair: `${c.symbol}USDT`,
+                                        side: 'sell',
+                                        type: 'market',
+                                        price: execPrice,
+                                        amount: spAsset.amount,
+                                        filled: spAsset.amount,
+                                        status: 'filled'
+                                    }]);
+
+                                    const { data: profile } = await supabase.from('profiles').select('preferences').eq('id', user.id).maybeSingle();
+                                    const updatedTPSL = store.spotTPSL.filter(s => s.symbol !== c.symbol);
+                                    await supabase.from('profiles').upsert({
+                                        id: user.id,
+                                        preferences: { ...(profile?.preferences || {}), spotTPSL: updatedTPSL },
+                                        updated_at: new Date().toISOString()
+                                    });
+                                }
+                                store.syncWalletsToSupabase();
+                            } else {
+                                store.showToast(`${c.type} Triggered`, `Position auto-closed.`, 'info');
+                                store.closeFuturesPosition(c.id);
+                            }
+                        });
                     });
                 }
             },
@@ -1936,7 +2204,6 @@ const useExchangeStore = create<ExchangeState>()(
                 const now = new Date();
                 let historicalDate = new Date();
 
-                // Set baseline mundur sesuai timeframe (1D = kemaren, 1W = 7 hari lalu, dst)
                 switch (timeframe) {
                     case '1D': historicalDate.setDate(now.getDate() - 1); break;
                     case '1W': historicalDate.setDate(now.getDate() - 7); break;
@@ -1957,7 +2224,6 @@ const useExchangeStore = create<ExchangeState>()(
                     baselineFound = true;
                     baselineTimestamp = historicalDate.getTime();
                 } else {
-                    // Cari snapshot terdekat SEBELUM atau SAMA DENGAN target tanggal
                     for (let i = sortedDates.length - 1; i >= 0; i--) {
                         if (sortedDates[i] <= targetDateStr) {
                             historicalEquity = snapshots[sortedDates[i]];
@@ -1968,7 +2234,6 @@ const useExchangeStore = create<ExchangeState>()(
                     }
                 }
 
-                // Jika user baru daftar hari ini, histori kemarin = 0
                 if (!baselineFound) {
                     historicalEquity = 0;
                     baselineTimestamp = 0;
@@ -1993,13 +2258,11 @@ const useExchangeStore = create<ExchangeState>()(
                         return acc;
                     }, 0);
 
-                // Rumus Mutlak Exchange: PnL = Current Equity - (Baseline Equity + Net Flow Deposit)
                 const dBalance = new Decimal(balance);
                 const dHistorical = new Decimal(historicalEquity);
                 const dPeriodFlow = new Decimal(periodFlow);
                 const dCurrentPnL = dBalance.minus(dHistorical).minus(dPeriodFlow);
 
-                // Hitung persentase ROI berdasarkan Capital (Histori + Deposit baru)
                 const depositsInPeriod = transactionHistory
                     .filter(tx => tx.timestamp > baselineTimestamp && tx.status === 'Completed' && (tx.type.toLowerCase() === 'deposit' || (!tx.from && tx.to)))
                     .reduce((acc, tx) => new Decimal(acc).plus(tx.amount).toNumber(), 0);

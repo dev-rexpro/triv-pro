@@ -23,7 +23,16 @@ import AnimatedPlaceholder from '../components/AnimatedPlaceholder';
 const FILTERS = ['All', 'Hot', 'Top', 'New', 'Gainers', 'Losers', 'MCap', 'Turnover'];
 
 const MarketView = () => {
-    const { markets, futuresMarkets, favorites, favoriteGroups, hiddenGroups, addFavoriteGroup, deleteFavoriteGroup, setActivePage, setSearchOpen, setManageGroupsOpen } = useExchangeStore();
+    const markets = useExchangeStore(state => state.markets);
+    const futuresMarkets = useExchangeStore(state => state.futuresMarkets);
+    const favorites = useExchangeStore(state => state.favorites);
+    const favoriteGroups = useExchangeStore(state => state.favoriteGroups);
+    const hiddenGroups = useExchangeStore(state => state.hiddenGroups);
+    const addFavoriteGroup = useExchangeStore(state => state.addFavoriteGroup);
+    const deleteFavoriteGroup = useExchangeStore(state => state.deleteFavoriteGroup);
+    const setActivePage = useExchangeStore(state => state.setActivePage);
+    const setSearchOpen = useExchangeStore(state => state.setSearchOpen);
+    const setManageGroupsOpen = useExchangeStore(state => state.setManageGroupsOpen);
     const [mainTab, setMainTab] = useState('Marketplace');
     const [subTab, setSubTab] = useState('Futures');
     const [filter, setFilter] = useState('All');

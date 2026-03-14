@@ -10,7 +10,8 @@ interface MarketRowProps {
 }
 
 const MarketRow = React.memo(({ coin, showPerp = true, onClick }: MarketRowProps) => {
-    const { currency: globalCurrency, rates } = useExchangeStore();
+    const globalCurrency = useExchangeStore(state => state.currency);
+    const rates = useExchangeStore(state => state.rates);
     const currency = (globalCurrency === 'BTC' || globalCurrency === 'USDT') ? 'USD' : globalCurrency;
     const changePercent = parseFloat(coin.priceChangePercent);
     const isPositive = changePercent >= 0;

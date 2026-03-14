@@ -236,12 +236,57 @@ export default function App() {
           
           <DepositBottomSheet />
 
-          <div className="flex-1 overflow-y-auto no-scrollbar">
-            {activePage === 'home' && <HomeView />}
-            {activePage === 'market' && <MarketView />}
-            {activePage === 'trade' && <TradeView />}
-            {activePage === 'futures' && <TradeView />}
-            {activePage === 'assets' && <AssetsView />}
+          <div className="flex-1 overflow-y-auto no-scrollbar relative">
+            <AnimatePresence mode="wait">
+              {activePage === 'home' && (
+                <motion.div
+                  key="home"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="h-full"
+                >
+                  <HomeView />
+                </motion.div>
+              )}
+              {activePage === 'market' && (
+                <motion.div
+                  key="market"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="h-full"
+                >
+                  <MarketView />
+                </motion.div>
+              )}
+              {(activePage === 'trade' || activePage === 'futures') && (
+                <motion.div
+                  key="trade"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="h-full"
+                >
+                  <TradeView />
+                </motion.div>
+              )}
+              {activePage === 'assets' && (
+                <motion.div
+                  key="assets"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="h-full"
+                >
+                  <AssetsView />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {activePage !== 'chart-trade' && activePage !== 'profile' && activePage !== 'user-center' && (

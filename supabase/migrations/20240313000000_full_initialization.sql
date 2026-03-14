@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Removed automatic 500 USDT deposit
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -118,6 +117,8 @@ CREATE TABLE IF NOT EXISTS public.positions_futures (
     size NUMERIC(20, 8) NOT NULL,
     liquidation_price NUMERIC(20, 8),
     margin NUMERIC(20, 8) NOT NULL,
+    tp_price NUMERIC(20, 8),
+    sl_price NUMERIC(20, 8),
     tp_orders JSONB DEFAULT '[]'::jsonb,
     sl_orders JSONB DEFAULT '[]'::jsonb,
     trailing_stop JSONB,
@@ -130,6 +131,30 @@ CREATE POLICY "Users can view own positions" ON public.positions_futures FOR SEL
 CREATE POLICY "Users can insert own positions" ON public.positions_futures FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own positions" ON public.positions_futures FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own positions" ON public.positions_futures FOR DELETE USING (auth.uid() = user_id);
+
+CREATE TABLE IF NOT EXISTS public.history_futures (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    pair TEXT NOT NULL,
+    leverage INTEGER NOT NULL,
+    margin_type TEXT,
+    side TEXT,
+    entry_price NUMERIC(20, 8),
+    close_price NUMERIC(20, 8),
+    size NUMERIC(20, 8),
+    margin NUMERIC(20, 8),
+    pnl NUMERIC(20, 8),
+    type TEXT,
+    time_opened TIMESTAMPTZ,
+    time_closed TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.history_futures ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own futures history" ON public.history_futures FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own futures history" ON public.history_futures FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own futures history" ON public.history_futures FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own futures history" ON public.history_futures FOR DELETE USING (auth.uid() = user_id);
 
 CREATE OR REPLACE FUNCTION public.internal_transfer(
     p_user_id UUID,
@@ -195,8 +220,6 @@ BEGIN
     DELETE FROM public.positions_futures WHERE user_id = p_user_id;
     DELETE FROM public.history_futures WHERE user_id = p_user_id;
     DELETE FROM public.wallets WHERE user_id = p_user_id;
-    
-    -- Removed automatic 500 USDT deposit during reset
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -208,27 +231,6 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authentic
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated;
 
-CREATE TABLE IF NOT EXISTS public.history_futures (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-    pair TEXT NOT NULL,
-    leverage INTEGER NOT NULL,
-    margin_type TEXT,
-    side TEXT,
-    entry_price NUMERIC(20, 8),
-    close_price NUMERIC(20, 8),
-    size NUMERIC(20, 8),
-    margin NUMERIC(20, 8),
-    pnl NUMERIC(20, 8),
-    time_opened TIMESTAMPTZ,
-    time_closed TIMESTAMPTZ DEFAULT NOW()
-);
-
-ALTER TABLE public.history_futures ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view own futures history" ON public.history_futures FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own futures history" ON public.history_futures FOR INSERT WITH CHECK (auth.uid() = user_id);
-
 BEGIN;
   DROP PUBLICATION IF EXISTS supabase_realtime;
   CREATE PUBLICATION supabase_realtime;
@@ -236,3 +238,4 @@ COMMIT;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.wallets;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.orders_spot;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.positions_futures;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.history_futures;
