@@ -34,7 +34,7 @@ const DepositBottomSheet = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-[var(--overlay-bg)] z-[500]"
+                        className="fixed inset-0 bg-[var(--overlay-bg)] z-[1100]"
                         onClick={() => window.history.back()}
                     />
                     <motion.div
@@ -42,7 +42,7 @@ const DepositBottomSheet = () => {
                         animate={{ y: 0 }}
                         exit={{ y: "100%" }}
                         transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-[var(--bg-card)] rounded-t-[24px] z-[501] flex flex-col max-h-[85vh] px-6 pt-2 pb-6"
+                        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-[var(--bg-card)] rounded-t-[24px] z-[1101] flex flex-col max-h-[85vh] px-6 pt-2 pb-6"
                     >
                         {/* Handle */}
                         <div className="flex justify-center mb-6">

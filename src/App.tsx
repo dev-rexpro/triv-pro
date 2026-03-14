@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useEffect, useRef } from 'react';
-import { AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import useExchangeStore from './stores/useExchangeStore';
 import { wsManager } from './utils/WebSocketManager';
 import { supabase } from './utils/supabase';
@@ -45,7 +45,7 @@ export default function App() {
   const {
     session, setSession,
     activePage, setActivePage, setMarkets, setFuturesMarkets, setRates, setSpotSymbols, setFuturesSymbols, isSearchOpen, setSearchOpen, isManageGroupsOpen, setManageGroupsOpen, isDepositOptionOpen, setDepositOptionOpen, isPairPickerOpen, setPairPickerOpen, updateAssetPrices, setTradeType,
-    theme, isPreSetupOpen, isInitializing
+    theme, isPreSetupOpen, isInitializing, isSigningUp
   } = useExchangeStore();
 
   // Bootstrap and Sync Theme (DOM + Meta Tags)
@@ -67,6 +67,9 @@ export default function App() {
   // Supabase Auth Listener
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const { isSigningUp: currentIsSigningUp } = useExchangeStore.getState();
+      if (currentIsSigningUp) return; // Prevent flicker during manual signout in signup flow
+
       setSession(session);
       
       // Initialize or re-sync on login or persistent session discovery
@@ -197,7 +200,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] relative overflow-hidden font-sans">
-      {!session ? (
+      {!session || isSigningUp ? (
         <AuthView />
       ) : isPreSetupOpen ? (
         <>

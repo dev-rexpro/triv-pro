@@ -4,6 +4,8 @@ import {
     RiArrowRightLine, RiCheckLine, RiRocketLine,
     RiSettingsLine, RiWallet3Line, RiBankCardLine
 } from 'react-icons/ri';
+import { FiDownload as ArrowDown, FiCreditCard as CreditCard, FiShield as Shield } from 'react-icons/fi';
+import { BsBank as Bank } from 'react-icons/bs';
 import useExchangeStore from '../stores/useExchangeStore';
 
 export default function PreSetupView() {
@@ -212,41 +214,78 @@ export default function PreSetupView() {
                                 <button onClick={prevStep} className="mt-6 text-[12px] font-bold text-[var(--text-quaternary)]">Back</button>
                             </>
                         ) : (
-                            <div className="w-full flex flex-col gap-4">
-                                <h2 className="text-xl font-bold mb-2">Deposit Funds</h2>
-                                <p className="text-[13px] text-[var(--text-tertiary)] mb-4">Choose your preferred deposit method</p>
+                            <div className="w-full flex flex-col items-center">
+                                <h2 className="text-xl font-bold mb-1">Add Funds</h2>
+                                <p className="text-[13px] text-[var(--text-tertiary)] mb-6">Choose your preferred deposit method</p>
                                 
-                                <div className="flex flex-col gap-3">
-                                    <button 
-                                        onClick={() => setActivePage('deposit-crypto')}
-                                        className="w-full p-4 bg-[var(--bg-secondary)] rounded-2xl flex items-center gap-4 hover:bg-[var(--bg-hover)] transition-colors text-left"
-                                    >
-                                        <div className="w-10 h-10 bg-[var(--accent)]/10 text-[var(--accent)] rounded-xl flex items-center justify-center">
-                                            <RiRocketLine size={20} />
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-[15px]">Crypto Deposit</div>
-                                            <div className="text-[11px] text-[var(--text-tertiary)]">Transfer USDT, BTC, or ETH</div>
-                                        </div>
-                                    </button>
+                                <div className="w-full space-y-4 text-left">
+                                    <div className="text-[12px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-2 ml-1">I have crypto assets</div>
                                     
                                     <button 
-                                        onClick={() => setActivePage('deposit-fiat')}
-                                        className="w-full p-4 bg-[var(--bg-secondary)] rounded-2xl flex items-center gap-4 hover:bg-[var(--bg-hover)] transition-colors text-left"
+                                        onClick={() => setActivePage('deposit-crypto')}
+                                        className="w-full flex items-center justify-between py-3.5 px-4 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
                                     >
-                                        <div className="w-10 h-10 bg-[var(--green)]/10 text-[var(--green)] rounded-xl flex items-center justify-center">
-                                            <RiBankCardLine size={20} />
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-[15px]">Fiat Deposit</div>
-                                            <div className="text-[11px] text-[var(--text-tertiary)]">Bank Transfer or E-Wallet</div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="text-[var(--text-primary)]">
+                                                <ArrowDown size={24} />
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-[16px] text-[var(--text-primary)]">Deposit Crypto</div>
+                                                <div className="text-[12px] text-[var(--text-tertiary)] font-medium">Deposit assets via the blockchain</div>
+                                            </div>
                                         </div>
                                     </button>
+
+                                    <div className="text-[12px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mt-6 mb-3 ml-1">I don't have crypto assets</div>
+
+                                    <div className="space-y-3">
+                                        <button 
+                                            onClick={() => setActivePage('deposit-fiat')}
+                                            className="w-full flex items-center justify-between py-3.5 px-4 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-[var(--text-primary)]">
+                                                    <Bank size={24} />
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-[16px] text-[var(--text-primary)] flex items-center gap-2">
+                                                        Fiat Deposit <span className="text-[10px] bg-[#00C076] text-white px-1.5 py-0.5 rounded leading-none uppercase">0% Fees</span>
+                                                    </div>
+                                                    <div className="text-[12px] text-[var(--text-tertiary)] font-medium mt-0.5">Fast and free via SEPA & PIX</div>
+                                                </div>
+                                            </div>
+                                        </button>
+
+                                        <button 
+                                            onClick={() => setActivePage('deposit-card')}
+                                            className="w-full flex items-center justify-between py-3.5 px-4 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-[var(--text-primary)]">
+                                                    <CreditCard size={24} />
+                                                </div>
+                                                <div>
+                                                    <div className="font-bold text-[16px] text-[var(--text-primary)]">Credit/Debit Card</div>
+                                                    <div className="text-[12px] text-[var(--text-tertiary)] font-medium mt-0.5">Buy crypto via VISA/Mastercard</div>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="mt-8 text-center text-[11px] text-[var(--text-tertiary)] font-medium w-full">
+                                    <div className="flex items-center justify-center gap-4 mb-3 opacity-40 grayscale translate-y-1">
+                                        <span className="font-black tracking-[0.2em] text-[10px]">FIREBLOCKS</span>
+                                        <span className="font-black tracking-[0.2em] text-[10px]">ELLIPTIC</span>
+                                    </div>
+                                    <div className="flex items-center justify-center gap-1.5 text-[10px] opacity-70">
+                                        <Shield size={12} color="#3772FF" /> Your funds and payment profile are securely protected.
+                                    </div>
                                 </div>
                                 
                                 <button 
                                     onClick={() => setSubFlow('main')}
-                                    className="mt-6 text-[13px] font-bold text-[var(--text-tertiary)]"
+                                    className="mt-6 text-[13px] font-bold text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
                                 >
                                     Cancel
                                 </button>

@@ -73,7 +73,7 @@ const TradeView = () => {
 
     const [activeTopTab, setActiveTopTab] = useState<'Spot' | 'Futures' | 'Bots' | 'Convert'>(tradeType === 'futures' ? 'Futures' : 'Spot');
     const currentSymbol = selectedCoin || 'BTCUSDT';
-    
+
     const tradingSymbol = useMemo(() => {
         if (activeTopTab !== 'Futures') return currentSymbol;
         const exists = (futuresSymbols || []).some(s => s.symbol === currentSymbol);
@@ -161,6 +161,15 @@ const TradeView = () => {
         }
     }, [ticker?.lastPrice, isPriceFocused, isPriceAuto]);
 
+    const precisionDecimals = useMemo(() => {
+        if (precision >= 1) return 0;
+        const str = precision.toString();
+        if (str.includes('e-')) {
+            return parseInt(str.split('e-')[1], 10);
+        }
+        return str.split('.')[1]?.length || 0;
+    }, [precision]);
+
     // Intelligent Auto-Fetch logic for Limit orders
     useEffect(() => {
         if (isPriceAuto && ticker?.lastPrice && orderType === 'Limit' && !isPriceFocused) {
@@ -168,7 +177,7 @@ const TradeView = () => {
             // Buy slightly below, Sell slightly above (0.02% offset)
             const offset = mPrice * 0.0002;
             const autoPrice = tradeSide === 'buy' ? mPrice - offset : mPrice + offset;
-            
+
             setPriceInput(formatInput(autoPrice.toFixed(precisionDecimals)));
         }
     }, [ticker?.lastPrice, isPriceAuto, orderType, tradeSide, precisionDecimals, isPriceFocused]);
@@ -241,10 +250,10 @@ const TradeView = () => {
             try {
                 const res = await fetch(`${baseUrl}${prefix}/exchangeInfo?symbol=${tradingSymbol}`);
                 const data = await res.json();
-                
+
                 // Safety: Find the specific symbol instead of assuming index 0
                 const symbolInfo = data.symbols?.find((s: any) => s.symbol === tradingSymbol);
-                
+
                 if (symbolInfo) {
                     const priceFilter = symbolInfo.filters.find((f: any) => f.filterType === 'PRICE_FILTER');
                     if (priceFilter && priceFilter.tickSize) {
@@ -496,14 +505,6 @@ const TradeView = () => {
         }
     }, [dynamicPrecisions, currentSymbol, activeTopTab]);
 
-    const precisionDecimals = useMemo(() => {
-        if (precision >= 1) return 0;
-        const str = precision.toString();
-        if (str.includes('e-')) {
-            return parseInt(str.split('e-')[1], 10);
-        }
-        return str.split('.')[1]?.length || 0;
-    }, [precision]);
 
     const aggregateOrderBook = (data: any[], type: 'buy' | 'sell') => {
         if (!data || data.length === 0) return [];
@@ -863,7 +864,7 @@ const TradeView = () => {
                                 <span className="text-[13px] font-medium text-[var(--text-secondary)] border-b border-dashed border-[var(--text-tertiary)] pb-[1px] leading-none transition-colors group-hover:text-[var(--text-primary)]">TP/SL</span>
                             </label>
                             {isTpSlEnabled && (
-                                <button 
+                                <button
                                     className="text-[13px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-0.5"
                                     onClick={() => {
                                         if (activeTopTab === 'Futures') {
@@ -1395,7 +1396,7 @@ const TradeView = () => {
                                     <div key={pos.id} className="mb-5 last:mb-0">
                                         {/* Header Row */}
                                         <div className="flex items-center justify-between mb-1">
-                                            <div 
+                                            <div
                                                 className="flex items-center gap-1 cursor-pointer hover:opacity-80 active:scale-95 transition-all"
                                                 onClick={() => handleNavigateToTrade(pos.symbol.includes('USDT') ? pos.symbol : `${pos.symbol}USDT`, 'futures')}
                                             >
@@ -1404,8 +1405,8 @@ const TradeView = () => {
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <p className="text-[11px] text-[var(--text-tertiary)] font-medium border-b border-dashed border-[var(--border-color)]">PnL (USDT)</p>
-                                                <RiShare2Line 
-                                                    className="w-5 h-5 text-[var(--text-primary)] cursor-pointer active:scale-90 transition-transform" 
+                                                <RiShare2Line
+                                                    className="w-5 h-5 text-[var(--text-primary)] cursor-pointer active:scale-90 transition-transform"
                                                     onClick={() => setSharePnLSheetOpen(true, { symbol: pos.symbol, side: pos.side, isFutures: true, leverage: pos.leverage, entryPrice: pos.entryPrice, lastPrice: pos.markPrice, pnl: pos.pnl, pnlPercent: pos.pnlPercent })}
                                                 />
                                             </div>
@@ -1447,7 +1448,7 @@ const TradeView = () => {
                                                 <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] ml-auto w-max">MMR</p>
                                                 <p className="text-[14px] font-medium text-[var(--text-primary)]">353.50%</p>
                                             </div>
-                                            
+
                                             <div>
                                                 <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">Entry price</p>
                                                 <p className="text-[14px] font-medium text-[var(--text-primary)]">{pos.entryPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
@@ -1463,7 +1464,7 @@ const TradeView = () => {
                                         </div>
 
                                         {/* TP/SL Preview Row */}
-                                        <div 
+                                        <div
                                             className="flex items-center justify-between py-1 mb-2 cursor-pointer hover:bg-black/5 rounded-md transition-colors"
                                             onClick={() => setFuturesTPSLSheetOpen(true, pos)}
                                         >
@@ -1478,7 +1479,7 @@ const TradeView = () => {
 
                                         {/* Actions Row */}
                                         <div className="flex gap-2">
-                                            <button 
+                                            <button
                                                 className="flex-1 py-2 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-semibold text-[14px] hover:bg-gray-200 transition-colors"
                                                 onClick={() => setFuturesTPSLSheetOpen(true, pos)}
                                             >
@@ -1579,7 +1580,7 @@ const TradeView = () => {
                                     return (
                                         <div key={`spot-${symbol}`} className="mb-5 last:mb-0">
                                             <div className="flex items-center justify-between mb-1.5">
-                                                <div 
+                                                <div
                                                     className="flex items-center gap-2 cursor-pointer hover:opacity-80 active:scale-95 transition-all"
                                                     onClick={() => handleNavigateToTrade(`${symbol}USDT`, 'spot')}
                                                 >
@@ -1593,8 +1594,8 @@ const TradeView = () => {
                                                         <p className={`text-[14px] font-semibold ${pnlAbsolute >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'} border-b border-dashed ${pnlAbsolute >= 0 ? 'border-[var(--green)]' : 'border-[var(--red)]'} pb-0.5`}>
                                                             {pnlAbsolute >= 0 ? '+' : ''}${Math.abs(pnlAbsolute).toFixed(2)} ({pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%)
                                                         </p>
-                                                        <RiShare2Line 
-                                                            className="w-5 h-5 text-[var(--text-primary)] cursor-pointer active:scale-90 transition-transform" 
+                                                        <RiShare2Line
+                                                            className="w-5 h-5 text-[var(--text-primary)] cursor-pointer active:scale-90 transition-transform"
                                                             onClick={() => setSharePnLSheetOpen(true, { symbol, side: 'Buy', isFutures: false, entryPrice: costPrice, lastPrice, pnl: pnlAbsolute, pnlPercent })}
                                                         />
                                                     </div>
@@ -1608,7 +1609,7 @@ const TradeView = () => {
                                                 </div>
                                                 <div className="text-center">
                                                     <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-0.5">Cost price</p>
-                                                    <p 
+                                                    <p
                                                         className="text-[14px] font-medium text-[var(--text-primary)] flex items-center justify-center gap-1 tabular-nums cursor-pointer hover:bg-[var(--bg-secondary)] rounded-md py-0.5 transition-colors"
                                                         onClick={() => setSpotCostPriceSheetOpen(true, { symbol, costPrice, balance })}
                                                     >
@@ -1632,7 +1633,7 @@ const TradeView = () => {
                                             </div>
 
                                             {spotTPSL.find(s => s.symbol === symbol) && (
-                                                <div 
+                                                <div
                                                     className="flex items-center justify-between py-2 border-t border-[var(--border-color)] mb-4 cursor-pointer"
                                                     onClick={() => setSpotTPSLSheetOpen(true, { symbol, amount: balance })}
                                                 >
@@ -1642,13 +1643,13 @@ const TradeView = () => {
                                             )}
 
                                             <div className="flex gap-2.5">
-                                                <button 
+                                                <button
                                                     className="flex-1 py-2 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-semibold text-[14px]"
                                                     onClick={() => setSpotTPSLSheetOpen(true, { symbol, amount: balance })}
                                                 >
                                                     TP/SL
                                                 </button>
-                                                <button 
+                                                <button
                                                     className="flex-1 py-2 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-semibold text-[14px]"
                                                     onClick={() => setSpotTradeSheetOpen(true, { symbol, amount: balance })}
                                                 >
@@ -1975,15 +1976,15 @@ const TradeView = () => {
             <SharePnLSheet />
 
             {/* Individual Position Close Components */}
-            <FuturesCloseSheet 
-                isOpen={isCloseSheetOpen} 
-                onClose={() => setIsCloseSheetOpen(false)} 
-                position={selectedPositionForClose} 
+            <FuturesCloseSheet
+                isOpen={isCloseSheetOpen}
+                onClose={() => setIsCloseSheetOpen(false)}
+                position={selectedPositionForClose}
             />
-            <FuturesCloseAllModal 
-                isOpen={isPositionCloseModalOpen} 
-                onClose={() => setIsPositionCloseModalOpen(false)} 
-                position={selectedPositionForClose} 
+            <FuturesCloseAllModal
+                isOpen={isPositionCloseModalOpen}
+                onClose={() => setIsPositionCloseModalOpen(false)}
+                position={selectedPositionForClose}
             />
 
             {/* Close All Confirmation Modal */}

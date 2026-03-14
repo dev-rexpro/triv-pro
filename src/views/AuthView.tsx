@@ -9,21 +9,25 @@ import { FaTelegram } from "react-icons/fa";
 import { FiEye, FiEyeOff, FiCheck as Check } from "react-icons/fi";
 
 const AuthView = () => {
-    const [step, setStep] = useState(1); // 1: Welcome, 2: Email, 3: Location
-    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [country, setCountry] = useState('Indonesia');
     const [loading, setLoading] = useState(false);
-    const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
     const [showPassword, setShowPassword] = useState(false);
     const [isAgreed, setIsAgreed] = useState(true);
-    const { setSession, showToast } = useExchangeStore();
+    const { 
+        setSession, showToast, 
+        authStep: step, setAuthStep: setStep,
+        authEmail: email, setAuthEmail: setEmail,
+        authMode, setAuthMode,
+        setIsSigningUp
+    } = useExchangeStore();
 
     const handleNext = () => setStep(step + 1);
     const handleBack = () => setStep(step - 1);
 
     const handleAuth = async () => {
         setLoading(true);
+        if (authMode === 'signup') setIsSigningUp(true);
         try {
             let result;
             if (authMode === 'signup') {
@@ -58,7 +62,7 @@ const AuthView = () => {
                     id: data.user.id,
                     username: email.split('@')[0],
                     country: country,
-                    setup_completed: false // Explicitly mark as not completed
+                    preferences: { setup_completed: false } // Correct mapping to preferences JSONB
                 });
                 if (profileError) console.error("Profile creation error:", profileError);
 
@@ -69,15 +73,18 @@ const AuthView = () => {
                 // Ensure local state is cleared for the next login attempt
                 setSession(null); 
                 setStep(4);
+                setIsSigningUp(false); // Done with signup flow, Step 4 is stable
             } else if (data?.session) {
                 // Normal login successful
                 setSession(data.session);
             } else if (data?.user && !data.session) {
                 // Standard Supabase signup (no session returned)
                 setStep(4);
+                setIsSigningUp(false);
             }
         } catch (err) {
             console.error('Auth crash:', err);
+            setIsSigningUp(false);
         } finally {
             setLoading(false);
         }

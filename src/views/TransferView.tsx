@@ -87,7 +87,7 @@ const TransferView = () => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
-            className="fixed inset-0 bg-[var(--bg-primary)] z-[300] flex flex-col px-4 pb-0 overflow-hidden"
+            className="fixed inset-0 bg-[var(--bg-primary)] z-[1100] flex flex-col px-4 pb-0 overflow-hidden"
         >
             {/* Header */}
             <div className="flex items-center justify-between py-6 bg-[var(--bg-primary)] z-10 sticky pt-safe top-0">
