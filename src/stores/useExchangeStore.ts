@@ -1652,45 +1652,39 @@ const useExchangeStore = create<ExchangeState>()(
                 const now = new Date();
                 let historicalDate = new Date();
 
-                const todayStr = now.toISOString().split('T')[0];
+                // Set baseline mundur sesuai timeframe (1D = kemaren, 1W = 7 hari lalu, dst)
+                switch (timeframe) {
+                    case '1D': historicalDate.setDate(now.getDate() - 1); break;
+                    case '1W': historicalDate.setDate(now.getDate() - 7); break;
+                    case '1M': historicalDate.setMonth(now.getMonth() - 1); break;
+                    case '6M': historicalDate.setMonth(now.getMonth() - 6); break;
+                    case '1Y': historicalDate.setFullYear(now.getFullYear() - 1); break;
+                }
+
+                const targetDateStr = historicalDate.toISOString().split('T')[0];
+                const sortedDates = Object.keys(snapshots).sort();
+
                 let historicalEquity = 0;
                 let baselineFound = false;
                 let baselineTimestamp = 0;
 
-                if (timeframe === '1D') {
-                    if (snapshots[todayStr] !== undefined) {
-                        historicalEquity = snapshots[todayStr];
-                        baselineFound = true;
-                        baselineTimestamp = new Date(todayStr).getTime();
-                    }
+                if (snapshots[targetDateStr] !== undefined) {
+                    historicalEquity = snapshots[targetDateStr];
+                    baselineFound = true;
+                    baselineTimestamp = historicalDate.getTime();
                 } else {
-                    // Calculate the start date for comparison based on timeframe
-                    switch (timeframe) {
-                        case '1W': historicalDate.setDate(now.getDate() - 7); break;
-                        case '1M': historicalDate.setMonth(now.getMonth() - 1); break;
-                        case '6M': historicalDate.setMonth(now.getMonth() - 6); break;
-                        case '1Y': historicalDate.setFullYear(now.getFullYear() - 1); break;
-                    }
-
-                    const targetDateStr = historicalDate.toISOString().split('T')[0];
-                    const sortedDates = Object.keys(snapshots).sort();
-
-                    if (snapshots[targetDateStr] !== undefined) {
-                        historicalEquity = snapshots[targetDateStr];
-                        baselineFound = true;
-                        baselineTimestamp = historicalDate.getTime();
-                    } else {
-                        for (let i = sortedDates.length - 1; i >= 0; i--) {
-                            if (sortedDates[i] < targetDateStr) {
-                                historicalEquity = snapshots[sortedDates[i]];
-                                baselineFound = true;
-                                baselineTimestamp = new Date(sortedDates[i]).getTime();
-                                break;
-                            }
+                    // Cari snapshot terdekat SEBELUM atau SAMA DENGAN target tanggal
+                    for (let i = sortedDates.length - 1; i >= 0; i--) {
+                        if (sortedDates[i] <= targetDateStr) {
+                            historicalEquity = snapshots[sortedDates[i]];
+                            baselineFound = true;
+                            baselineTimestamp = new Date(sortedDates[i]).getTime();
+                            break;
                         }
                     }
                 }
 
+                // Jika user baru daftar hari ini, histori kemarin = 0
                 if (!baselineFound) {
                     historicalEquity = 0;
                     baselineTimestamp = 0;
@@ -1715,15 +1709,15 @@ const useExchangeStore = create<ExchangeState>()(
                         return acc;
                     }, 0);
 
-                // 5. Total PnL = Current Total Equity - (Baseline + Net Flow) — using Decimal for precision
+                // Rumus Mutlak Exchange: PnL = Current Equity - (Baseline Equity + Net Flow Deposit)
                 const dBalance = new Decimal(balance);
                 const dHistorical = new Decimal(historicalEquity);
                 const dPeriodFlow = new Decimal(periodFlow);
                 const dCurrentPnL = dBalance.minus(dHistorical).minus(dPeriodFlow);
 
-                // 6. Calculate Base Capital for ROI (Baseline + all Deposits in period)
+                // Hitung persentase ROI berdasarkan Capital (Histori + Deposit baru)
                 const depositsInPeriod = transactionHistory
-                    .filter(tx => tx.timestamp > baselineTimestamp && tx.status === 'Completed' && tx.type === 'Deposit')
+                    .filter(tx => tx.timestamp > baselineTimestamp && tx.status === 'Completed' && (tx.type.toLowerCase() === 'deposit' || (!tx.from && tx.to)))
                     .reduce((acc, tx) => new Decimal(acc).plus(tx.amount).toNumber(), 0);
 
                 const dBaseCapital = dHistorical.plus(depositsInPeriod);

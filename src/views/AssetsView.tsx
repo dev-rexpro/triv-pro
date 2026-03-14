@@ -248,109 +248,41 @@ const AssetList = React.memo(({ activeTab, setActiveTab, hideBalance, liveSpotBa
                 {[{ name: 'Spot', balance: liveSpotBalance }, { name: 'Futures', balance: futuresBalance + futuresUnrealizedPnl }, { name: 'Earn', balance: earnBalance }].map(port => (
                     <div key={`port-${port.name}`} className="flex justify-between items-center cursor-pointer" onClick={() => setActiveTab(port.name)}>
                         <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center text-[var(--text-secondary)] font-bold text-sm">{port.name[0]}</div><div className="flex flex-col"><span className="font-bold text-[15px] text-[var(--text-primary)]">{port.name}</span></div></div>
-                        <div className="flex flex-col items-end"><span className="font-bold text-[15px] text-[var(--text-primary)] tabular-nums">{!hideBalance ? (currency === 'IDR' ? (port.balance * rates?.IDR).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : port.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : '******'}</span><span className="text-[12px] text-[var(--text-tertiary)] font-medium tabular-nums mt-0.5">{!hideBalance ? <span>{secondarySymbol}<SlotTicker value={port.balance * secondaryRate} decimals={secondaryCurrency === 'IDR' ? 0 : 2} className="inline-flex" /></span> : '******'}</span></div>
+                        <div className="flex flex-col items-end"><span className="font-bold text-[17px] text-[var(--text-primary)] tabular-nums">{!hideBalance ? (currency === 'IDR' ? (port.balance * rates?.IDR).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : port.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) : '******'}</span><span className="text-[13px] text-[var(--text-tertiary)] font-medium tabular-nums mt-0.5">{!hideBalance ? <span>{secondarySymbol}<SlotTicker value={port.balance * secondaryRate} decimals={secondaryCurrency === 'IDR' ? 0 : 2} className="inline-flex" /></span> : '******'}</span></div>
                     </div>
                 ))}
             </> : activeTab === 'Spot' ? filteredAssets.map((asset: any) => {
                 const market = markets.find(m => m.symbol === `${asset.symbol}USDT`);
                 const lastPrice = market ? parseFloat(market.lastPrice) : 0;
-                const costPrice = spotCostBasis[asset.symbol] || 0;
                 
-                const hasPnl = asset.symbol !== 'USDT' && costPrice > 0;
-                const pnlValue = hasPnl ? (lastPrice - costPrice) * asset.amount : 0;
-                const pnlPercent = hasPnl ? ((lastPrice - costPrice) / costPrice) * 100 : 0;
-                const isPositive = pnlValue >= 0;
-
                 return (
-                    <div key={asset.symbol} className="bg-[var(--bg-card)] border border-[var(--border-color)]/40 rounded-xl p-4 flex flex-col gap-4 shadow-sm">
-                        {/* Header: Coin and ROI */}
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                                <CoinIcon symbol={asset.symbol} size={6} />
-                                <span className="font-bold text-[16px] text-[var(--text-primary)] uppercase">{asset.symbol}</span>
-                                <ChevronRight size={14} className="text-[var(--text-tertiary)]" />
+                    <div key={asset.symbol} className="flex justify-between items-center cursor-pointer py-1" onClick={() => setSpotTradeSheetOpen(true, asset)}>
+                        <div className="flex items-center gap-3">
+                            <CoinIcon symbol={asset.symbol} size={8} />
+                            <div className="flex flex-col">
+                                <span className="font-bold text-[15px] text-[var(--text-primary)] uppercase">{asset.symbol}</span>
                             </div>
-                            {hasPnl && !hideBalance && (
-                                <div className={`text-[13px] font-bold ${isPositive ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
-                                    {isPositive ? '+' : ''}{pnlValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({isPositive ? '+' : ''}{pnlPercent.toFixed(2)}%)
-                                </div>
-                            )}
                         </div>
 
-                        {/* Details Grid */}
-                        <div className="grid grid-cols-3 gap-2">
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[11px] text-[var(--text-tertiary)] font-medium">Equity</span>
-                                <span className="text-[14px] font-bold text-[var(--text-primary)] tabular-nums">
-                                    {!hideBalance ? asset.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '******'}
-                                </span>
-                                <span className="text-[11px] text-[var(--text-tertiary)] tabular-nums">
-                                    {!hideBalance ? `$${asset.valueUsdt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '******'}
-                                </span>
-                            </div>
-
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[11px] text-[var(--text-tertiary)] font-medium">Cost price</span>
-                                <div className="flex items-center gap-1 group">
-                                    {editingCoin === asset.symbol ? (
-                                        <input
-                                            autoFocus
-                                            className="w-full bg-[var(--bg-secondary)] text-[var(--text-primary)] text-[14px] font-bold border-none outline-none rounded px-1"
-                                            value={editValue}
-                                            onChange={(e) => setEditValue(e.target.value)}
-                                            onBlur={saveCostPrice}
-                                            onKeyDown={(e) => e.key === 'Enter' && saveCostPrice()}
+                        <div className="flex flex-col items-end">
+                            <span className="font-bold text-[17px] text-[var(--text-primary)] tabular-nums">
+                                {!hideBalance ? asset.amount.toLocaleString('en-US', { 
+                                    minimumFractionDigits: asset.amount < 0.01 ? 8 : 2, 
+                                    maximumFractionDigits: asset.amount < 0.01 ? 8 : 2 
+                                }) : '******'}
+                            </span>
+                            <span className="text-[13px] text-[var(--text-tertiary)] font-medium tabular-nums mt-0.5">
+                                {!hideBalance ? (
+                                    <span>
+                                        {secondarySymbol}
+                                        <SlotTicker 
+                                            value={asset.valueUsdt * (secondaryCurrency === 'IDR' ? rates?.IDR : 1)} 
+                                            decimals={secondaryCurrency === 'IDR' ? 0 : 2} 
+                                            className="inline-flex" 
                                         />
-                                    ) : (
-                                        <>
-                                            <span className="text-[14px] font-bold text-[var(--text-primary)] tabular-nums">
-                                                {costPrice > 0 ? `$${costPrice.toLocaleString()}` : '--'}
-                                            </span>
-                                            <FiEdit 
-                                                size={12} 
-                                                className="text-[var(--text-tertiary)] cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity" 
-                                                onClick={() => handleEditCost(asset.symbol, costPrice)}
-                                            />
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-1 items-end">
-                                <span className="text-[11px] text-[var(--text-tertiary)] font-medium">Last price</span>
-                                <span className="text-[14px] font-bold text-[var(--text-primary)] tabular-nums">
-                                    ${lastPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Bottom Balance & Buttons */}
-                        <div className="flex justify-between items-center pt-2 border-t border-[var(--border-color)]/20">
-                            <div className="flex flex-col gap-0.5">
-                                <span className="text-[11px] text-[var(--text-tertiary)] font-medium">Balance</span>
-                                <span className="text-[14px] font-bold text-[var(--text-primary)] tabular-nums">
-                                    {!hideBalance ? asset.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '******'}
-                                </span>
-                                <span className="text-[11px] text-[var(--text-tertiary)] tabular-nums">
-                                    {!hideBalance ? `$${asset.valueUsdt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '******'}
-                                </span>
-                            </div>
-                            <div className="flex gap-2">
-                                {asset.symbol !== 'USDT' && (
-                                    <button 
-                                        onClick={() => setSpotTPSLSheetOpen(true, asset)}
-                                        className="px-5 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[12px] font-bold rounded-lg transition-colors"
-                                    >
-                                        TP/SL
-                                    </button>
-                                )}
-                                <button 
-                                    onClick={() => setSpotTradeSheetOpen(true, asset)}
-                                    className="px-5 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[12px] font-bold rounded-lg transition-colors"
-                                >
-                                    Buy/sell
-                                </button>
-                            </div>
+                                    </span>
+                                ) : '******'}
+                            </span>
                         </div>
                     </div>
                 );
