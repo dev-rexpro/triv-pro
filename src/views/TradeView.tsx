@@ -27,6 +27,8 @@ import FuturesTPSLSheet from '../components/FuturesTPSLSheet';
 import SpotTPSLSheet from '../components/SpotTPSLSheet';
 import SpotCostPriceSheet from '../components/SpotCostPriceSheet';
 import SharePnLSheet from '../components/SharePnLSheet';
+import FuturesCloseSheet from '../components/FuturesCloseSheet';
+import FuturesCloseAllModal from '../components/FuturesCloseAllModal';
 import CoinIcon from '../components/CoinIcon';
 const RealChart = React.lazy(() => import('../components/RealChart'));
 import trivLogo from '../assets/triv-logo.svg';
@@ -96,6 +98,9 @@ const TradeView = () => {
     const priceInputRef = useRef(priceInput);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [pendingOrder, setPendingOrder] = useState<any>(null);
+    const [isCloseSheetOpen, setIsCloseSheetOpen] = useState(false);
+    const [isPositionCloseModalOpen, setIsPositionCloseModalOpen] = useState(false);
+    const [selectedPositionForClose, setSelectedPositionForClose] = useState<any>(null);
     const { setSelectedCoin } = useExchangeStore();
 
     const handleNavigateToTrade = (symbol: string, type: 'spot' | 'futures') => {
@@ -1431,13 +1436,19 @@ const TradeView = () => {
                                             </button>
                                             <button
                                                 className="flex-1 py-2 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-semibold text-[14px] hover:bg-gray-200 transition-colors"
-                                                onClick={() => handleClosePosition(pos.id, pos.symbol)}
+                                                onClick={() => {
+                                                    setSelectedPositionForClose(pos);
+                                                    setIsCloseSheetOpen(true);
+                                                }}
                                             >
                                                 Close
                                             </button>
                                             <button
                                                 className="flex-1 py-2 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-semibold text-[14px] hover:bg-gray-200 transition-colors whitespace-nowrap"
-                                                onClick={() => handleClosePosition(pos.id, pos.symbol)}
+                                                onClick={() => {
+                                                    setSelectedPositionForClose(pos);
+                                                    setIsPositionCloseModalOpen(true);
+                                                }}
                                             >
                                                 Close all
                                             </button>
@@ -1912,6 +1923,18 @@ const TradeView = () => {
             <SpotTPSLSheet />
             <SpotCostPriceSheet />
             <SharePnLSheet />
+
+            {/* Individual Position Close Components */}
+            <FuturesCloseSheet 
+                isOpen={isCloseSheetOpen} 
+                onClose={() => setIsCloseSheetOpen(false)} 
+                position={selectedPositionForClose} 
+            />
+            <FuturesCloseAllModal 
+                isOpen={isPositionCloseModalOpen} 
+                onClose={() => setIsPositionCloseModalOpen(false)} 
+                position={selectedPositionForClose} 
+            />
 
             {/* Close All Confirmation Modal */}
             <AnimatePresence>

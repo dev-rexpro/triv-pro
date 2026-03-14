@@ -2,42 +2,65 @@ import type { ExchangeRates, CurrencyCode } from '../types';
 import Decimal from 'decimal.js';
 
 /**
- * Rounds a value using Decimal.js precision.
- * type 'crypto' → up to 8 decimals, trimmed; type 'fiat' → exactly 2 decimals.
+ * LOGIKA ENGINE EXCHANGE:
+ * Semakin murah harga koin, presisi desimal (Tick Size) harus semakin panjang.
  */
-export const formatPrecise = (value: number, type: 'crypto' | 'fiat' = 'fiat'): string => {
+export const getPrecisionForPrice = (price: number): number => {
+    const p = Math.abs(price);
+    if (p >= 1000) return 2;     // BTC, ETH (contoh: 65000.50)
+    if (p >= 50) return 3;       // SOL, LTC (contoh: 145.125)
+    if (p >= 1) return 4;        // ADA, MATIC (contoh: 1.1234)
+    if (p >= 0.1) return 5;      // DOGE, TRX (contoh: 0.09452)
+    if (p >= 0.001) return 6;    // Koin micin standar
+    if (p >= 0.00001) return 8;  // Koin meme (SHIB)
+    return 10;                   // Koin PEPE dll
+};
+
+/**
+ * Rounds a value safely. Smart detect if type is 'auto'.
+ */
+export const formatPrecise = (value: number, type: 'crypto' | 'fiat' | 'auto' = 'auto'): string => {
     try {
         const d = new Decimal(value);
-        if (type === 'crypto') {
-            return d.toDecimalPlaces(8, Decimal.ROUND_DOWN).toFixed();
-        }
-        return d.toFixed(2, Decimal.ROUND_DOWN);
+        if (type === 'fiat') return d.toFixed(2, Decimal.ROUND_DOWN);
+        if (type === 'crypto') return d.toDecimalPlaces(8, Decimal.ROUND_DOWN).toFixed();
+        
+        // Auto-detect untuk engine trading
+        const precision = getPrecisionForPrice(value);
+        return d.toDecimalPlaces(precision, Decimal.ROUND_DOWN).toFixed();
     } catch {
         return type === 'fiat' ? Number(value).toFixed(2) : String(value);
     }
 };
 
 /**
- * Safely rounds a number to N decimal places using Decimal.js.
+ * Safely rounds a number. Jika decimals tidak diisi, otomatis ikutin standar harga koin.
  */
-export const roundToFixed = (value: number, decimals = 2): number => {
+export const roundToFixed = (value: number, decimals?: number): number => {
     try {
-        return new Decimal(value).toDecimalPlaces(decimals, Decimal.ROUND_DOWN).toNumber();
+        const numValue = new Decimal(value);
+        const targetDecimals = decimals !== undefined ? decimals : getPrecisionForPrice(value);
+        return numValue.toDecimalPlaces(targetDecimals, Decimal.ROUND_DOWN).toNumber();
     } catch {
-        return parseFloat(value.toFixed(decimals));
+        return parseFloat(Number(value).toFixed(decimals || 2));
     }
 };
 
-export const formatPrice = (price: string | number): string => {
+export const formatPrice = (price: string | number, enforcePrecision?: number): string => {
     const num = typeof price === 'string' ? parseFloat(price) : price;
     if (num === 0) return '0.00';
-    if (num >= 1000) return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    if (num >= 50) return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
-    if (num >= 1) return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-    if (num >= 0.1) return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 5 });
-    if (num >= 0.01) return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
-    if (num >= 0.0001) return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 });
-    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 10 });
+    
+    // Kalau komponen maksa presisi tertentu, pake itu
+    if (enforcePrecision !== undefined) {
+        return num.toLocaleString('en-US', { minimumFractionDigits: enforcePrecision, maximumFractionDigits: enforcePrecision });
+    }
+
+    // Kalau nggak, deteksi otomatis
+    const precision = getPrecisionForPrice(num);
+    return num.toLocaleString('en-US', { 
+        minimumFractionDigits: precision < 4 ? 2 : precision, 
+        maximumFractionDigits: precision 
+    });
 };
 
 export const formatVolume = (volume: string | number): string => {
@@ -67,24 +90,25 @@ export const formatCurrency = (
     rates: ExchangeRates
 ): string => {
     const rate = rates[currency] || 1;
+    const converted = amount * rate;
 
     switch (currency) {
         case 'IDR':
-            return `Rp${(amount * rate).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+            return `Rp${converted.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
         case 'BTC':
-            return `₿${(amount * rate).toFixed(8)}`;
+            return `₿${converted.toFixed(8)}`;
         case 'USDT':
-            return `${(amount * rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
+            return `${converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
         case 'USD':
         default:
-            return `$${(amount * rate).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            return `$${converted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
 };
 
 export const getCurrencySymbol = (currency: CurrencyCode): string => {
     switch (currency) {
         case 'IDR': return 'Rp ';
-        case 'BTC': return '$';
+        case 'BTC': return '₿';
         case 'USDT': return '$';
         case 'USD':
         default: return '$';

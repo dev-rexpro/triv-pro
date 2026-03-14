@@ -30,6 +30,7 @@ import SpotTPSLSheet from '../components/SpotTPSLSheet';
 
 const AssetsView = () => {
     const [activeTab, setActiveTab] = useState('Overview');
+    const [futuresSubTab, setFuturesSubTab] = useState('Assets');
     const [hideZero, setHideZero] = useState(true);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const {
@@ -165,7 +166,20 @@ const AssetsView = () => {
             <div className={`sticky top-[44px] z-40 bg-[var(--bg-primary)] px-4 ${activeTab === 'Earn' ? 'py-5' : 'py-4'}`}>
                 <div className={`flex justify-between items-center ${activeTab === 'Earn' ? '' : 'mb-4'}`}>
                     <div className="flex gap-4">
-                        {activeTab === 'Overview' ? <span className="text-[15px] font-bold text-[var(--text-primary)]">Allocation</span> : activeTab === 'Spot' ? <><span className="text-[15px] font-bold text-[var(--text-primary)]">Crypto</span><span className="text-[15px] font-bold text-[var(--text-tertiary)]">Fiat</span></> : activeTab === 'Futures' ? <><span className="text-[15px] font-medium text-[var(--text-tertiary)]">Positions</span><span className="text-[15px] font-bold text-[var(--text-primary)]">Assets</span></> : <><span className="text-[15px] font-bold text-[var(--text-primary)]">Coin</span><span className="text-[15px] font-medium text-[var(--text-tertiary)]">Product</span></>}
+                        {activeTab === 'Overview' ? <span className="text-[15px] font-bold text-[var(--text-primary)]">Allocation</span> : activeTab === 'Spot' ? <><span className="text-[15px] font-bold text-[var(--text-primary)]">Crypto</span><span className="text-[15px] font-bold text-[var(--text-tertiary)]">Fiat</span></> : activeTab === 'Futures' ? <>
+                            <span 
+                                onClick={() => setFuturesSubTab('Positions')}
+                                className={`text-[15px] cursor-pointer transition-colors ${futuresSubTab === 'Positions' ? 'font-bold text-[var(--text-primary)]' : 'font-medium text-[var(--text-tertiary)]'}`}
+                            >
+                                Positions
+                            </span>
+                            <span 
+                                onClick={() => setFuturesSubTab('Assets')}
+                                className={`text-[15px] cursor-pointer transition-colors ${futuresSubTab === 'Assets' ? 'font-bold text-[var(--text-primary)]' : 'font-medium text-[var(--text-tertiary)]'}`}
+                            >
+                                Assets
+                            </span>
+                        </> : <><span className="text-[15px] font-bold text-[var(--text-primary)]">Coin</span><span className="text-[15px] font-medium text-[var(--text-tertiary)]">Product</span></>}
                     </div>
                     {activeTab === 'Spot' ? <div className="flex items-center text-[var(--text-tertiary)] text-[12px] font-medium gap-1"><History size={14} /><span>Tiny Swap</span></div> : activeTab === 'Earn' ? <div className="flex items-center text-[var(--text-tertiary)] cursor-pointer"><TbFilter2Cog size={18} /></div> : null}
                 </div>
@@ -184,6 +198,7 @@ const AssetsView = () => {
                 <AssetList
                     activeTab={activeTab}
                     setActiveTab={setActiveTab}
+                    futuresSubTab={futuresSubTab}
                     hideBalance={hideBalance}
                     liveSpotBalance={liveSpotBalance}
                     futuresBalance={futuresBalance}
@@ -212,8 +227,7 @@ const AssetsView = () => {
         </div>
     );
 };
-
-const AssetList = React.memo(({ activeTab, setActiveTab, hideBalance, liveSpotBalance, futuresBalance, earnBalance, filteredAssets, hideZero, currency, rates, futuresUnrealizedPnl }: any) => {
+const AssetList = React.memo(({ activeTab, setActiveTab, futuresSubTab, hideBalance, liveSpotBalance, futuresBalance, earnBalance, filteredAssets, hideZero, currency, rates, futuresUnrealizedPnl }: any) => {
     const { 
         spotCostBasis, markets, setSpotCostPrice,
         setSpotTradeSheetOpen, setFuturesTPSLSheetOpen, setSpotTPSLSheetOpen,
@@ -274,10 +288,10 @@ const AssetList = React.memo(({ activeTab, setActiveTab, hideBalance, liveSpotBa
                             <span className="text-[13px] text-[var(--text-tertiary)] font-medium tabular-nums mt-0.5">
                                 {!hideBalance ? (
                                     <span>
-                                        {secondarySymbol}
+                                        {primarySymbol}
                                         <SlotTicker 
-                                            value={asset.valueUsdt * (secondaryCurrency === 'IDR' ? rates?.IDR : 1)} 
-                                            decimals={secondaryCurrency === 'IDR' ? 0 : 2} 
+                                            value={asset.valueUsdt * (currency === 'IDR' ? rates?.IDR : 1)} 
+                                            decimals={currency === 'IDR' ? 0 : 2} 
                                             className="inline-flex" 
                                         />
                                     </span>
@@ -286,84 +300,88 @@ const AssetList = React.memo(({ activeTab, setActiveTab, hideBalance, liveSpotBa
                         </div>
                     </div>
                 );
-            }) : activeTab === 'Futures' ? <>
-                {/* Positions Section */}
-                {positions && positions.length > 0 && (
-                    <div className="flex flex-col gap-4 mb-8">
-                        <div className="text-[14px] font-bold text-[var(--text-primary)] mb-1 uppercase tracking-tight">Active Positions ({positions.length})</div>
-                        {positions.map((pos: any) => (
-                            <div key={pos.id} className="bg-[var(--bg-card)] border border-[var(--border-color)]/40 rounded-xl p-4 flex flex-col gap-3 shadow-sm">
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${pos.side === 'Buy' ? 'bg-[var(--green)]/20 text-[var(--green)]' : 'bg-[var(--red)]/20 text-[var(--red)]'}`}>
-                                            {pos.side === 'Buy' ? 'LONG' : 'SHORT'} {pos.leverage}x
+            }) : activeTab === 'Futures' ? (
+                <>
+                    {futuresSubTab === 'Positions' ? (
+                        <div className="flex flex-col gap-4">
+                            {positions && positions.length > 0 ? (
+                                positions.map((pos: any) => (
+                                    <div key={pos.id} className="flex flex-col gap-2.5 py-2 border-b border-[var(--border-color)]/20">
+                                        <div className="flex justify-between items-center mb-0.5">
+                                            <div className="flex items-center gap-1.5">
+                                                <div className={`text-[10px] font-bold px-1 py-0.5 rounded-sm ${pos.side === 'Buy' ? 'bg-[var(--green)]/10 text-[var(--green)]' : 'bg-[var(--red)]/10 text-[var(--red)]'}`}>
+                                                    {pos.side === 'Buy' ? 'LONG' : 'SHORT'}
+                                                </div>
+                                                <span className="font-bold text-[14px] text-[var(--text-primary)]">{pos.symbol} <span className="text-[var(--text-tertiary)] font-medium text-[12px]">{pos.leverage}x</span></span>
+                                            </div>
+                                            <div className={`text-[14px] font-bold ${pos.pnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
+                                                {pos.pnl >= 0 ? '+' : ''}{pos.pnl.toFixed(2)} <span className="text-[11px] font-medium text-[var(--text-tertiary)] uppercase">USDT</span>
+                                            </div>
                                         </div>
-                                        <span className="font-bold text-[16px] text-[var(--text-primary)]">{pos.symbol}</span>
-                                    </div>
-                                    <div className={`text-[13px] font-bold ${pos.pnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
-                                        {pos.pnl >= 0 ? '+' : ''}{pos.pnl.toFixed(2)} USDT ({pos.pnlPercent >= 0 ? '+' : ''}{pos.pnlPercent.toFixed(2)}%)
-                                    </div>
-                                </div>
 
-                                <div className="grid grid-cols-3 gap-2 py-1">
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[10px] text-[var(--text-tertiary)] font-bold uppercase">Size</span>
-                                        <span className="text-[13px] font-bold text-[var(--text-primary)] tabular-nums">{pos.size}</span>
-                                    </div>
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[10px] text-[var(--text-tertiary)] font-bold uppercase">Entry</span>
-                                        <span className="text-[13px] font-bold text-[var(--text-primary)] tabular-nums">{pos.entryPrice.toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex flex-col gap-0.5 items-end">
-                                        <span className="text-[10px] text-[var(--text-tertiary)] font-bold uppercase">Mark</span>
-                                        <span className="text-[13px] font-bold text-[var(--text-primary)] tabular-nums">{(pos.markPrice || pos.entryPrice).toLocaleString()}</span>
-                                    </div>
-                                </div>
+                                        <div className="grid grid-cols-3 gap-2 py-0.5">
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[11px] text-[var(--text-tertiary)] font-bold uppercase border-b border-dashed border-[var(--border-strong)] w-fit">Size</span>
+                                                <span className="text-[13px] font-bold text-[var(--text-primary)] tabular-nums">{pos.size}</span>
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[11px] text-[var(--text-tertiary)] font-bold uppercase border-b border-dashed border-[var(--border-strong)] w-fit">Entry</span>
+                                                <span className="text-[13px] font-bold text-[var(--text-primary)] tabular-nums">{pos.entryPrice.toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex flex-col gap-1 items-end">
+                                                <span className="text-[11px] text-[var(--text-tertiary)] font-bold uppercase border-b border-dashed border-[var(--border-strong)] w-fit">Mark</span>
+                                                <span className="text-[13px] font-bold text-[var(--text-primary)] tabular-nums">{(pos.markPrice || pos.entryPrice).toLocaleString()}</span>
+                                            </div>
+                                        </div>
 
-                                <div className="flex gap-2 pt-2 border-t border-[var(--border-color)]/20">
-                                    <button 
-                                        onClick={() => setFuturesTPSLSheetOpen(true, pos)}
-                                        className="flex-1 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[11px] font-bold rounded-lg transition-colors"
-                                    >
-                                        TP/SL
-                                    </button>
-                                    <button 
-                                        onClick={() => {/* Implement close logic */}}
-                                        className="flex-1 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[11px] font-bold rounded-lg transition-colors text-[var(--red)]"
-                                    >
-                                        Close
-                                    </button>
+                                        <div className="flex gap-2.5 pt-1.5">
+                                            <button 
+                                                onClick={() => setFuturesTPSLSheetOpen(true, pos)}
+                                                className="flex-1 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[12px] font-bold rounded-lg transition-colors border border-[var(--border-color)]/20"
+                                            >
+                                                TP/SL
+                                            </button>
+                                            <button 
+                                                onClick={() => {/* Implement close logic */}}
+                                                className="flex-1 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[12px] font-bold rounded-lg transition-colors text-[var(--red)] border border-[var(--border-color)]/20"
+                                            >
+                                                Close
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-10 opacity-40">
+                                    <History size={32} className="mb-2" />
+                                    <span className="text-xs font-bold uppercase tracking-tight">No active positions</span>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Futures Assets */}
-                <div className="text-[14px] font-bold text-[var(--text-primary)] mb-2 uppercase tracking-tight">Assets</div>
-                {(!hideZero || futuresBalance > 0) && (
-                    <div className="flex justify-between items-center cursor-pointer p-1">
-                        <div className="flex items-center gap-3">
-                            <CoinIcon symbol="USDT" size={8} />
-                            <div className="flex flex-col">
-                                <span className="font-bold text-[15px] text-[var(--text-primary)]">USDT</span>
-                                <span className="text-[11px] text-[var(--text-tertiary)] font-medium whitespace-nowrap">Equity (Wallet + PnL)</span>
-                            </div>
+                            )}
                         </div>
-                        <div className="flex flex-col items-end">
-                            <span className="font-bold text-[15px] text-[var(--text-primary)] tabular-nums">
-                                {!hideBalance ? (futuresBalance + futuresUnrealizedPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '******'}
-                            </span>
-                            <span className="text-[12px] text-[var(--text-tertiary)] font-medium tabular-nums mt-0.5">
-                                {!hideBalance ? <span>{primarySymbol}<SlotTicker value={(futuresBalance + futuresUnrealizedPnl) * (currency === 'IDR' ? rates?.IDR : 1)} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" /></span> : '******'}
-                            </span>
+                    ) : (
+                        <div className="flex flex-col gap-4">
+                            {(!hideZero || futuresBalance > 0) && (
+                                <div className="flex justify-between items-center cursor-pointer py-1">
+                                    <div className="flex items-center gap-3">
+                                        <CoinIcon symbol="USDT" size={8} />
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-[15px] text-[var(--text-primary)]">USDT</span>
+                                            <span className="text-[11px] text-[var(--text-tertiary)] font-medium whitespace-nowrap">Equity (Wallet + PnL)</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col items-end">
+                                        <span className="font-bold text-[17px] text-[var(--text-primary)] tabular-nums">
+                                            {!hideBalance ? (futuresBalance + futuresUnrealizedPnl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '******'}
+                                        </span>
+                                        <span className="text-[13px] text-[var(--text-tertiary)] font-medium tabular-nums mt-0.5">
+                                            {!hideBalance ? <span>{primarySymbol}<SlotTicker value={(futuresBalance + futuresUnrealizedPnl) * (currency === 'IDR' ? rates?.IDR : 1)} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" /></span> : '******'}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    </div>
-                )}
-                {hideZero ? null : ['BTC', 'ETH', 'SOL', 'ADA'].map(sym => (
-                    <div key={`fut-zero-${sym}`} className="flex justify-between items-center cursor-pointer"><div className="flex items-center gap-3"><CoinIcon symbol={sym} size={8} /><div className="flex flex-col"><span className="font-bold text-[15px] text-[var(--text-primary)]">{sym}</span></div></div><div className="flex flex-col items-end"><span className="font-bold text-[15px] text-[var(--text-primary)] tabular-nums">{!hideBalance ? '0.00000000' : '******'}</span><span className="text-[12px] text-[var(--text-tertiary)] font-medium tabular-nums mt-0.5">{!hideBalance ? <span>{primarySymbol}<SlotTicker value={0} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" /></span> : '******'}</span></div></div>
-                ))}
-            </> : activeTab === 'Earn' ? (
+                    )}
+                </>
+            ) : activeTab === 'Earn' ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center"><div className="w-10 h-12 border-2 border-[var(--border-strong)] rounded-md flex flex-col items-start justify-center p-2 mb-4 relative bg-transparent"><div className="w-5 h-[2px] bg-[var(--border-strong)] rounded-full mb-1.5"></div><div className="w-3 h-[2px] bg-[var(--border-strong)] rounded-full"></div></div><span className="text-[var(--text-tertiary)] text-[13px] font-medium mb-3">No active subscriptions.</span><div className="flex items-center text-[var(--text-primary)] text-[15px] font-bold cursor-pointer group"><span className="group-hover:underline">Go to Earn</span><ArrowRight size={16} className="ml-1" strokeWidth={2.5} /></div></div>
             ) : <div className="text-[var(--text-tertiary)] text-center py-4 text-sm font-medium">No assets to display for {activeTab}.</div>}
         </div>

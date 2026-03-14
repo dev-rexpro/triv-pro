@@ -143,11 +143,14 @@ interface ExchangeState {
     placeSpotOrder: (order: { symbol: string; side: 'Buy' | 'Sell'; type: 'Limit' | 'Market'; price: number; amount: number; marginMode: string; leverage: number }) => void;
     cancelSpotOrder: (orderId: string) => void;
     placeFuturesOrder: (order: { symbol: string; side: 'Buy' | 'Sell'; type: 'Limit' | 'Market'; price: number; amount: number; marginMode: string; leverage: number }) => void;
-    closeFuturesPosition: (id: string) => void;
+    closeFuturesPosition: (id: string, closeAmount?: number, closePrice?: number) => void;
     getPnLForTimeframe: (timeframe: string) => { value: number; percent: number; hasData: boolean };
     setShowOrderConfirmation: (val: boolean) => void;
     closeAll: () => void;
     syncWalletsToSupabase: () => Promise<void>;
+    setPartialTPSL: (positionId: string, type: 'TP' | 'SL', price: number, amount: number) => void;
+    setTrailingStop: (positionId: string, activationPrice: number, callbackRate: number) => void;
+    processPartialClosure: (id: string, price: number, amount: number, type: string) => void;
     fetchSupabaseWallets: () => Promise<void>;
     fetchSupabaseHistory: () => Promise<void>;
     initializeUserData: () => Promise<void>;
@@ -1208,44 +1211,75 @@ const useExchangeStore = create<ExchangeState>()(
                 get().updateAssetPrices(true);
             },
 
-            closeFuturesPosition: async (id) => {
+            closeFuturesPosition: async (id, closeAmount?: number, closePrice?: number) => {
                 const { positions, wallets, positionHistory, user } = get();
                 const pos = positions.find(p => p.id === id);
                 if (!pos) return;
 
-                const notionalValue = new Decimal(pos.size).times(pos.markPrice || pos.entryPrice);
+                const amountToClose = closeAmount !== undefined ? Math.min(closeAmount, pos.size) : pos.size;
+                const isFullClose = amountToClose >= pos.size;
+                const price = closePrice || pos.markPrice || pos.entryPrice;
+
+                // Hitung proporsional PnL dan Fee untuk jumlah yang ditutup
+                const ratio = amountToClose / pos.size;
+                const portionPnl = pos.pnl * ratio;
+                const notionalValue = new Decimal(amountToClose).times(price);
                 const fee = notionalValue.times(0.0005).toNumber();
-                
+                const realizedUsdt = new Decimal(portionPnl).minus(fee).toNumber();
+
                 const newWallets = JSON.parse(JSON.stringify(wallets));
-                const realizedUsdt = new Decimal(pos.pnl).minus(fee).toNumber();
                 newWallets.futures.USDT = new Decimal(newWallets.futures.USDT || 0).plus(realizedUsdt).toNumber();
 
                 const newHistoryRecord: PositionHistoryRecord = {
-                    id: pos.id,
+                    id: Math.random().toString(36).substr(2, 9), // ID baru untuk record history partial
                     pair: pos.pair,
                     side: pos.side,
-                    size: pos.size,
-                    margin: pos.margin,
+                    size: amountToClose,
+                    margin: pos.margin * ratio,
                     entryPrice: pos.entryPrice,
-                    markPrice: pos.markPrice || pos.entryPrice,
+                    markPrice: price,
                     leverage: pos.leverage,
                     pnl: realizedUsdt,
-                    pnlPercent: pos.pnlPercent || 0,
+                    pnlPercent: (portionPnl / (pos.margin * ratio)) * 100,
                     timeOpened: Date.now() - 3600000,
                     timeClosed: Date.now(),
                     marginMode: pos.marginMode || 'Cross'
                 };
 
+                let updatedPositions = [...positions];
+                if (isFullClose) {
+                    updatedPositions = positions.filter(p => p.id !== id);
+                } else {
+                    updatedPositions = positions.map(p => {
+                        if (p.id === id) {
+                            const newSize = p.size - amountToClose;
+                            const newMargin = p.margin * (1 - ratio);
+                            return {
+                                ...p,
+                                size: newSize,
+                                margin: newMargin,
+                                // PnL sisa akan dihitung ulang oleh updateAssetPrices
+                            };
+                        }
+                        return p;
+                    });
+                }
+
                 set({
                     wallets: newWallets,
-                    positions: positions.filter(p => p.id !== id),
+                    positions: updatedPositions,
                     positionHistory: [newHistoryRecord, ...(positionHistory || [])]
                 });
 
                 get().updateAssetPrices(true);
-                get().showToast('Position Closed', `${pos.side === 'Buy' ? 'Long' : 'Short'} ${pos.pair} closed. Realized PnL: ${realizedUsdt >= 0 ? '+' : ''}${realizedUsdt.toFixed(2)} USDT`, 'success');
+                get().showToast(
+                    isFullClose ? 'Position Closed' : 'Partial Close Success', 
+                    `${pos.side === 'Buy' ? 'Long' : 'Short'} ${pos.pair} ${isFullClose ? 'closed' : `partially closed (${amountToClose})`}. Realized PnL: ${realizedUsdt >= 0 ? '+' : ''}${realizedUsdt.toFixed(2)} USDT`, 
+                    'success'
+                );
 
                 if (user) {
+                    // Log to history_futures table
                     await supabase.from('history_futures').insert([{
                         user_id: user.id,
                         pair: pos.pair,
@@ -1253,18 +1287,24 @@ const useExchangeStore = create<ExchangeState>()(
                         margin_type: pos.marginMode?.toLowerCase(),
                         side: pos.side === 'Buy' ? 'long' : 'short',
                         entry_price: pos.entryPrice,
-                        close_price: pos.markPrice || pos.entryPrice,
-                        size: pos.size,
-                        margin: pos.margin,
+                        close_price: price,
+                        size: amountToClose,
+                        margin: pos.margin * ratio,
                         pnl: realizedUsdt,
                         time_opened: new Date(newHistoryRecord.timeOpened).toISOString(),
                         time_closed: new Date(newHistoryRecord.timeClosed).toISOString()
                     }]);
 
-                    await supabase.from('positions_futures').delete()
-                        .eq('user_id', user.id)
-                        .eq('pair', pos.pair)
-                        .eq('side', pos.side === 'Buy' ? 'long' : 'short');
+                    // Sync or update position in Supabase
+                    if (isFullClose) {
+                        await supabase.from('positions_futures').delete()
+                            .eq('user_id', user.id)
+                            .eq('pair', pos.pair)
+                            .eq('side', pos.side === 'Buy' ? 'long' : 'short');
+                    } else {
+                        // Update remaining position (updateAssetPrices handles sync to some extent, but let's be explicit if needed)
+                        // Actually, updateAssetPrices calls syncPositionsToSupabase if needed.
+                    }
                     get().syncWalletsToSupabase();
                 }
             },
@@ -1325,6 +1365,84 @@ const useExchangeStore = create<ExchangeState>()(
                 get().showToast('Account Reset', 'All data cleared and balance reset to default.', 'success');
             },
 
+            setPartialTPSL: (positionId, type, price, amount) => {
+                const { positions } = get();
+                const pos = positions.find(p => p.id === positionId);
+                if (!pos) return;
+
+                const newOrder: TriggerOrder = {
+                    id: `trig-${Date.now()}`,
+                    price,
+                    amount
+                };
+
+                const updatedPositions = positions.map(p => {
+                    if (p.id !== positionId) return p;
+                    if (type === 'TP') {
+                        return { ...p, tpOrders: [...(p.tpOrders || []), newOrder] };
+                    } else {
+                        return { ...p, slOrders: [...(p.slOrders || []), newOrder] };
+                    }
+                });
+
+                set({ positions: updatedPositions });
+            },
+
+            setTrailingStop: (positionId, activationPrice, callbackRate) => {
+                const { positions } = get();
+                const updatedPositions = positions.map(p => {
+                    if (p.id !== positionId) return p;
+                    return {
+                        ...p,
+                        trailingStop: {
+                            activationPrice,
+                            callbackRate,
+                            watermarkPrice: p.markPrice || p.entryPrice,
+                            isActive: false
+                        }
+                    };
+                });
+                set({ positions: updatedPositions });
+            },
+
+            processPartialClosure: (id, price, amount, type) => {
+                const { positions, wallets, tradeHistory } = get();
+                const pos = positions.find(p => p.id === id);
+                if (!pos) return;
+
+                const notionalValue = new Decimal(amount).times(price);
+                const fee = notionalValue.times(0.0005).toNumber();
+                
+                const priceDiff = pos.side === 'Buy' 
+                    ? new Decimal(price).minus(pos.entryPrice) 
+                    : new Decimal(pos.entryPrice).minus(price);
+                
+                const realizedPnl = priceDiff.times(amount).minus(fee).toNumber();
+                
+                const newWallets = JSON.parse(JSON.stringify(wallets));
+                newWallets.futures.USDT = new Decimal(newWallets.futures.USDT || 0).plus(realizedPnl).toNumber();
+
+                const updatedHistory = [...tradeHistory, {
+                    id: `PART-${Date.now()}`,
+                    symbol: pos.symbol,
+                    side: pos.side === 'Buy' ? 'Sell' : 'Buy',
+                    type: type,
+                    price: price,
+                    amount: amount,
+                    fee: fee,
+                    pnl: realizedPnl,
+                    timestamp: Date.now(),
+                    status: 'Completed'
+                }];
+
+                set({
+                    wallets: newWallets,
+                    tradeHistory: updatedHistory
+                });
+                
+                get().showToast('Partial Target Reached', `${amount} ${pos.symbol} closed at ${price} USDT. PnL: ${realizedPnl > 0 ? '+' : ''}${realizedPnl.toFixed(2)} USDT`, 'success');
+            },
+
             // Auto-Calculation: recalculate asset values from latest market prices and wallets
             // Auto-PnL: compute daily PnL from weighted asset × priceChangePercent
             updateAssetPrices: (force = false) => {
@@ -1336,6 +1454,7 @@ const useExchangeStore = create<ExchangeState>()(
                 let filledSpotOrders: any[] = [];
                 let isLiquidated = false;
                 let liquidatedPositions: any[] = [];
+                let partialExecutions: { id: string; price: number; amount: number; type: string }[] = [];
 
                 set((state) => {
                     const { wallets, markets, futuresMarkets, openOrders, positions, spotCostBasis, tradeHistory, spotTPSL } = state;
@@ -1455,39 +1574,110 @@ const useExchangeStore = create<ExchangeState>()(
                         
                         const maintenanceMargin = new Decimal(pos.size).times(markPrice).times(0.005); 
 
-                        let triggerClose = false;
+                        let triggerCloseEntire = false;
                         let closeType = '';
+                        let remainingSize = pos.size;
 
-                        if (pos.tpPrice) {
+                        // Trailing Stop Logic
+                        if (pos.trailingStop) {
+                            let ts = { ...pos.trailingStop };
+                            if (!ts.isActive) {
+                                if ((pos.side === 'Buy' && markPrice >= ts.activationPrice) || 
+                                    (pos.side === 'Sell' && markPrice <= ts.activationPrice)) {
+                                    ts.isActive = true;
+                                    ts.watermarkPrice = markPrice;
+                                }
+                            } else {
+                                if (pos.side === 'Buy') {
+                                    if (markPrice > ts.watermarkPrice) ts.watermarkPrice = markPrice;
+                                    const triggerPrice = ts.watermarkPrice * (1 - ts.callbackRate);
+                                    if (markPrice <= triggerPrice) {
+                                        triggerCloseEntire = true;
+                                        closeType = 'Trailing Stop';
+                                    }
+                                } else {
+                                    if (markPrice < ts.watermarkPrice) ts.watermarkPrice = markPrice;
+                                    const triggerPrice = ts.watermarkPrice * (1 + ts.callbackRate);
+                                    if (markPrice >= triggerPrice) {
+                                        triggerCloseEntire = true;
+                                        closeType = 'Trailing Stop';
+                                    }
+                                }
+                            }
+                            pos.trailingStop = ts;
+                        }
+
+                        // Full TP/SL Logic
+                        if (!triggerCloseEntire && pos.tpPrice) {
                             if ((pos.side === 'Buy' && markPrice >= pos.tpPrice) || (pos.side === 'Sell' && markPrice <= pos.tpPrice)) {
-                                triggerClose = true;
+                                triggerCloseEntire = true;
                                 closeType = 'Take Profit';
                             }
                         }
-                        if (pos.slPrice && !triggerClose) {
+                        if (!triggerCloseEntire && pos.slPrice) {
                             if ((pos.side === 'Buy' && markPrice <= pos.slPrice) || (pos.side === 'Sell' && markPrice >= pos.slPrice)) {
-                                triggerClose = true;
+                                triggerCloseEntire = true;
                                 closeType = 'Stop Loss';
                             }
                         }
 
-                        if (triggerClose) {
-                            triggeredClosures.push({ id: pos.id, type: closeType });
+                        // Partial TP/SL Logic (Reduce-Only)
+                        if (!triggerCloseEntire) {
+                            if (pos.tpOrders && pos.tpOrders.length > 0) {
+                                const pendingTps = [];
+                                for (const tp of pos.tpOrders) {
+                                    const isTriggered = pos.side === 'Buy' ? markPrice >= tp.price : markPrice <= tp.price;
+                                    if (isTriggered && remainingSize > 0) {
+                                        const execAmount = Math.min(tp.amount, remainingSize);
+                                        remainingSize = new Decimal(remainingSize).minus(execAmount).toNumber();
+                                        partialExecutions.push({ id: pos.id, price: tp.price, amount: execAmount, type: 'Partial TP' });
+                                    } else {
+                                        pendingTps.push(tp);
+                                    }
+                                }
+                                pos.tpOrders = pendingTps;
+                            }
+
+                            if (pos.slOrders && pos.slOrders.length > 0) {
+                                const pendingSls = [];
+                                for (const sl of pos.slOrders) {
+                                    const isTriggered = pos.side === 'Buy' ? markPrice <= sl.price : markPrice >= sl.price;
+                                    if (isTriggered && remainingSize > 0) {
+                                        const execAmount = Math.min(sl.amount, remainingSize);
+                                        remainingSize = new Decimal(remainingSize).minus(execAmount).toNumber();
+                                        partialExecutions.push({ id: pos.id, price: sl.price, amount: execAmount, type: 'Partial SL' });
+                                    } else {
+                                        pendingSls.push(sl);
+                                    }
+                                }
+                                pos.slOrders = pendingSls;
+                            }
                         }
 
-                        dFuturesUnrealizedPnl = dFuturesUnrealizedPnl.plus(pnl);
-                        totalMaintenanceMargin = totalMaintenanceMargin.plus(maintenanceMargin);
+                        if (remainingSize <= 0 && !triggerCloseEntire) {
+                            triggerCloseEntire = true;
+                            closeType = 'All Partials Filled';
+                        }
 
-                        updatedPositions.push({
-                            ...pos,
-                            markPrice,
-                            pnl: parseFloat(pnl.toFixed(2)),
-                            pnlPercent: parseFloat(pnlPercent.toFixed(2))
-                        });
+                        if (triggerCloseEntire) {
+                            triggeredClosures.push({ id: pos.id, type: closeType });
+                        } else {
+                            dFuturesUnrealizedPnl = dFuturesUnrealizedPnl.plus(pnl);
+                            totalMaintenanceMargin = totalMaintenanceMargin.plus(maintenanceMargin);
+
+                            updatedPositions.push({
+                                ...pos,
+                                size: remainingSize,
+                                markPrice,
+                                pnl: parseFloat(pnl.toFixed(2)),
+                                pnlPercent: parseFloat(pnlPercent.toFixed(2))
+                            });
+                        }
                     });
 
+                    const lockedFuturesMargin = updatedPositions.reduce((sum, pos) => sum + (pos.margin || 0), 0);
                     const futuresWalletBalance = new Decimal(updatedWallets.futures.USDT || 0);
-                    const futuresEquity = futuresWalletBalance.plus(dFuturesUnrealizedPnl);
+                    const futuresEquity = futuresWalletBalance.plus(lockedFuturesMargin).plus(dFuturesUnrealizedPnl);
 
                     if (updatedPositions.length > 0 && futuresEquity.lte(totalMaintenanceMargin)) {
                         fillOccurred = true;
@@ -1540,7 +1730,7 @@ const useExchangeStore = create<ExchangeState>()(
                         return { symbol, amount: amount as number, valueUsdt: valueUsdt.toNumber() };
                     }).filter(a => a.amount > 0 || a.symbol === 'USDT');
 
-                    dFuturesTotal = new Decimal(finalWallets.futures.USDT || 0);
+                    dFuturesTotal = new Decimal(finalWallets.futures.USDT || 0).plus(lockedFuturesMargin);
                     const totalFuturesUnrealizedPnl = updatedPositions.reduce((sum, pos) => sum + (pos.pnl || 0), 0);
                     dFuturesUnrealizedPnl = new Decimal(totalFuturesUnrealizedPnl);
 
@@ -1590,6 +1780,14 @@ const useExchangeStore = create<ExchangeState>()(
                         snapshots: nextSnapshots
                     };
                 });
+
+                if (partialExecutions.length > 0) {
+                    const store = get();
+                    partialExecutions.forEach(exec => {
+                        store.processPartialClosure(exec.id, exec.price, exec.amount, exec.type);
+                    });
+                    get().syncWalletsToSupabase();
+                }
 
                 const store = get();
                 const user = store.user;

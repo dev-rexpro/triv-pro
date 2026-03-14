@@ -1,3 +1,0 @@
-ALTER TABLE public.positions_futures 
-ADD COLUMN IF NOT EXISTS tp_price NUMERIC(20, 8),
-ADD COLUMN IF NOT EXISTS sl_price NUMERIC(20, 8);

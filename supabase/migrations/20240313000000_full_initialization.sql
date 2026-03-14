@@ -1,3 +1,10 @@
+DROP TABLE IF EXISTS public.history_futures CASCADE;
+DROP TABLE IF EXISTS public.positions_futures CASCADE;
+DROP TABLE IF EXISTS public.orders_spot CASCADE;
+DROP TABLE IF EXISTS public.transactions CASCADE;
+DROP TABLE IF EXISTS public.wallets CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
+
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -117,6 +124,9 @@ CREATE TABLE IF NOT EXISTS public.positions_futures (
     size NUMERIC(20, 8) NOT NULL,
     liquidation_price NUMERIC(20, 8),
     margin NUMERIC(20, 8) NOT NULL,
+    tp_orders JSONB DEFAULT '[]'::jsonb,
+    sl_orders JSONB DEFAULT '[]'::jsonb,
+    trailing_stop JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -189,6 +199,7 @@ BEGIN
     DELETE FROM public.transactions WHERE user_id = p_user_id;
     DELETE FROM public.orders_spot WHERE user_id = p_user_id;
     DELETE FROM public.positions_futures WHERE user_id = p_user_id;
+    DELETE FROM public.history_futures WHERE user_id = p_user_id;
     DELETE FROM public.wallets WHERE user_id = p_user_id;
     
     INSERT INTO public.wallets (user_id, type, coin_symbol, balance)
@@ -207,9 +218,6 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authentic
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated;
 
--- ==========================================
--- 9. Futures History Table
--- ==========================================
 CREATE TABLE IF NOT EXISTS public.history_futures (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -231,9 +239,6 @@ ALTER TABLE public.history_futures ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view own futures history" ON public.history_futures FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own futures history" ON public.history_futures FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- ==========================================
--- 10. Realtime Replication
--- ==========================================
 BEGIN;
   DROP PUBLICATION IF EXISTS supabase_realtime;
   CREATE PUBLICATION supabase_realtime;

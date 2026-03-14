@@ -78,6 +78,19 @@ export interface PendingOrder {
     type: 'Limit' | 'Market';
 }
 
+export interface TriggerOrder {
+    id: string;
+    price: number;
+    amount: number;
+}
+
+export interface TrailingStop {
+    activationPrice: number;
+    callbackRate: number;
+    watermarkPrice: number;
+    isActive: boolean;
+}
+
 export interface FuturesPosition {
     id: string;
     symbol: string;
@@ -94,6 +107,9 @@ export interface FuturesPosition {
     marginMode: 'Isolated' | 'Cross' | string;
     tpPrice?: number | null;
     slPrice?: number | null;
+    tpOrders?: TriggerOrder[];
+    slOrders?: TriggerOrder[];
+    trailingStop?: TrailingStop;
 }
 
 export interface PositionHistoryRecord {
