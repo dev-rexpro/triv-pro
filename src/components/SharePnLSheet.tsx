@@ -26,7 +26,8 @@ const SharePnLSheet = () => {
         setSharePnLSheetOpen,
         activeShareData,
         wallets,
-        showToast
+        showToast,
+        user
     } = useExchangeStore();
 
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -40,7 +41,13 @@ const SharePnLSheet = () => {
         return () => { document.body.style.overflow = 'unset'; };
     }, [isSharePnLSheetOpen]);
 
-    const maskedEmail = "triv***@gmail.com";
+    const maskedEmail = useMemo(() => {
+        if (!user?.email) return "triv***@gmail.com";
+        const [name, domain] = user.email.split('@');
+        if (!name || !domain) return user.email;
+        const visiblePart = name.slice(0, Math.max(1, Math.floor(name.length / 2)));
+        return `${visiblePart}***@${domain}`;
+    }, [user]);
     const timestamp = useMemo(() => {
         const d = new Date();
         return {
@@ -78,11 +85,11 @@ const SharePnLSheet = () => {
                         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
                     >
                         {/* Handle */}
-                        <div className="flex justify-center mt-2.5 mb-1 shrink-0">
+                        <div className="flex justify-center mt-1.5 mb-0 shrink-0">
                             <div className="w-10 h-1 bg-[var(--border-color)] rounded-full opacity-40" />
                         </div>
                         {/* Custom Nav Header */}
-                        <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)] bg-[var(--bg-primary)] sticky top-0 z-50">
+                        <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-color)] bg-[var(--bg-primary)] sticky top-0 z-50">
                             <button onClick={() => setSharePnLSheetOpen(false)} className="p-1.5 hover:bg-[var(--bg-hover)] rounded-full transition-colors text-[var(--text-primary)]">
                                 <ChevronLeft size={24} />
                             </button>
@@ -92,18 +99,18 @@ const SharePnLSheet = () => {
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto pb-4 no-scrollbar">
-                            <div className="px-5 pt-4 pb-2">
+                        <div className="flex-1 overflow-y-auto pb-2 no-scrollbar">
+                            <div className="px-4 pt-2 pb-0.5">
                                 {/* Title Section */}
-                                <div className="flex items-center justify-between mb-4 px-1">
-                                    <h2 className="text-xl font-bold text-[var(--text-primary)]">Share this page</h2>
+                                <div className="flex items-center justify-between mb-2 px-1">
+                                    <h2 className="text-[16px] font-bold text-[var(--text-primary)]">Share this page</h2>
                                     <button className="p-1.5 hover:bg-[var(--bg-hover)] rounded-full transition-colors text-[var(--text-primary)]">
                                         <ExternalLink size={20} />
                                     </button>
                                 </div>
 
                                 {/* Main Card */}
-                                <div className="bg-black rounded-xl overflow-hidden shadow-2xl relative w-full aspect-[4/5] flex flex-col mb-3 ring-1 ring-white/10">
+                                <div className="bg-black rounded-xl overflow-hidden shadow-2xl relative w-full aspect-square flex flex-col mb-2 ring-1 ring-white/10">
                                     <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0a]">
                                         <img
                                             src={SHARE_IMAGES[selectedIndex]}
@@ -134,16 +141,16 @@ const SharePnLSheet = () => {
                                         <div className="flex-1" />
 
                                         <div className="mb-3">
-                                            <div className="flex items-center gap-2 mb-1">
+                                            <div className="flex items-center gap-2 mb-0.5">
                                                 <img src={trivLogo} alt="TRIV" className="h-9" />
                                             </div>
-                                            <p className={`text-4xl font-semibold tracking-tighter ${pnlPercent >= 0 ? 'text-[#00c076]' : 'text-[#ff4d5b]'}`}>
+                                            <p className={`text-4xl font-medium tracking-tighter ${pnlPercent >= 0 ? 'text-[#00c076]' : 'text-[#ff4d5b]'}`}>
                                                 {pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%
                                             </p>
                                         </div>
 
                                         <div className="flex items-center gap-3 mb-3">
-                                            <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center">
+                                            <div className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center">
                                                 <img
                                                     src={`https://cdn.jsdelivr.net/gh/vadimmalykhin/binance-icons/crypto/${symbol.replace('1000', '').replace('USDT', '').toLowerCase()}.svg`}
                                                     onError={(e) => {
@@ -166,13 +173,11 @@ const SharePnLSheet = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <h3 className="text-white font-bold text-[13px]">{symbol}{isFutures ? ' Perp' : '/USDT'}</h3>
-                                                <div className="flex items-center gap-1.5 text-[9px] font-medium mt-0.5">
+                                                <h3 className="text-white font-bold text-[16px]">{symbol}{isFutures ? ' Perp' : '/USDT'}</h3>
+                                                <div className="flex items-center gap-1.5 text-[11px] font-medium mt-0.5">
                                                     <span className={side === 'Buy' ? 'text-green-500' : 'text-red-500'}>{side === 'Buy' ? 'Long' : 'Short'}</span>
                                                     <span className="text-gray-600">|</span>
                                                     <span className="text-gray-400">{isFutures ? `${leverage}x` : 'Spot'}</span>
-                                                    <span className="text-gray-600">|</span>
-                                                    <span className="text-gray-400">Open</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -182,13 +187,13 @@ const SharePnLSheet = () => {
                                                 <p className="text-gray-500 text-[10px] mb-0.5">Entry price</p>
                                                 <p className="text-white font-medium text-[13px]">{entryPrice.toLocaleString()}</p>
                                             </div>
-                                            <div>
+                                            <div className="text-right">
                                                 <p className="text-gray-500 text-[10px] mb-0.5">Last price</p>
                                                 <p className="text-white font-medium text-[13px]">{lastPrice.toLocaleString()}</p>
                                             </div>
                                         </div>
 
-                                        <div className="pt-3 flex items-center justify-between">
+                                        <div className="mt-auto pt-2 border-t border-white/10 flex items-center justify-between">
                                             <div>
                                                 <p className="text-gray-400 text-[9px] mb-0.5 italic">Join TRIV with my referral link</p>
                                                 <p className="text-white font-bold text-[12px]">triv.co.id/ref/TRV123</p>
@@ -204,8 +209,7 @@ const SharePnLSheet = () => {
                                     </div>
                                 </div>
 
-                                {/* Indicators */}
-                                <div className="flex justify-center gap-1.5 mb-4">
+                                <div className="flex justify-center gap-1.5 mb-3">
                                     {SHARE_IMAGES.slice(0, 3).map((_, i) => (
                                         <div
                                             key={i}
@@ -215,19 +219,19 @@ const SharePnLSheet = () => {
                                 </div>
 
                                 {/* Image Selector Thumbnails */}
-                                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-3 px-1">
+                                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-2 px-1">
                                     {SHARE_IMAGES.map((src, i) => (
                                         <div
                                             key={i}
                                             onClick={() => setSelectedIndex(i)}
-                                            className={`w-[56px] h-[56px] aspect-square rounded-[4px] overflow-hidden flex-none border-2 cursor-pointer transition-all ${i === selectedIndex ? 'border-black scale-105 shadow-sm' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                                            className={`w-10 h-10 aspect-square rounded-[4px] overflow-hidden flex-none border-[0.5px] cursor-pointer transition-all ${i === selectedIndex ? 'border-black scale-105 shadow-sm' : 'border-white/10 opacity-60 hover:opacity-100'}`}
                                         >
                                             <img src={src} className="w-full h-full object-cover" alt={`Thumb ${i}`} />
                                         </div>
                                     ))}
                                 </div>
 
-                                <p className="text-[11px] text-gray-500 leading-tight mb-5 px-1">
+                                <p className="text-[11px] text-gray-500 leading-tight mb-3 px-1">
                                     Each friend signs up and trades 50 USDT, you'll get up to <span className="text-green-600 font-bold">10 USDT</span>.
                                 </p>
 
