@@ -1728,7 +1728,7 @@ const useExchangeStore = create<ExchangeState>()(
                 return {
                     value: dCurrentPnL.toDecimalPlaces(8).toNumber(),
                     percent: dPnlPct.toDecimalPlaces(2).toNumber(),
-                    hasData: baselineFound
+                    hasData: baselineFound || dBaseCapital.gt(0)
                 };
             },
 
