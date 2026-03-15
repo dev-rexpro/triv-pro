@@ -105,8 +105,16 @@ export const useOrderBookSocket = (symbol: string, type: 'spot' | 'futures', dep
         return () => {
             cancelled = true;
             if (retryTimeout) clearTimeout(retryTimeout);
+            
             if (ws) {
-                ws.close();
+                // 0 is the CONNECTING state
+                if (ws.readyState === 0) {
+                    ws.onopen = () => {
+                        ws?.close();
+                    };
+                } else {
+                    ws.close();
+                }
             }
             throttledUpdate.cancel();
             bidsCache.current = {};

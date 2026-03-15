@@ -7,8 +7,8 @@ class WebSocketManager {
     private spotWs: WebSocket | null = null;
     private futuresWs: WebSocket | null = null;
     private subscribers: Set<string> = new Set();
-    private marketThrottleMs: number = 400;    // price list: fast updates
-    private portfolioThrottleMs: number = 3000; // portfolio value: ~3s like Binance/OKX/MEXC
+    private marketThrottleMs: number = 250;    // price list: fast updates
+    private portfolioThrottleMs: number = 800; // portfolio value: ~3s like Binance/OKX/MEXC
     private lastMarketUpdate: number = 0;
     private lastPortfolioUpdate: number = 0;
     private updateQueue: any[] = [];

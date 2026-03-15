@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FiX as Close, FiChevronRight as ChevronRight, FiInfo as Info } from 'react-icons/fi';
 import { MdOutlineArrowDropDown as ChevronDown } from 'react-icons/md';
 import useExchangeStore from '../stores/useExchangeStore';
+import { getPrecisionForPrice } from '../utils/format';
 import CoinIcon from './CoinIcon';
 import Decimal from 'decimal.js';
 
@@ -12,6 +13,7 @@ const FuturesTPSLSheet = () => {
         setFuturesTPSLSheetOpen, 
         activeFuturesPosition, 
         futuresMarkets,
+        futuresSymbols,
         setFuturesTPSL,
         showToast
     } = useExchangeStore();
@@ -48,7 +50,12 @@ const FuturesTPSLSheet = () => {
         return () => { document.body.style.overflow = 'unset'; };
     }, [isFuturesTPSLSheetOpen]);
 
-    const precision = market?.pricePrecision || 2;
+    const precision = useMemo(() => {
+        if (market?.pricePrecision) return market.pricePrecision;
+        const symbolInfo = futuresSymbols.find(s => s.symbol === activeFuturesPosition?.symbol);
+        if (symbolInfo?.pricePrecision) return symbolInfo.pricePrecision;
+        return getPrecisionForPrice(currentMarkPrice);
+    }, [market, futuresSymbols, activeFuturesPosition?.symbol, currentMarkPrice]);
 
     const formatPrice = useCallback((price: number | string) => {
         if (typeof price === 'string') price = parseFloat(price);

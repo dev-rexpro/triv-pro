@@ -63,8 +63,16 @@ export const useTickerSocket = (symbol: string, type: 'spot' | 'futures', initia
         return () => {
             cancelled = true;
             if (retryTimeout) clearTimeout(retryTimeout);
+            
             if (ws) {
-                ws.close();
+                // Jangan close paksa jika sedang CONNECTING (readyState === 0)
+                if (ws.readyState === 0) {
+                    ws.onopen = () => {
+                        ws?.close();
+                    };
+                } else {
+                    ws.close();
+                }
             }
         };
     }, [symbol, type]);

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX as Close, FiChevronRight as ChevronRight, FiInfo as Info } from 'react-icons/fi';
 import useExchangeStore from '../stores/useExchangeStore';
-import { formatPrice as globalFormatPrice } from '../utils/format';
+import { formatPrice as globalFormatPrice, getPrecisionForPrice } from '../utils/format';
 import CoinIcon from './CoinIcon';
 import Decimal from 'decimal.js';
 
@@ -12,6 +12,7 @@ const SpotTPSLSheet = () => {
         setSpotTPSLSheetOpen, 
         activeSpotTPSLAsset, 
         markets, 
+        spotSymbols,
         wallets, 
         setSpotTPSL,
         showToast 
@@ -34,7 +35,12 @@ const SpotTPSLSheet = () => {
     const availableCoin = activeSpotTPSLAsset?.amount || 0;
     const costBasisValue = useExchangeStore.getState().spotCostBasis[activeSpotTPSLAsset?.symbol || ''] || lastPrice;
 
-    const precision = market?.pricePrecision || 2;
+    const precision = useMemo(() => {
+        if (market?.pricePrecision) return market.pricePrecision;
+        const symbolInfo = spotSymbols.find(s => s.symbol === symbol);
+        if (symbolInfo?.pricePrecision) return symbolInfo.pricePrecision;
+        return getPrecisionForPrice(lastPrice);
+    }, [market, spotSymbols, symbol, lastPrice]);
     const formatPrice = useCallback((price: number | string) => {
         return globalFormatPrice(price, precision);
     }, [precision]);
