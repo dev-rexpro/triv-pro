@@ -631,8 +631,8 @@ const TradeView = () => {
     };
 
     const halfListCount = activeTopTab === 'Futures'
-        ? (isTpSlEnabled ? 10 : 8)
-        : (isTpSlEnabled ? 8 : 6);
+        ? (isTpSlEnabled ? 9 : 7)
+        : (isTpSlEnabled ? 7 : 5);
     const fullListCount = halfListCount * 2;
     const askLimit = orderBookView === 'sell' ? fullListCount : halfListCount;
     const bidLimit = orderBookView === 'buy' ? fullListCount : halfListCount;
@@ -713,7 +713,7 @@ const TradeView = () => {
 
             <div className="flex items-stretch px-3 py-3">
                 {/* Left Panel: Trade Inputs */}
-                <div className="w-[58%] pr-1 flex flex-col gap-2.5">
+                <div className="w-[58%] pr-1 flex flex-col gap-1.5">
                     {activeTopTab === 'Futures' ? (
                         <>
                             <div className="flex gap-2">
@@ -733,7 +733,7 @@ const TradeView = () => {
                                 </div>
                             </div>
                             <div
-                                className="bg-[var(--input-bg)] rounded-lg px-3 h-[44px] flex items-center justify-between cursor-pointer border border-transparent hover:border-[var(--border-color)]"
+                                className="bg-[var(--input-bg)] rounded-lg px-3 h-[40px] flex items-center justify-between cursor-pointer border border-transparent hover:border-[var(--border-color)]"
                                 onClick={() => setIsOrderTypeSheetOpen(true)}
                             >
                                 <span className="font-semibold text-[14px] text-[var(--text-primary)] flex items-center gap-1.5">
@@ -742,8 +742,8 @@ const TradeView = () => {
                                 <ArrowDropDown className="w-7 h-7 text-[var(--text-secondary)]" />
                             </div>
 
-                            <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[44px] flex flex-col justify-center border border-transparent focus-within:border-[var(--border-strong)] transition-colors">
-                                <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-1">Price (USDT)</span>
+                            <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[40px] flex flex-col justify-center border border-transparent focus-within:border-[var(--border-strong)] transition-colors">
+                                <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-0.5">Price (USDT)</span>
                                 {orderType === 'Market' ? (
                                     <div className="font-semibold text-[var(--text-tertiary)] text-[15px]">Market price</div>
                                 ) : (
@@ -760,7 +760,7 @@ const TradeView = () => {
                         </>
                     ) : (
                         <>
-                            <div className="flex rounded-[8px] bg-[var(--bg-secondary)] p-[3px] mb-1.5">
+                            <div className="flex rounded-[8px] bg-[var(--bg-secondary)] p-[3px] mb-1">
                                 <button
                                     className={`flex-1 py-1.5 text-[14px] font-bold rounded-[6px] transition-colors ${tradeSide === 'buy' ? 'bg-[var(--green)] text-white shadow-sm' : 'text-[var(--text-secondary)]'}`}
                                     onClick={() => handleTradeSideSwitch('buy')}
@@ -775,15 +775,15 @@ const TradeView = () => {
                                 </button>
                             </div>
 
-                            <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[44px] mb-1.5 flex items-center justify-between cursor-pointer border border-transparent hover:border-[var(--border-color)]" onClick={() => setIsOrderTypeSheetOpen(true)}>
+                            <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[40px] mb-1 flex items-center justify-between cursor-pointer border border-transparent hover:border-[var(--border-color)]" onClick={() => setIsOrderTypeSheetOpen(true)}>
                                 <span className="font-semibold text-[14px] text-[var(--text-primary)] flex items-center gap-1.5">
-                                    {orderType === 'Market' ? 'Market order' : orderType === 'Limit' ? 'Limit order' : 'TP/SL'} <Info className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
+                                    {orderType === 'Market' ? 'Market order' : orderType === 'Limit' ? 'Limit order' : 'TP/SL'} <span className="text-[10px] text-[var(--text-tertiary)]"><Info className="inline w-3 h-3" /></span>
                                 </span>
                                 <ArrowDropDown className="w-7 h-7 text-[var(--text-secondary)]" />
                             </div>
 
-                            <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[44px] mb-1.5 flex flex-col justify-center border border-transparent focus-within:border-[var(--border-strong)] transition-colors">
-                                <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-1">Price (USDT)</span>
+                            <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[40px] mb-1 flex flex-col justify-center border border-transparent focus-within:border-[var(--border-strong)] transition-colors">
+                                <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-0.5">Price (USDT)</span>
                                 {orderType === 'Market' ? (
                                     <div className="font-semibold text-[var(--text-tertiary)] text-[15px]">Market price</div>
                                 ) : (
@@ -800,10 +800,10 @@ const TradeView = () => {
                         </>
                     )}
 
-                    <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[44px] mb-1.5 flex flex-col justify-center border border-transparent focus-within:border-[var(--border-strong)] transition-colors relative cursor-text">
+                    <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[40px] mb-1 flex flex-col justify-center border border-transparent focus-within:border-[var(--border-strong)] transition-colors relative cursor-text">
                         {amountInput ? (
                             <div className="flex flex-col w-full z-10">
-                                <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-1">Amount ({baseCoin})</span>
+                                <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-0.5">Amount ({baseCoin})</span>
                                 <input
                                     type="text"
                                     className="bg-transparent font-medium text-[var(--text-primary)] text-[15px] outline-none w-full p-0 leading-none"
@@ -855,10 +855,10 @@ const TradeView = () => {
 
                     {activeTopTab === 'Spot' && (
                         <>
-                            <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[44px] mb-2 flex flex-col justify-center relative">
+                            <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[40px] mb-1.5 flex flex-col justify-center relative">
                                 {totalUsdt && amountInput ? (
                                     <div className="flex flex-col w-full z-10">
-                                        <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-1">Total (USDT)</span>
+                                        <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-0.5">Total (USDT)</span>
                                         <input
                                             type="text"
                                             className="bg-transparent font-medium text-[var(--text-primary)] text-[15px] outline-none w-full p-0 leading-none pointer-events-none"
@@ -934,15 +934,15 @@ const TradeView = () => {
                     {isTpSlEnabled && (
                         <div className="animate-in fade-in duration-300 pb-2">
                             {/* TP Input */}
-                            <div className={`bg-[var(--input-bg)] rounded-lg px-3 transition-all duration-200 border cursor-text h-[44px] mb-2 relative flex items-center ${isTpFocused ? 'border-[var(--text-primary)]' : 'border-transparent'}`}
+                            <div className={`bg-[var(--input-bg)] rounded-lg px-3 transition-shadow duration-200 border cursor-text h-[40px] mb-1.5 relative flex items-center ${isTpFocused ? 'border-[var(--text-primary)]' : 'border-transparent'}`}
                                 onClick={() => tpInputRef.current?.focus()}
                             >
                                 <div className={`flex flex-col w-full transition-opacity duration-200 ${(isTpFocused || tpInput) ? 'opacity-100' : 'opacity-0 pointer-events-none absolute'}`}>
-                                    <span className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5">TP price (USDT)</span>
+                                    <span className="text-[10px] text-[var(--text-tertiary)] font-medium mb-0">TP price (USDT)</span>
                                     <input
                                         ref={tpInputRef}
                                         type="text"
-                                        className="bg-transparent font-medium text-[var(--text-primary)] text-[15px] outline-none w-full p-0 leading-none"
+                                        className="bg-transparent font-medium text-[var(--text-primary)] text-[14px] outline-none w-full p-0 leading-none"
                                         value={tpInput}
                                         onFocus={() => setIsTpFocused(true)}
                                         onBlur={() => setIsTpFocused(false)}
@@ -950,24 +950,24 @@ const TradeView = () => {
                                     />
                                 </div>
                                 <div className={`flex items-center justify-between w-full transition-opacity duration-200 ${(!isTpFocused && !tpInput) ? 'opacity-100' : 'opacity-0 pointer-events-none absolute'}`}>
-                                    <span className="text-[15px] text-[var(--text-tertiary)] font-medium">TP price</span>
+                                    <span className="text-[14px] text-[var(--text-tertiary)] font-medium">TP price</span>
                                     <div className="flex items-center gap-1">
-                                        <span className="text-[15px] font-medium text-[var(--text-primary)]">USDT</span>
+                                        <span className="text-[14px] font-medium text-[var(--text-primary)]">USDT</span>
                                         <ArrowDropDown className="w-5 h-5 text-[var(--text-tertiary)]" />
                                     </div>
                                 </div>
                             </div>
 
                             {/* SL Input */}
-                            <div className={`bg-[var(--input-bg)] rounded-lg px-3 transition-all duration-200 border cursor-text h-[44px] mb-2 relative flex items-center ${isSlFocused ? 'border-[var(--text-primary)]' : 'border-transparent'}`}
+                            <div className={`bg-[var(--input-bg)] rounded-lg px-3 transition-shadow duration-200 border cursor-text h-[40px] mb-1.5 relative flex items-center ${isSlFocused ? 'border-[var(--text-primary)]' : 'border-transparent'}`}
                                 onClick={() => slInputRef.current?.focus()}
                             >
                                 <div className={`flex flex-col w-full transition-opacity duration-200 ${(isSlFocused || slInput) ? 'opacity-100' : 'opacity-0 pointer-events-none absolute'}`}>
-                                    <span className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5">SL price (USDT)</span>
+                                    <span className="text-[10px] text-[var(--text-tertiary)] font-medium mb-0">SL price (USDT)</span>
                                     <input
                                         ref={slInputRef}
                                         type="text"
-                                        className="bg-transparent font-medium text-[var(--text-primary)] text-[15px] outline-none w-full p-0 leading-none"
+                                        className="bg-transparent font-medium text-[var(--text-primary)] text-[14px] outline-none w-full p-0 leading-none"
                                         value={slInput}
                                         onFocus={() => setIsSlFocused(true)}
                                         onBlur={() => setIsSlFocused(false)}
@@ -975,9 +975,9 @@ const TradeView = () => {
                                     />
                                 </div>
                                 <div className={`flex items-center justify-between w-full transition-opacity duration-200 ${(!isSlFocused && !slInput) ? 'opacity-100' : 'opacity-0 pointer-events-none absolute'}`}>
-                                    <span className="text-[15px] text-[var(--text-tertiary)] font-medium">SL price</span>
+                                    <span className="text-[14px] text-[var(--text-tertiary)] font-medium">SL price</span>
                                     <div className="flex items-center gap-1">
-                                        <span className="text-[15px] font-medium text-[var(--text-primary)]">USDT</span>
+                                        <span className="text-[14px] font-medium text-[var(--text-primary)]">USDT</span>
                                         <ArrowDropDown className="w-5 h-5 text-[var(--text-tertiary)]" />
                                     </div>
                                 </div>
@@ -994,7 +994,7 @@ const TradeView = () => {
                                     <div className="flex justify-between text-[var(--text-tertiary)]"><span>Cost</span><span className="text-[var(--text-primary)] font-bold">{currentFuturesCost.toFixed(2)} USDT</span></div>
                                     <div className="flex justify-between text-[var(--text-tertiary)]"><span>Liq. price</span><span className="text-[var(--text-primary)] font-bold">{sliderPercent > 0 ? formatPrice(liqPriceLong) : '--'}</span></div>
                                 </div>
-                                <button className="w-full h-[44px] rounded-full font-bold text-white bg-[var(--green)] flex flex-col items-center justify-center shrink-0 overflow-hidden shadow-sm mb-2" onClick={() => handlePlaceOrder('buy')}>
+                                <button className="w-full h-[40px] rounded-full font-bold text-white bg-[var(--green)] flex flex-col items-center justify-center shrink-0 overflow-hidden shadow-sm mb-1" onClick={() => handlePlaceOrder('buy')}>
                                     <span className="text-[14px] leading-tight">Buy (Long) {leverage}x</span>
                                     {sliderPercent > 0 && <span className="text-[10px] opacity-90 font-medium leading-tight">≈{formatAbbreviated(currentFuturesAmount)} {baseCoin}</span>}
                                 </button>
@@ -1003,14 +1003,14 @@ const TradeView = () => {
                                     <div className="flex justify-between text-[var(--text-tertiary)]"><span>Cost</span><span className="text-[var(--text-primary)] font-bold">{currentFuturesCost.toFixed(2)} USDT</span></div>
                                     <div className="flex justify-between text-[var(--text-tertiary)]"><span>Liq. price</span><span className="text-[var(--text-primary)] font-bold">{sliderPercent > 0 ? formatPrice(liqPriceShort) : '--'}</span></div>
                                 </div>
-                                <button className="w-full h-[44px] rounded-full font-bold text-white bg-[var(--red)] flex flex-col items-center justify-center shrink-0 overflow-hidden shadow-sm" onClick={() => handlePlaceOrder('sell')}>
+                                <button className="w-full h-[40px] rounded-full font-bold text-white bg-[var(--red)] flex flex-col items-center justify-center shrink-0 overflow-hidden shadow-sm" onClick={() => handlePlaceOrder('sell')}>
                                     <span className="text-[14px] leading-tight">Sell (Short) {leverage}x</span>
                                     {sliderPercent > 0 && <span className="text-[10px] opacity-90 font-medium leading-tight">≈{formatAbbreviated(currentFuturesAmount)} {baseCoin}</span>}
                                 </button>
                             </>
                         ) : (
                             <button
-                                className={`w-full h-[44px] rounded-full font-bold text-white text-[15px] shadow-sm ${tradeSide === 'buy' ? 'bg-[var(--green)]' : 'bg-[var(--red)]'}`}
+                                className={`w-full h-[40px] rounded-full font-bold text-white text-[15px] shadow-sm ${tradeSide === 'buy' ? 'bg-[var(--green)]' : 'bg-[var(--red)]'}`}
                                 onClick={() => handlePlaceOrder()}
                             >
                                 {tradeSide === 'buy' ? `Buy ${baseCoin}` : `Sell ${baseCoin}`}

@@ -287,8 +287,8 @@ export default function SpotTradeView() {
         );
     };
 
-    const halfListCount = isTpSlEnabled ? 9 : 7;
-    const fullListCount = isTpSlEnabled ? 18 : 14;
+    const halfListCount = isTpSlEnabled ? 8 : 6;
+    const fullListCount = isTpSlEnabled ? 16 : 12;
     const askLimit = orderBookView === 'sell' ? fullListCount : halfListCount;
     const bidLimit = orderBookView === 'buy' ? fullListCount : halfListCount;
 
@@ -345,8 +345,8 @@ export default function SpotTradeView() {
 
                 <div className="flex">
                     {/* Left Panel: Trade Inputs */}
-                    <div className="w-[58%] p-3 pr-2 flex flex-col">
-                        <div className="flex rounded-[8px] bg-[var(--bg-secondary)] p-[3px] mb-4">
+                    <div className="w-[58%] p-3 pr-2 flex flex-col gap-1.5">
+                        <div className="flex rounded-[8px] bg-[var(--bg-secondary)] p-[3px] mb-1">
                             <button
                                 className={`flex-1 py-1.5 text-[14px] font-bold rounded-[6px] transition-colors ${tradeSide === 'buy' ? 'bg-[var(--green)] text-white shadow-sm' : 'text-[var(--text-secondary)]'}`}
                                 onClick={() => handleTradeSideSwitch('buy')}
@@ -361,15 +361,15 @@ export default function SpotTradeView() {
                             </button>
                         </div>
 
-                        <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[44px] mb-3 flex items-center justify-between cursor-pointer border border-transparent hover:border-[var(--border-color)]">
+                        <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[40px] mb-1 flex items-center justify-between cursor-pointer border border-transparent hover:border-[var(--border-color)]">
                             <span className="font-semibold text-[14px] text-[var(--text-primary)] flex items-center gap-1.5">
-                                Limit order <div className="text-[var(--text-primary)]"><Check size={20} /></div>
+                                Limit order <div className="text-[var(--text-primary)]"><Check size={18} /></div>
                             </span>
-                            <div className="text-[var(--text-secondary)] flex items-center"><ArrowDropDown size={28} /></div>
+                            <div className="text-[var(--text-secondary)] flex items-center"><ArrowDropDown size={24} /></div>
                         </div>
 
-                        <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[44px] mb-3 flex flex-col justify-center border border-transparent focus-within:border-[var(--border-strong)] transition-colors">
-                            <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-1">Price (USDT)</span>
+                        <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[40px] mb-1 flex flex-col justify-center border border-transparent focus-within:border-[var(--border-strong)] transition-colors">
+                            <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-0.5">Price (USDT)</span>
                             <input
                                 type="text"
                                 className="bg-transparent font-medium text-[var(--text-primary)] text-[15px] outline-none w-full p-0 leading-none"
@@ -378,10 +378,10 @@ export default function SpotTradeView() {
                             />
                         </div>
 
-                        <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[44px] mb-3 flex flex-col justify-center border border-transparent focus-within:border-[var(--border-strong)] transition-colors relative cursor-text">
+                        <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[40px] mb-1 flex flex-col justify-center border border-transparent focus-within:border-[var(--border-strong)] transition-colors relative cursor-text">
                             {amountInput ? (
                                 <div className="flex flex-col w-full z-10">
-                                    <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-1">Amount (BTC)</span>
+                                    <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-0.5">Amount (BTC)</span>
                                     <input
                                         type="text"
                                         className="bg-transparent font-medium text-[var(--text-primary)] text-[15px] outline-none w-full p-0 leading-none"
@@ -431,10 +431,10 @@ export default function SpotTradeView() {
                             />
                         </div>
 
-                        <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[44px] mb-4 flex flex-col justify-center relative">
+                        <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[40px] mb-2 flex flex-col justify-center relative">
                             {totalUsdt && amountInput ? (
                                 <div className="flex flex-col w-full z-10">
-                                    <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-1">Total (USDT)</span>
+                                    <span className="text-[11px] text-[var(--text-secondary)] font-medium leading-none mb-0.5">Total (USDT)</span>
                                     <input
                                         type="text"
                                         className="bg-transparent font-medium text-[var(--text-primary)] text-[15px] outline-none w-full p-0 leading-none pointer-events-none"
@@ -452,11 +452,11 @@ export default function SpotTradeView() {
 
                         <div className="flex justify-between items-center text-[12px] mb-1 px-1">
                             <span className="text-[var(--text-tertiary)] font-medium">Available</span>
-                            <span className="font-semibold text-[var(--text-secondary)]">{availableValue}</span>
+                            <span className="font-semibold text-[var(--text-secondary)] text-[11px]">{availableValue}</span>
                         </div>
-                        <div className="flex justify-between items-center text-[12px] mb-4 px-1">
+                        <div className="flex justify-between items-center text-[12px] mb-2 px-1">
                             <span className="text-[var(--text-tertiary)] font-medium">Max {tradeSide}</span>
-                            <span className="font-semibold text-[var(--text-secondary)]">{maxBuySellValue}</span>
+                            <span className="font-semibold text-[var(--text-secondary)] text-[11px]">{maxBuySellValue}</span>
                         </div>
 
                         <div className="flex items-center justify-between mb-3 px-1 mt-1">
@@ -481,7 +481,7 @@ export default function SpotTradeView() {
                             </div>
                         )}
 
-                        <button className={`w-full py-3 rounded-xl font-bold text-white text-[16px] mt-auto shadow-sm ${tradeSide === 'buy' ? 'bg-[var(--green)]' : 'bg-[var(--red)]'}`}>
+                        <button className={`w-full h-[40px] rounded-full font-bold text-white text-[15px] mt-auto shadow-sm ${tradeSide === 'buy' ? 'bg-[var(--green)]' : 'bg-[var(--red)]'}`}>
                             {tradeSide === 'buy' ? 'Buy BTC' : 'Sell BTC'}
                         </button>
                     </div>
@@ -812,6 +812,6 @@ export default function SpotTradeView() {
                     </div>
                 </div>
             </div>
-        </div >
+        </div>
     );
 }

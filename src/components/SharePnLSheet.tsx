@@ -89,26 +89,16 @@ const SharePnLSheet = () => {
                         <div className="flex justify-center mt-1.5 mb-0 shrink-0">
                             <div className="w-10 h-1 bg-[var(--border-color)] rounded-full opacity-40" />
                         </div>
-                        {/* Custom Nav Header */}
                         <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-color)] bg-[var(--bg-primary)] sticky top-0 z-50">
                             <button onClick={() => setSharePnLSheetOpen(false)} className="p-1.5 hover:bg-[var(--bg-hover)] rounded-full transition-colors text-[var(--text-primary)]">
                                 <ChevronLeft size={24} />
                             </button>
-                            <h1 className="text-[17px] font-bold text-[var(--text-primary)]">My trades</h1>
-                            <button className="p-1.5 hover:bg-[var(--bg-hover)] rounded-full transition-colors text-[var(--text-primary)]">
-                                <Download size={24} />
-                            </button>
+                            <h1 className="text-[17px] font-bold text-[var(--text-primary)]">Share this page</h1>
+                            <div className="w-9" />
                         </div>
 
                         <div className="flex-1 overflow-y-auto pb-2 no-scrollbar">
-                            <div className="px-4 pt-2 pb-0.5">
-                                {/* Title Section */}
-                                <div className="flex items-center justify-between mb-2 px-1">
-                                    <h2 className="text-[16px] font-bold text-[var(--text-primary)]">Share this page</h2>
-                                    <button className="p-1.5 hover:bg-[var(--bg-hover)] rounded-full transition-colors text-[var(--text-primary)]">
-                                        <ExternalLink size={20} />
-                                    </button>
-                                </div>
+                            <div className="px-4 pt-4 pb-0.5">
 
                                 {/* Main Card */}
                                 <div className="bg-black rounded-xl overflow-hidden shadow-2xl relative w-full aspect-square flex flex-col mb-2 ring-1 ring-white/10">
@@ -143,7 +133,7 @@ const SharePnLSheet = () => {
 
                                         <div className="mb-3">
                                             <div className="flex items-center gap-2 mb-0.5">
-                                                <img src={trivLogo} alt="TRIV" className="h-9" />
+                                                <img src={trivLogo} alt="TRIV" className="h-8" />
                                             </div>
                                             <p className={`text-4xl font-medium tracking-tighter ${pnlPercent >= 0 ? 'text-[#00c076]' : 'text-[#ff4d5b]'}`}>
                                                 {pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%
@@ -219,13 +209,12 @@ const SharePnLSheet = () => {
                                     ))}
                                 </div>
 
-                                {/* Image Selector Thumbnails */}
-                                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-2 px-1">
+                                <div className="flex gap-2 overflow-x-auto no-scrollbar py-2 mb-2 px-1">
                                     {SHARE_IMAGES.map((src, i) => (
                                         <div
                                             key={i}
                                             onClick={() => setSelectedIndex(i)}
-                                            className={`w-10 h-10 aspect-square rounded-[4px] overflow-hidden flex-none border-[0.5px] cursor-pointer transition-all ${i === selectedIndex ? 'border-black scale-105 shadow-sm' : 'border-white/10 opacity-60 hover:opacity-100'}`}
+                                            className={`w-10 h-10 aspect-square rounded-[4px] overflow-hidden flex-none border cursor-pointer transition-all ${i === selectedIndex ? 'border-[var(--text-primary)] scale-105 shadow-md' : 'border-[var(--text-secondary)]/50 opacity-60 hover:opacity-100'}`}
                                         >
                                             <img src={src} className="w-full h-full object-cover" alt={`Thumb ${i}`} />
                                         </div>

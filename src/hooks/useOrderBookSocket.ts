@@ -19,7 +19,7 @@ export const useOrderBookSocket = (symbol: string, type: 'spot' | 'futures', dep
                 .sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
                 .slice(0, 100);
             setOrderBook({ bids, asks });
-        }, 150) // Faster update for Diff stream
+        }, 300) // UI update throttle
     ).current;
 
     useEffect(() => {
@@ -85,7 +85,7 @@ export const useOrderBookSocket = (symbol: string, type: 'spot' | 'futures', dep
                         updateCache(data.asks, asksCache.current);
                         throttledUpdate();
                     }
-                } catch (e) {}
+                } catch (e) { }
             };
 
             ws.onerror = () => {
