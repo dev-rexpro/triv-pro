@@ -665,16 +665,8 @@ const TradeView = () => {
         <div className="flex flex-col bg-[var(--bg-primary)] min-h-screen relative pb-[120px]">
             <style>
                 {`
-          @font-face {
-            font-family: 'OKX Sans';
-            src: url('https://www.okx.com/cdn/assets/okfe/libs/fonts/OKX_Sans/Regular.woff2') format('woff2');
-            font-weight: normal;
-            font-style: normal;
-            font-display: swap;
-          }
           .no-scrollbar::-webkit-scrollbar { display: none; }
           .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-          body { font-family: 'OKX Sans', sans-serif !important; }
         `}
             </style>
 
