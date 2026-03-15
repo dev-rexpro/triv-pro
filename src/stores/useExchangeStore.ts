@@ -659,7 +659,7 @@ const useExchangeStore = create<ExchangeState>()(
                     .eq('user_id', user.id);
 
                 if (!error && data) {
-                    const mappedPositions = data.map((p: any) => ({
+                    const dbPositions = data.map((p: any) => ({
                         id: p.id,
                         symbol: p.pair,
                         pair: p.pair,
@@ -669,19 +669,27 @@ const useExchangeStore = create<ExchangeState>()(
                         markPrice: parseFloat(p.entry_price),
                         margin: parseFloat(p.margin),
                         leverage: p.leverage,
-                        pnl: 0,
-                        pnlPercent: 0,
                         liqPrice: parseFloat(p.liquidation_price),
-                        marginMode: p.margin_type === 'cross' ? 'Cross' : 'Isolated',
+                        marginMode: p.margin_type.charAt(0).toUpperCase() + p.margin_type.slice(1),
                         tpPrice: p.tp_price ? parseFloat(p.tp_price) : null,
                         slPrice: p.sl_price ? parseFloat(p.sl_price) : null,
                         tpOrders: p.tp_orders || [],
                         slOrders: p.sl_orders || [],
-                        trailingStop: p.trailing_stop || undefined
+                        pnl: 0,
+                        pnlPercent: 0,
+                        lastSync: Date.now()
                     }));
 
-                    set({ positions: mappedPositions });
-                    get().updateAssetPrices(true);
+                    // SMART MERGE: Similar to orders, avoid flickering on close/open
+                    const now = Date.now();
+                    const localPositions = get().positions;
+                    const freshLocalPositions = localPositions.filter(lp => {
+                        const isFresh = (now - (lp.lastSync || 0)) < 15000;
+                        const existsInDb = dbPositions.some(dbp => dbp.id === lp.id);
+                        return isFresh && !existsInDb;
+                    });
+
+                    set({ positions: [...dbPositions, ...freshLocalPositions] });
                 }
             },
 
@@ -718,6 +726,16 @@ const useExchangeStore = create<ExchangeState>()(
                     set({ preferences: prefs });
                     if (prefs.currency) set({ currency: prefs.currency });
                     if (prefs.theme) set({ theme: prefs.theme });
+                    
+                    // Restore Spot Settings
+                    if (prefs.spotTPSL) {
+                        console.log('[Diagnostic] Restoring Spot TPSL from Supabase:', prefs.spotTPSL);
+                        set({ spotTPSL: prefs.spotTPSL });
+                    }
+                    if (prefs.spotCostBasis) {
+                        console.log('[Diagnostic] Restoring Spot Cost Basis from Supabase:', prefs.spotCostBasis);
+                        set({ spotCostBasis: prefs.spotCostBasis });
+                    }
                 }
             },
 
@@ -856,12 +874,50 @@ const useExchangeStore = create<ExchangeState>()(
                 ]);
 
                 // Baru tarik sisanya
-                await Promise.all([
+                console.log(`[Diagnostic] Initializing data for user: ${user.id}`);
+                const [history, favorites, positions, orders] = await Promise.all([
                     fetchSupabaseHistory(),
                     fetchSupabaseFavorites(),
                     fetchSupabasePositions(),
                     get().fetchSupabaseOpenOrders()
                 ]);
+
+                const state = get();
+                console.log(`[Diagnostic] Initialization Complete:
+                    - Wallets: fetched 
+                    - Positions: ${state.positions.length}
+                    - Open Orders: ${state.openOrders.length}
+                `);
+
+                // Set up Realtime Sync
+                const channel = supabase.channel(`sync-${user.id}`)
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'orders_spot', filter: `user_id=eq.${user.id}` },
+                        () => { 
+                            console.log('[Realtime] Syncing Spot Orders...');
+                            get().fetchSupabaseOpenOrders(); 
+                            get().fetchSupabaseHistory(); 
+                        }
+                    )
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'positions_futures', filter: `user_id=eq.${user.id}` },
+                        () => { 
+                            console.log('[Realtime] Syncing Futures Positions...');
+                            get().fetchSupabasePositions(); 
+                            get().fetchSupabaseHistory(); 
+                        }
+                    )
+                    .on(
+                        'postgres_changes',
+                        { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${user.id}` },
+                        () => { 
+                            console.log('[Realtime] Syncing Wallets...');
+                            get().fetchSupabaseWallets(); 
+                        }
+                    )
+                    .subscribe();
 
                 // Check Pre-Setup
                 const { preferences, wallets } = get();
@@ -928,6 +984,14 @@ const useExchangeStore = create<ExchangeState>()(
                         }
                     }
                 }, 30000);
+
+                // Polling Fallback (Every 20s for high-consistency across PWA/Browser)
+                setInterval(() => {
+                    const { user } = get();
+                    if (user) {
+                        get().updateAssetPrices();
+                    }
+                }, 20000); // Polling reduced to 20s (Realtime is primary)
             },
 
             fetchSupabaseHistory: async () => {
@@ -1077,7 +1141,8 @@ const useExchangeStore = create<ExchangeState>()(
                     .eq('status', 'open');
 
                 if (!error && data) {
-                    const mappedOrders = data.map((o: any) => ({
+                    console.log(`[Diagnostic] Fetched ${data.length} raw Open Orders from Supabase`);
+                    const dbOrders = data.map((o: any) => ({
                         id: o.id,
                         symbol: o.pair,
                         side: o.side.charAt(0).toUpperCase() + o.side.slice(1),
@@ -1085,9 +1150,26 @@ const useExchangeStore = create<ExchangeState>()(
                         price: parseFloat(o.price),
                         amount: parseFloat(o.amount),
                         filled: parseFloat(o.filled),
-                        timestamp: new Date(o.created_at).getTime()
+                        timestamp: new Date(o.created_at).getTime(),
+                        isFutures: o.is_futures || false,
+                        leverage: o.leverage,
+                        marginMode: o.margin_mode,
+                        tpPrice: o.tp_price ? parseFloat(o.tp_price) : null,
+                        slPrice: o.sl_price ? parseFloat(o.sl_price) : null
                     }));
-                    set({ openOrders: mappedOrders });
+
+                    // SMART MERGE: Don't wipe local orders if they are very fresh (< 15s)
+                    // This prevents orders from "vanishing and reappearing" while DB replicates
+                    const now = Date.now();
+                    const localOrders = get().openOrders;
+                    const freshLocalOrders = localOrders.filter(lo => {
+                        const isFresh = (now - (lo.timestamp || 0)) < 15000;
+                        const existsInDb = dbOrders.some(dbo => dbo.id === lo.id);
+                        return isFresh && !existsInDb;
+                    });
+
+                    const finalOrders = [...dbOrders, ...freshLocalOrders];
+                    set({ openOrders: finalOrders });
                 }
             },
             setSpotTPSL: async (symbol, tpPrice, slPrice, amount) => {
@@ -1204,7 +1286,9 @@ const useExchangeStore = create<ExchangeState>()(
                             type: 'limit',
                             price: order.price,
                             amount: order.amount,
-                            status: 'open'
+                            status: 'open',
+                            tp_price: tpPrice,
+                            sl_price: slPrice
                         }]);
                         get().syncWalletsToSupabase();
                     }
@@ -1355,10 +1439,62 @@ const useExchangeStore = create<ExchangeState>()(
             },
 
             placeFuturesOrder: async (order, tpPrice = null, slPrice = null) => {
-                const { wallets, positions, futuresMarkets, user } = get();
+                const { wallets, positions, openOrders, futuresMarkets, user } = get();
                 const market = futuresMarkets.find(m => m.symbol === order.symbol);
                 const currentPrice = market ? new Decimal(market.lastPrice) : new Decimal(order.price);
+                const limitPrice = new Decimal(order.price);
 
+                // --- LIMIT ORDER LOGIC ---
+                // If it's a Limit order and the price hasn't been reached, add to openOrders
+                const isLimit = order.type === 'Limit';
+                const shouldPending = isLimit && (
+                    (order.side === 'Buy' && limitPrice.lt(currentPrice)) ||
+                    (order.side === 'Sell' && limitPrice.gt(currentPrice))
+                );
+
+                if (shouldPending) {
+                    const orderId = crypto.randomUUID();
+                    const newOrder: PendingOrder = {
+                        id: orderId,
+                        symbol: order.symbol,
+                        side: order.side as 'Buy' | 'Sell',
+                        timestamp: Date.now(),
+                        amount: order.amount,
+                        filled: 0,
+                        price: order.price,
+                        type: 'Limit',
+                        leverage: order.leverage,
+                        marginMode: order.marginMode,
+                        tpPrice,
+                        slPrice,
+                        isFutures: true
+                    };
+
+                    set({ openOrders: [newOrder, ...openOrders] });
+                    get().showToast('Limit Order Placed', `Submitted Limit ${order.side} order for ${order.amount} ${order.symbol} at ${order.price} USDT`, 'success');
+
+                    if (user) {
+                        await supabase.from('orders_spot').insert([{
+                            id: orderId,
+                            user_id: user.id,
+                            pair: order.symbol,
+                            side: order.side.toLowerCase(),
+                            type: 'limit',
+                            price: order.price,
+                            amount: order.amount,
+                            status: 'open',
+                            is_futures: true,
+                            leverage: order.leverage,
+                            margin_mode: order.marginMode,
+                            tp_price: tpPrice,
+                            sl_price: slPrice
+                        }]);
+                        get().syncWalletsToSupabase();
+                    }
+                    return;
+                }
+
+                // --- IMMEDIATE EXECUTION LOGIC (Market or Marketable Limit) ---
                 const dAmount = new Decimal(order.amount);
                 const notionalValue = dAmount.times(currentPrice);
                 const marginRequired = notionalValue.div(new Decimal(order.leverage));
@@ -1399,7 +1535,9 @@ const useExchangeStore = create<ExchangeState>()(
                     pnl: 0,
                     pnlPercent: 0,
                     liqPrice: liqPrice.toNumber(),
-                    marginMode: order.marginMode
+                    marginMode: order.marginMode,
+                    tpPrice,
+                    slPrice
                 };
 
                 const existingPosIdx = positions.findIndex(p => p.symbol === order.symbol && p.side === order.side);
@@ -1418,7 +1556,9 @@ const useExchangeStore = create<ExchangeState>()(
                         size: newSize.toNumber(),
                         entryPrice: newEntry.toNumber(),
                         margin: new Decimal(existing.margin).plus(marginRequired).toNumber(),
-                        liqPrice: liqPrice.toNumber()
+                        liqPrice: liqPrice.toNumber(),
+                        tpPrice: tpPrice || existing.tpPrice,
+                        slPrice: slPrice || existing.slPrice
                     };
                 } else {
                     nextPositions = [newPosition, ...positions];
@@ -1431,7 +1571,7 @@ const useExchangeStore = create<ExchangeState>()(
                 get().addTrade({
                     id: tradeId,
                     symbol: order.symbol,
-                    side: order.side,
+                    side: order.side as 'Buy' | 'Sell',
                     type: order.type,
                     price: currentPrice.toNumber(),
                     amount: order.amount,
@@ -1449,7 +1589,9 @@ const useExchangeStore = create<ExchangeState>()(
                             entry_price: updatedPos.entryPrice,
                             size: updatedPos.size,
                             margin: updatedPos.margin,
-                            liquidation_price: updatedPos.liqPrice
+                            liquidation_price: updatedPos.liqPrice,
+                            tp_price: updatedPos.tpPrice,
+                            sl_price: updatedPos.slPrice
                         })
                             .eq('user_id', user.id)
                             .eq('pair', order.symbol)
@@ -1473,7 +1615,7 @@ const useExchangeStore = create<ExchangeState>()(
                     get().syncWalletsToSupabase();
                 }
 
-                if (tpPrice || slPrice) {
+                if ((tpPrice || slPrice) && existingPosIdx > -1) {
                     const targetPos = get().positions.find(p => p.symbol === order.symbol && p.side === order.side);
                     if (targetPos) {
                         await get().setFuturesTPSL(targetPos.id, tpPrice, slPrice);
@@ -1764,14 +1906,15 @@ const useExchangeStore = create<ExchangeState>()(
             // Auto-Calculation: recalculate asset values from latest market prices and wallets
             // Auto-PnL: compute daily PnL from weighted asset × priceChangePercent
             updateAssetPrices: (force = false) => {
+                const store = get();
+                const { user, fetchSupabasePositions, fetchSupabaseOpenOrders, fetchSupabaseFavorites } = store;
                 const now = Date.now();
                 if (!force && now - lastPortfolioCalc < 3000) return;
                 lastPortfolioCalc = now;
 
-                // Periodic Sync (Background refresh from Supabase every 15s)
-                const { user, fetchSupabasePositions, fetchSupabaseOpenOrders, fetchSupabaseFavorites } = get();
+                // Periodic Sync (Background refresh from Supabase every 30s)
                 const lastSync = (window as any)._lastSupabaseSync || 0;
-                if (user && now - lastSync > 15000) {
+                if (user && now - lastSync > 30000) {
                     (window as any)._lastSupabaseSync = now;
                     // Run sync in background without blocking price updates
                     Promise.all([
@@ -1797,7 +1940,8 @@ const useExchangeStore = create<ExchangeState>()(
                     const updatedTradeHistory = [...tradeHistory];
 
                     openOrders.forEach(order => {
-                        const market = markets.find(m => m.symbol === order.symbol);
+                        const mks = order.isFutures ? futuresMarkets : markets;
+                        const market = mks.find(m => m.symbol === order.symbol);
                         if (!market) {
                             remainingOrders.push(order);
                             return;
@@ -1811,34 +1955,47 @@ const useExchangeStore = create<ExchangeState>()(
 
                         if (shouldFill) {
                             fillOccurred = true;
-                            filledSpotOrders.push(order);
-                            const symbol = order.symbol.replace('USDT', '');
-
-                            if (order.side === 'Buy') {
-                                const oldAmount = new Decimal(updatedWallets.spot[symbol] || 0);
-                                const oldCost = new Decimal(updatedCostBasis[symbol] || currentPrice.toNumber());
-                                const dOrderAmount = new Decimal(order.amount);
-                                const newAmount = oldAmount.plus(dOrderAmount);
-
-                                updatedCostBasis[symbol] = oldAmount.times(oldCost).plus(dOrderAmount.times(currentPrice)).div(newAmount).toNumber();
-                                updatedWallets.spot[symbol] = newAmount.toNumber();
-                                updatedWallets.spot.USDT = new Decimal(updatedWallets.spot.USDT || 0).minus(dOrderAmount.times(currentPrice)).toNumber();
+                            if (order.isFutures) {
+                                // For futures, we trigger placeFuturesOrder with the limit price
+                                // This will handle all margin/position logic
+                                // Since we are inside set(), we should do this AFTER set() finishes OR better, handle logic here
+                                // But placeFuturesOrder is complex. Let's mark it as filled and handle it outside set()
+                                triggeredClosures.push({ pos: order, type: 'FuturesFill' });
                             } else {
-                                const sellValue = currentPrice.times(new Decimal(order.amount));
-                                updatedWallets.spot.USDT = new Decimal(updatedWallets.spot.USDT || 0).plus(sellValue).toNumber();
-                                updatedWallets.spot[symbol] = new Decimal(updatedWallets.spot[symbol] || 0).minus(new Decimal(order.amount)).toNumber();
-                            }
+                                filledSpotOrders.push(order);
+                                const symbol = order.symbol.replace('USDT', '');
 
-                            updatedTradeHistory.push({
-                                id: Math.random().toString(36).substr(2, 9),
-                                symbol: order.symbol,
-                                side: order.side,
-                                price: currentPrice.toNumber(),
-                                amount: order.amount,
-                                timestamp: Date.now(),
-                                pnl: 0,
-                                status: 'Completed'
-                            });
+                                if (order.side === 'Buy') {
+                                    const oldAmount = new Decimal(updatedWallets.spot[symbol] || 0);
+                                    const oldCost = new Decimal(updatedCostBasis[symbol] || currentPrice.toNumber());
+                                    const dOrderAmount = new Decimal(order.amount);
+                                    const newAmount = oldAmount.plus(dOrderAmount);
+
+                                    updatedWallets.spot[symbol] = newAmount.toNumber();
+                                    
+                                    // AUTOMATIC TRIGGER ACTIVATION: If order had TP/SL, activate it now
+                                    if (order.tpPrice || order.slPrice) {
+                                        store.setSpotTPSL(symbol, order.tpPrice, order.slPrice, order.amount);
+                                    }
+                                } else {
+                                    const sellValue = currentPrice.times(new Decimal(order.amount));
+                                    updatedWallets.spot.USDT = new Decimal(updatedWallets.spot.USDT || 0).plus(sellValue).toNumber();
+                                    updatedWallets.spot[symbol] = new Decimal(updatedWallets.spot[symbol] || 0).minus(new Decimal(order.amount)).toNumber();
+                                }
+
+                                updatedTradeHistory.push({
+                                    id: Math.random().toString(36).substr(2, 9),
+                                    symbol: order.symbol,
+                                    pair: order.symbol,
+                                    side: order.side as 'Buy' | 'Sell',
+                                    price: currentPrice.toNumber(),
+                                    amount: order.amount,
+                                    timestamp: Date.now(),
+                                    pnl: 0,
+                                    type: order.type,
+                                    status: 'Completed'
+                                });
+                            }
                         } else {
                             remainingOrders.push(order);
                         }
@@ -2144,11 +2301,10 @@ const useExchangeStore = create<ExchangeState>()(
                 });
 
                 if (partialExecutions.length > 0) {
-                    const store = get();
                     partialExecutions.forEach(exec => {
                         store.processPartialClosure(exec.id, exec.price, exec.amount, exec.type);
                     });
-                    get().syncWalletsToSupabase();
+                    store.syncWalletsToSupabase();
                 }
 
                 if (liquidatedPositions.length > 0 && user) {
@@ -2197,13 +2353,40 @@ const useExchangeStore = create<ExchangeState>()(
                     });
                 }
 
-                if (triggeredClosures.length > 0 && user) {
+                if (triggeredClosures.length > 0) {
                     import('../utils/supabase').then(({ supabase }) => {
                         triggeredClosures.forEach(async c => {
+                            if (c.type === 'FuturesFill') {
+                                const order = c.pos;
+                                store.showToast('Limit Order Filled', `Futures ${order.side} for ${order.amount} ${order.symbol} filled at ${order.price} USDT`, 'success');
+                                
+                                // Call placeFuturesOrder to actually open the position
+                                // This time it won't be pending because it's marketable or exactly at price
+                                await store.placeFuturesOrder({
+                                    symbol: order.symbol,
+                                    side: order.side,
+                                    type: 'Market', // Changed from 'Limit' to 'Market' to avoid infinite loop (pend-exec-pend)
+                                    price: order.price,
+                                    amount: order.amount,
+                                    leverage: order.leverage || 10,
+                                    marginMode: order.marginMode || 'Isolated'
+                                }, order.tpPrice, order.slPrice);
+
+                                if (user) {
+                                    await supabase.from('orders_spot')
+                                        .update({ status: 'filled', filled: order.amount })
+                                        .eq('user_id', user.id)
+                                        .eq('id', order.id);
+                                }
+                                return;
+                            }
+
+                            if (!user) return; // Remaining triggers require user session for Supabase sync
+
                             if (!c.pos.id) { // Spot TPSL doesn't have ID in this context, or has symbol
                                 const symbol = c.pos.symbol;
                                 store.showToast(`${c.type} Triggered`, `Spot asset ${symbol} sold.`, 'info');
-
+                                
                                 const spotMarket = store.markets.find(m => m.symbol === `${symbol}USDT` || m.symbol === `${symbol}USD`);
                                 const execPrice = spotMarket ? parseFloat(spotMarket.lastPrice) : 0;
                                 const spAsset = store.spotTPSL.find(s => s.symbol === symbol);

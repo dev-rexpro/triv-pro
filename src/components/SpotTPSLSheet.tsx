@@ -26,8 +26,8 @@ const SpotTPSLSheet = () => {
     const [amount, setAmount] = useState('');
     const [amountSlider, setAmountSlider] = useState(0);
 
-    const symbol = activeSpotTPSLAsset ? `${activeSpotTPSLAsset.symbol}USDT` : 'BTCUSDT';
-    const coin = activeSpotTPSLAsset?.symbol || 'BTC';
+    const symbol = activeSpotTPSLAsset ? `${activeSpotTPSLAsset.symbol}USDT` : '';
+    const coin = activeSpotTPSLAsset?.symbol || '';
     
     const market = useMemo(() => markets.find(m => m.symbol === symbol), [markets, symbol]);
     const lastPrice = market ? parseFloat(market.lastPrice) : 0;

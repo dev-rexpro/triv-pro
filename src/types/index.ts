@@ -77,6 +77,11 @@ export interface PendingOrder {
     filled: number;
     price: number;
     type: 'Limit' | 'Market';
+    leverage?: number;
+    marginMode?: string;
+    tpPrice?: number | null;
+    slPrice?: number | null;
+    isFutures?: boolean;
 }
 
 export interface TriggerOrder {

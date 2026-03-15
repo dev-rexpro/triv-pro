@@ -305,6 +305,8 @@ const TradeView = () => {
         setSliderPercent(0);
         setTickSize(null); // Clear tickSize so the fetch in the other effect updates it correctly
         setIsPriceAuto(true); // Reset auto-fetch on symbol/tab change
+        setTpInput('');
+        setSlInput('');
     }, [currentSymbol, activeTopTab]);
 
     const handleTradeSideSwitch = (side: 'buy' | 'sell') => {
@@ -1286,11 +1288,11 @@ const TradeView = () => {
                                     </div>
                                     <div className="grid grid-cols-3 gap-1">
                                         <div>
-                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Order amount ({baseCoin})</p>
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Order amount ({order.symbol.replace('USDT', '')})</p>
                                             <p className="text-[15px] font-bold text-[var(--text-primary)]">{order.amount}</p>
                                         </div>
                                         <div className="text-center">
-                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Filled ({baseCoin})</p>
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Filled ({order.symbol.replace('USDT', '')})</p>
                                             <p className="text-[15px] font-bold text-[var(--text-primary)]">{order.filled}</p>
                                         </div>
                                         <div className="text-right">
@@ -1298,10 +1300,27 @@ const TradeView = () => {
                                             <p className="text-[15px] font-bold text-[var(--text-primary)]">{formatPrice(order.price)}</p>
                                         </div>
                                     </div>
+                                    {(order.tpPrice || order.slPrice) && (
+                                        <div className="mt-3 pt-3 border-t border-[var(--border-color)] bg-[var(--bg-secondary)]/30 rounded-lg p-2">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Attached TP/SL</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5">TP Trigger</p>
+                                                    <p className="text-[13px] font-bold text-[var(--green)]">{order.tpPrice ? `${formatPrice(order.tpPrice)}` : '--'}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5">SL Trigger</p>
+                                                    <p className="text-[13px] font-bold text-[var(--red)]">{order.slPrice ? `${formatPrice(order.slPrice)}` : '--'}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
 
-                        {/* TP/SL Triggers (Futures) */}
+                        {/* TP/SL Triggers (Futures - Full) */}
                         {positions
                             .filter(p => (!isCurrentSymbolChecked || p.symbol === currentSymbol) && (p.tpPrice || p.slPrice))
                             .map(p => (
@@ -1332,7 +1351,7 @@ const TradeView = () => {
                                             <p className="text-[15px] font-bold text-[var(--text-primary)]">Market</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Order amount ({baseCoin})</p>
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Order amount ({p.symbol.replace('1000', '').replace('USDT', '')})</p>
                                             <p className="text-[15px] font-bold text-[var(--text-primary)]">All</p>
                                         </div>
                                         <div>
@@ -1342,6 +1361,45 @@ const TradeView = () => {
                                         <div className="text-center">
                                             <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">SL order</p>
                                             <p className="text-[15px] font-bold text-[var(--text-primary)]">Market</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+
+                        {/* TP/SL Triggers (Futures - Partials) */}
+                        {positions
+                            .filter(p => !isCurrentSymbolChecked || p.symbol === currentSymbol)
+                            .flatMap(p => [
+                                ...(p.tpOrders || []).map(tp => ({ ...tp, symbol: p.symbol, side: 'TP', positionSide: p.side })),
+                                ...(p.slOrders || []).map(sl => ({ ...sl, symbol: p.symbol, side: 'SL', positionSide: p.side }))
+                            ])
+                            .map((trigger, idx) => (
+                                <div key={`tpsl-p-${trigger.symbol}-${idx}`} className="p-4 border-b border-[var(--border-color)]">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <h4 className="text-[16px] font-bold text-[var(--text-primary)]">{trigger.symbol} Perp <ChevronRight className="w-4 h-4 inline text-[var(--text-tertiary)]" /></h4>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[14px] font-semibold text-[var(--text-primary)] cursor-pointer">Cancel</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mb-4">
+                                        <span className="bg-[#fee2e2] text-[#ef4444] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">{trigger.side === 'TP' ? 'Partial TP' : 'Partial SL'}</span>
+                                        <span className={`${trigger.positionSide === 'Buy' ? 'bg-[var(--red-bg)] text-[var(--red)]' : 'bg-[var(--green-bg)] text-[var(--green)]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{trigger.positionSide === 'Buy' ? 'Sell' : 'Buy'}</span>
+                                        <span className="text-[11px] text-[var(--text-tertiary)] font-medium ml-1">Limit Order</span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-y-4">
+                                        <div>
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Trigger price</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">{trigger.price}</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Order type</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">Market</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Amount ({trigger.symbol.replace('USDT', '')})</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">{trigger.amount}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1393,8 +1451,15 @@ const TradeView = () => {
                             ))}
 
                         {/* Empty state placeholder if no orders */}
-                        {openOrders.length === 0 && spotTPSL.filter(s => !isCurrentSymbolChecked || s.symbol === baseCoin).length === 0 && positions.filter(p => (!isCurrentSymbolChecked || p.symbol === currentSymbol) && (p.tpPrice || p.slPrice)).length === 0 && (
-                            <div className="flex flex-col items-center justify-center py-12 opacity-50">
+                        {(() => {
+                            const filteredOrders = openOrders.filter(o => !isCurrentSymbolChecked || o.symbol === currentSymbol);
+                            const filteredSpotTPSL = spotTPSL.filter(s => !isCurrentSymbolChecked || s.symbol === baseCoin);
+                            const filteredFuturesTPSL = positions.filter(p => !isCurrentSymbolChecked || p.symbol === currentSymbol)
+                                .some(p => p.tpPrice || p.slPrice || (p.tpOrders && p.tpOrders.length > 0) || (p.slOrders && p.slOrders.length > 0));
+
+                            if (filteredOrders.length === 0 && filteredSpotTPSL.length === 0 && !filteredFuturesTPSL) {
+                                return (
+                                    <div className="flex flex-col items-center justify-center py-12 opacity-50">
                                 <div className="w-16 h-16 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center relative mb-4">
                                     <div className="absolute -left-1 bottom-4 w-5 h-4 bg-[#4a5568] rounded-[3px]" />
                                     <div className="absolute -left-1 bottom-9 w-5 h-4 bg-[#4a5568] rounded-[3px]" />
@@ -1404,7 +1469,10 @@ const TradeView = () => {
                                 </div>
                                 <span className="text-[14px] text-[var(--text-tertiary)] font-medium">No open orders</span>
                             </div>
-                        )}
+                                );
+                            }
+                            return null;
+                        })()}
                     </div>
                 )}
 
@@ -1443,11 +1511,17 @@ const TradeView = () => {
                                                     {pos.leverage}x <FiEdit2 className="ml-1 w-3 h-3" />
                                                 </span>
                                                 <div className="flex gap-[1px] ml-1">
-                                                    <div className={`w-[3px] h-3 ${pos.pnl >= 0 ? 'bg-[var(--green)]' : 'bg-[var(--red)]'}`} />
-                                                    <div className={`w-[3px] h-3 ${pos.pnl >= 0 ? 'bg-[var(--green)]' : 'bg-[var(--red)]'}`} />
-                                                    <div className="w-[3px] h-3 bg-[var(--bg-secondary)]" />
-                                                    <div className="w-[3px] h-3 bg-[var(--bg-secondary)]" />
-                                                    <div className="w-[3px] h-3 bg-[var(--bg-secondary)]" />
+                                                    {Array.from({ length: 5 }).map((_, i) => {
+                                                        const pnlAbs = Math.abs(pos.pnlPercent);
+                                                        const threshold = (i + 1) * 2; // Each bar represents 2%
+                                                        const isActive = pnlAbs >= threshold || (i === 0 && pnlAbs > 0);
+                                                        return (
+                                                            <div 
+                                                                key={i} 
+                                                                className={`w-[3px] h-3 ${isActive ? (pos.pnl >= 0 ? 'bg-[var(--green)]' : 'bg-[var(--red)]') : 'bg-[var(--bg-secondary)]'}`} 
+                                                            />
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                             <p className={`text-[14px] font-semibold ${pos.pnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
@@ -1469,7 +1543,9 @@ const TradeView = () => {
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] ml-auto w-max">MMR</p>
-                                                <p className="text-[14px] font-medium text-[var(--text-primary)]">353.50%</p>
+                                                <p className="text-[14px] font-medium text-[var(--text-primary)]">
+                                                    {((pos.size * pos.markPrice * 0.005) / pos.margin * 100).toFixed(2)}%
+                                                </p>
                                             </div>
 
                                             <div>
@@ -1492,10 +1568,24 @@ const TradeView = () => {
                                             onClick={() => setFuturesTPSLSheetOpen(true, pos)}
                                         >
                                             <div className="flex items-center gap-1 text-[12px]">
-                                                <span className="text-[var(--text-tertiary)] font-medium">Partial position (2)</span>
-                                                <span className="text-[var(--green)]">89.2</span>
-                                                <span className="text-[var(--text-tertiary)]">/</span>
-                                                <span className="text-[var(--red)]">87.2</span>
+                                                {(() => {
+                                                    const tpCount = (pos.tpPrice ? 1 : 0) + (pos.tpOrders?.length || 0);
+                                                    const slCount = (pos.slPrice ? 1 : 0) + (pos.slOrders?.length || 0);
+                                                    const totalCount = tpCount + slCount;
+                                                    
+                                                    if (totalCount === 0) {
+                                                        return <span className="text-[var(--text-tertiary)] font-medium">TP/SL not set</span>;
+                                                    }
+                                                    
+                                                    return (
+                                                        <>
+                                                            <span className="text-[var(--text-tertiary)] font-medium">Partial position ({totalCount})</span>
+                                                            <span className="text-[var(--green)]">{pos.tpPrice || (pos.tpOrders?.[0]?.price) || '--'}</span>
+                                                            <span className="text-[var(--text-tertiary)]">/</span>
+                                                            <span className="text-[var(--red)]">{pos.slPrice || (pos.slOrders?.[0]?.price) || '--'}</span>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                             <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)]" />
                                         </div>

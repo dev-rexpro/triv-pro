@@ -221,6 +221,22 @@ const TradeHistoryView = () => {
                                             <p className="text-[14px] font-medium text-[var(--text-primary)]">{order.price}</p>
                                         </div>
                                     </div>
+                                    {((order as any).tpPrice || (order as any).slPrice) && (
+                                        <div className="mt-3 pt-3 border-t border-gray-50 flex gap-6">
+                                            {(order as any).tpPrice && (
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-[var(--text-tertiary)] font-bold uppercase tracking-wider mb-0.5">TP Trigger</span>
+                                                    <span className="text-[13px] font-bold text-[var(--green)]">{(order as any).tpPrice}</span>
+                                                </div>
+                                            )}
+                                            {(order as any).slPrice && (
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-[var(--text-tertiary)] font-bold uppercase tracking-wider mb-0.5">SL Trigger</span>
+                                                    <span className="text-[13px] font-bold text-[var(--red)]">{(order as any).slPrice}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
 

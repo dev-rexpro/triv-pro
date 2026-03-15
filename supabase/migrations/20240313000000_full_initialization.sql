@@ -100,6 +100,11 @@ CREATE TABLE IF NOT EXISTS public.orders_spot (
     amount NUMERIC(20, 8) NOT NULL,
     filled NUMERIC(20, 8) DEFAULT 0,
     status TEXT DEFAULT 'open' CHECK (status IN ('open', 'filled', 'canceled')),
+    is_futures BOOLEAN DEFAULT false,
+    leverage INTEGER,
+    margin_mode TEXT,
+    tp_price NUMERIC(20, 8),
+    sl_price NUMERIC(20, 8),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -235,11 +240,19 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authentic
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated;
 
+ALTER TABLE public.wallets REPLICA IDENTITY FULL;
+ALTER TABLE public.orders_spot REPLICA IDENTITY FULL;
+ALTER TABLE public.positions_futures REPLICA IDENTITY FULL;
+ALTER TABLE public.history_futures REPLICA IDENTITY FULL;
+ALTER TABLE public.transactions REPLICA IDENTITY FULL;
+
 BEGIN;
   DROP PUBLICATION IF EXISTS supabase_realtime;
   CREATE PUBLICATION supabase_realtime;
 COMMIT;
+
 ALTER PUBLICATION supabase_realtime ADD TABLE public.wallets;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.orders_spot;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.positions_futures;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.history_futures;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.transactions;
