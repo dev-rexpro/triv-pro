@@ -360,6 +360,21 @@ const ChartTradeView = () => {
                                             <button className="flex items-center gap-0.5">More <ArrowDropDown className="w-7 h-7" /></button>
                                             <button>Mcap</button>
                                         </div>
+                                        {/* Indicators for Expanded View */}
+                                        <div className="flex gap-4 overflow-x-auto no-scrollbar ml-4 border-l border-[var(--border-color)] pl-4">
+                                            {['VOL', 'MA', 'EMA', 'BOLL'].map(ind => {
+                                                const isActive = useExchangeStore.getState().activeIndicators.includes(ind);
+                                                return (
+                                                    <button
+                                                        key={ind}
+                                                        onClick={() => useExchangeStore.getState().toggleIndicator(ind)}
+                                                        className={`transition-all ${isActive ? 'text-[var(--text-primary)] font-bold' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'}`}
+                                                    >
+                                                        {ind}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </motion.div>
                             )}
@@ -391,16 +406,20 @@ const ChartTradeView = () => {
 
                         {!isChartExpanded && (
                             <>
-                                {/* Order Book Section Header */}
+                                { /* Indicators List */ }
                                 <div className="px-4 py-3 flex gap-4 overflow-x-auto no-scrollbar border-b border-[var(--border-color)] text-[11px] text-[var(--text-secondary)] font-medium whitespace-nowrap">
-                                    <button>VOL</button>
-                                    <button>MA</button>
-                                    <button className="text-[var(--text-primary)] font-bold border-b border-[var(--text-primary)] -mb-3 pb-3">EMA</button>
-                                    <button>BOLL</button>
-                                    <button>SAR</button>
-                                    <button>RESIST</button>
-                                    <button>SUPERTREND</button>
-                                    <button>Envelope</button>
+                                    {['VOL', 'MA', 'EMA', 'BOLL', 'SAR', 'SUPERTREND', 'RESIST', 'Envelope'].map(ind => {
+                                        const isActive = useExchangeStore.getState().activeIndicators.includes(ind);
+                                        return (
+                                            <button
+                                                key={ind}
+                                                onClick={() => useExchangeStore.getState().toggleIndicator(ind)}
+                                                className={`transition-all ${isActive ? 'text-[var(--text-primary)] font-bold border-b border-[var(--text-primary)] -mb-3 pb-3' : 'hover:text-[var(--text-primary)]'}`}
+                                            >
+                                                {ind}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
 
                                 {/* Order Book */}

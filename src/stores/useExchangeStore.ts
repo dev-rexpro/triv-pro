@@ -48,6 +48,7 @@ interface ExchangeState {
     hideBalance: boolean;
     showOrderConfirmation: boolean;
     futuresUnrealizedPnl: number;
+    activeIndicators: string[];
     isSpotTradeSheetOpen: boolean;
     isFuturesTPSLSheetOpen: boolean;
     activeSpotAsset: Asset | null;
@@ -141,6 +142,7 @@ interface ExchangeState {
     reorderFavoriteGroups: (newOrder: string[]) => void;
     reorderGroupCoins: (groupName: string, newOrder: string[]) => void;
     removeCoinsFromGroup: (groupName: string, coinsToRemove: string[]) => void;
+    toggleIndicator: (indicator: string) => void;
     updateAssetPrices: () => void;
 
     // Demo Actions
@@ -239,6 +241,7 @@ const useExchangeStore = create<ExchangeState>()(
             rates: { USD: 1, USDT: 1, IDR: 16300, BTC: 0.000015 },
             hideBalance: false,
             showOrderConfirmation: true,
+            activeIndicators: ['VOL', 'MA'],
             futuresUnrealizedPnl: 0,
             isSpotTradeSheetOpen: false,
             isFuturesTPSLSheetOpen: false,
@@ -445,6 +448,142 @@ const useExchangeStore = create<ExchangeState>()(
                     };
                 });
                 await get().syncFavoritesToSupabase();
+            },
+
+            toggleIndicator: (indicator: string) => {
+                set((state) => ({
+                    activeIndicators: state.activeIndicators.includes(indicator)
+                        ? state.activeIndicators.filter(i => i !== indicator)
+                        : [...state.activeIndicators, indicator]
+                }));
+            },
+
+            updateAssetPrices: (force = false) => {
+                const { assets, markets, futuresMarkets, rates, currency, wallets, spotCostBasis, spotTPSL } = get();
+                const allMarkets = [...markets, ...futuresMarkets];
+                const newAssets: Asset[] = [];
+                let totalBalance = new Decimal(0);
+                let totalSpotBalance = new Decimal(0);
+                let totalFuturesBalance = new Decimal(0);
+                let totalEarnBalance = new Decimal(0);
+                let totalTodayPnl = new Decimal(0);
+                let totalTodaySpotPnl = new Decimal(0);
+
+                const usdRate = rates[currency] || 1;
+
+                // Calculate asset values
+                const assetMap = new Map<string, Asset>();
+
+                // Process Spot Wallets
+                Object.entries(wallets.spot).forEach(([coin, balance]) => {
+                    if (balance === 0) return;
+                    const market = allMarkets.find(m => m.baseAsset === coin || m.quoteAsset === coin);
+                    const price = market?.lastPrice || 0;
+                    const value = new Decimal(balance).times(price);
+                    const costPrice = spotCostBasis[coin] || price;
+                    const pnl = value.minus(new Decimal(balance).times(costPrice));
+                    const pnlPercent = costPrice > 0 ? pnl.dividedBy(new Decimal(balance).times(costPrice)).times(100) : new Decimal(0);
+
+                    const tpsl = spotTPSL.find(t => t.symbol === coin);
+
+                    const asset: Asset = {
+                        symbol: coin,
+                        balance: balance as number,
+                        usdValue: value.toNumber(),
+                        price: price,
+                        type: 'spot',
+                        pnl: pnl.toNumber(),
+                        pnlPercent: pnlPercent.toNumber(),
+                        costPrice: costPrice,
+                        tpPrice: tpsl?.tpPrice || null,
+                        slPrice: tpsl?.slPrice || null,
+                    };
+                    assetMap.set(coin, asset);
+                    totalSpotBalance = totalSpotBalance.plus(value);
+                    totalTodaySpotPnl = totalTodaySpotPnl.plus(pnl);
+                });
+
+                // Process Futures Wallets (USDT for margin)
+                Object.entries(wallets.futures).forEach(([coin, balance]) => {
+                    if (balance === 0) return;
+                    const market = allMarkets.find(m => m.baseAsset === coin || m.quoteAsset === coin);
+                    const price = market?.lastPrice || 1; // USDT price is 1
+                    const value = new Decimal(balance).times(price);
+                    const asset: Asset = {
+                        symbol: coin,
+                        balance: balance as number,
+                        usdValue: value.toNumber(),
+                        price: price,
+                        type: 'futures',
+                        pnl: 0,
+                        pnlPercent: 0,
+                        costPrice: price,
+                        tpPrice: null,
+                        slPrice: null,
+                    };
+                    assetMap.set(coin, asset);
+                    totalFuturesBalance = totalFuturesBalance.plus(value);
+                });
+
+                // Process Earn Wallets
+                Object.entries(wallets.earn).forEach(([coin, balance]) => {
+                    if (balance === 0) return;
+                    const market = allMarkets.find(m => m.baseAsset === coin || m.quoteAsset === coin);
+                    const price = market?.lastPrice || 0;
+                    const value = new Decimal(balance).times(price);
+                    const asset: Asset = {
+                        symbol: coin,
+                        balance: balance as number,
+                        usdValue: value.toNumber(),
+                        price: price,
+                        type: 'earn',
+                        pnl: 0,
+                        pnlPercent: 0,
+                        costPrice: price,
+                        tpPrice: null,
+                        slPrice: null,
+                    };
+                    assetMap.set(coin, asset);
+                    totalEarnBalance = totalEarnBalance.plus(value);
+                });
+
+                // Update Futures Positions PnL
+                let futuresUnrealizedPnl = new Decimal(0);
+                get().positions.forEach(pos => {
+                    const market = futuresMarkets.find(m => m.symbol === pos.symbol);
+                    if (market) {
+                        const markPrice = market.lastPrice;
+                        const pnl = new Decimal(pos.size)
+                            .times(markPrice - pos.entryPrice)
+                            .times(pos.side === 'Buy' ? 1 : -1);
+                        pos.markPrice = markPrice;
+                        pos.pnl = pnl.toNumber();
+                        pos.pnlPercent = new Decimal(pos.entryPrice).isZero() ? 0 : pnl.dividedBy(new Decimal(pos.size).times(pos.entryPrice)).times(100).toNumber();
+                        futuresUnrealizedPnl = futuresUnrealizedPnl.plus(pnl);
+                    }
+                });
+
+                totalBalance = totalSpotBalance.plus(totalFuturesBalance).plus(totalEarnBalance).plus(futuresUnrealizedPnl);
+                totalTodayPnl = totalTodaySpotPnl.plus(futuresUnrealizedPnl);
+
+                const pnlPercent = totalBalance.isZero() ? 0 : totalTodayPnl.dividedBy(totalBalance.minus(totalTodayPnl)).times(100).toNumber();
+
+                set({
+                    assets: Array.from(assetMap.values()),
+                    balance: totalBalance.toNumber(),
+                    spotBalance: totalSpotBalance.toNumber(),
+                    futuresBalance: totalFuturesBalance.toNumber(),
+                    earnBalance: totalEarnBalance.toNumber(),
+                    todayPnl: totalTodayPnl.toNumber(),
+                    todaySpotPnl: totalTodaySpotPnl.toNumber(),
+                    pnlPercent: pnlPercent,
+                    futuresUnrealizedPnl: futuresUnrealizedPnl.toNumber(),
+                    positions: [...get().positions] // Trigger re-render for positions
+                });
+
+                if (force) {
+                    get().syncWalletsToSupabase();
+                }
             },
 
             syncWalletsToSupabase: async () => {
@@ -945,7 +1084,7 @@ const useExchangeStore = create<ExchangeState>()(
             startFundingCron: () => {
                 setInterval(() => {
                     const now = Date.now();
-                    const { nextFundingTime, fundingRate, positions, wallets, addTransaction, updateAssetPrices, syncWalletsToSupabase } = get();
+                    const { nextFundingTime, fundingRate, positions, wallets, addTransaction, syncWalletsToSupabase } = get();
 
                     if (now >= nextFundingTime) {
                         if (positions.length > 0) {
@@ -966,7 +1105,7 @@ const useExchangeStore = create<ExchangeState>()(
                             newWallets.futures.USDT = new Decimal(newWallets.futures.USDT || 0).plus(totalFee).toNumber();
 
                             set({ wallets: newWallets, nextFundingTime: nextFundingTime + (8 * 3600 * 1000) });
-                            updateAssetPrices(true);
+                            get().updateAssetPrices(true);
 
                             addTransaction({
                                 id: `FUND-${Date.now()}`,
