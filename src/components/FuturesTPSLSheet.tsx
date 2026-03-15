@@ -50,21 +50,25 @@ const FuturesTPSLSheet = () => {
 
     const precision = market?.pricePrecision || 2;
 
+    const formatPrice = useCallback((price: number | string) => {
+        if (typeof price === 'string') price = parseFloat(price);
+        if (isNaN(price)) return '';
+        return price.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: precision });
+    }, [precision]);
+
+    const isLong = side === 'Buy';
+
     const updateTPByPercent = useCallback((percent: number) => {
         setTpChangePercent(percent.toString());
-        const targetPnL = percent / 100;
-        const priceDiff = (targetPnL * entryPrice) / (activeFuturesPosition?.leverage || 1);
-        const trigger = side === 'Buy' ? entryPrice + priceDiff : entryPrice - priceDiff;
-        setTpTriggerPrice(trigger.toFixed(precision));
-    }, [entryPrice, side, activeFuturesPosition, precision]);
+        const trigger = new Decimal(entryPrice).times(1 + (isLong ? percent : -percent) / 100).toNumber();
+        setTpTriggerPrice(formatPrice(trigger));
+    }, [entryPrice, isLong, formatPrice]);
 
     const updateSLByPercent = useCallback((percent: number) => {
         setSlChangePercent(percent.toString());
-        const targetPnL = percent / 100;
-        const priceDiff = (targetPnL * entryPrice) / (activeFuturesPosition?.leverage || 1);
-        const trigger = side === 'Buy' ? entryPrice - priceDiff : entryPrice + priceDiff;
-        setSlTriggerPrice(trigger.toFixed(precision));
-    }, [entryPrice, side, activeFuturesPosition, precision]);
+        const trigger = new Decimal(entryPrice).times(1 + (isLong ? -percent : percent) / 100).toNumber();
+        setSlTriggerPrice(formatPrice(trigger));
+    }, [entryPrice, isLong, formatPrice]);
 
     const handleConfirm = () => {
         if (!activeFuturesPosition) return;
@@ -123,15 +127,15 @@ const FuturesTPSLSheet = () => {
                             <div className="space-y-1.5">
                                 <div className="flex justify-between items-center">
                                     <span className="text-[12px] text-[var(--text-tertiary)] font-medium">Entry price</span>
-                                    <span className="text-[12px] font-bold text-[var(--text-primary)]">{entryPrice.toLocaleString(undefined, { minimumFractionDigits: precision })}</span>
+                                    <span className="text-[13px] font-bold text-[var(--text-primary)]">{formatPrice(entryPrice)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-[12px] text-[var(--text-tertiary)] font-medium">Last price</span>
-                                    <span className="text-[12px] font-bold text-[var(--text-primary)]">{currentMarkPrice.toLocaleString(undefined, { minimumFractionDigits: precision })}</span>
+                                    <span className="text-[13px] font-bold text-[var(--text-primary)]">{formatPrice(currentMarkPrice)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-[12px] text-[var(--text-tertiary)] font-medium">Est liquidation price</span>
-                                    <span className="text-[12px] font-bold text-[var(--text-primary)]">{activeFuturesPosition.liqPrice.toLocaleString(undefined, { minimumFractionDigits: precision })}</span>
+                                    <span className="text-[13px] font-bold text-[var(--text-primary)]">{formatPrice(activeFuturesPosition.liqPrice)}</span>
                                 </div>
                             </div>
                         </div>

@@ -19,7 +19,7 @@ const GlobalToast: React.FC = () => {
     }, [toastMessage?.isOpen, hideToast]);
 
     return (
-        <div className="fixed top-0 left-0 right-0 z-[99999] pointer-events-none flex justify-center px-4 pt-[calc(1.5rem + var(--safe-area-top))]">
+        <div className="fixed top-0 left-0 right-0 z-[99999] pointer-events-none flex justify-center px-4 pt-[calc(3rem + var(--safe-area-top))]">
             <AnimatePresence>
                 {toastMessage?.isOpen && (
                     <motion.div

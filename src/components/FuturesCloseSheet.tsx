@@ -16,18 +16,19 @@ const FuturesCloseSheet: React.FC<FuturesCloseSheetProps> = ({
     onClose,
     position
 }) => {
-    const { closeFuturesPosition, markets, futuresMarkets } = useExchangeStore();
+    const { closeFuturesPosition, futuresMarkets } = useExchangeStore();
     const [orderType, setOrderType] = useState<'Market' | 'Limit'>('Market');
     const [priceInput, setPriceInput] = useState('');
     const [amountPercent, setAmountPercent] = useState(100);
-    const [amountInput, setAmountInput] = useState('100%');
     const [isPriceFocused, setIsPriceFocused] = useState(false);
+
+    const market = futuresMarkets.find(m => m.symbol === position?.symbol);
+    const precision = market?.pricePrecision || 2;
 
     useEffect(() => {
         if (isOpen && position) {
             setPriceInput(position.markPrice?.toString() || '');
             setAmountPercent(100);
-            setAmountInput('100%');
             setOrderType('Market');
         }
     }, [isOpen, position]);
@@ -38,20 +39,12 @@ const FuturesCloseSheet: React.FC<FuturesCloseSheetProps> = ({
     const targetPrice = orderType === 'Market' ? currentPrice : parseFloat(priceInput) || currentPrice;
     const amountToClose = (position.size * amountPercent) / 100;
 
-    // Estimate PnL
-    // PnL = (ClosePrice - EntryPrice) * Size * (Side === 'Buy' ? 1 : -1)
     const sideMultiplier = position.side === 'Buy' ? 1 : -1;
     const estPnLRaw = (targetPrice - position.entryPrice) * amountToClose * sideMultiplier;
     
-    // Fee estimate (proportional)
     const notionalValue = amountToClose * targetPrice;
     const estFee = notionalValue * 0.0005;
     const estPnL = estPnLRaw - estFee;
-
-    const handlePercentageChange = (percent: number) => {
-        setAmountPercent(percent);
-        setAmountInput(`${percent}%`);
-    };
 
     const handleConfirm = () => {
         closeFuturesPosition(position.id, amountToClose, orderType === 'Limit' ? parseFloat(priceInput) : undefined);
@@ -66,7 +59,7 @@ const FuturesCloseSheet: React.FC<FuturesCloseSheetProps> = ({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-[var(--overlay-bg)] z-[1000]"
+                        className="fixed inset-0 bg-black/40 z-[1000]"
                         onClick={onClose}
                     />
                     <motion.div
@@ -74,108 +67,115 @@ const FuturesCloseSheet: React.FC<FuturesCloseSheetProps> = ({
                         animate={{ y: 0 }}
                         exit={{ y: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-[var(--bg-primary)] rounded-t-[24px] z-[1001] px-6 pt-2 pb-10"
+                        className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-[var(--bg-primary)] rounded-t-[24px] z-[1001] px-6 pt-2 pb-4"
+                        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)' }}
                     >
                         {/* Handle */}
-                        <div className="flex justify-center mb-4">
+                        <div className="flex justify-center mb-3">
                             <div className="w-10 h-1 bg-[var(--bg-secondary)] rounded-full" />
                         </div>
 
                         {/* Header */}
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-[20px] font-bold text-[var(--text-primary)]">Close</h2>
-                            <button onClick={onClose} className="p-1">
-                                <span className="text-[var(--text-tertiary)]">
-                                    <XIcon size={24} />
-                                </span>
+                        <div className="flex items-center justify-between mb-1">
+                            <h2 className="text-[17px] font-bold text-[var(--text-primary)]">Close Position</h2>
+                            <button onClick={onClose} className="p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)] rounded-full transition-colors translate-x-1">
+                                <XIcon size={24} />
                             </button>
                         </div>
 
-                        {/* Position Summary Sub-header */}
-                        <div className="flex items-center gap-2 mb-6">
-                            <span className="text-[15px] font-bold text-[var(--text-primary)]">{position.symbol} Perp</span>
-                            <span className={`text-[11px] font-bold px-1.5 py-[2px] rounded-[2px] ${position.side === 'Buy' ? 'bg-[var(--green-bg)] text-[var(--green)]' : 'bg-[var(--red-bg)] text-[var(--red)]'}`}>
-                                {position.side === 'Buy' ? 'Buy' : 'Sell'}
+                        {/* Position Summary */}
+                        <div className="flex items-center gap-2 mb-2.5">
+                            <span className="text-[14px] font-bold text-[var(--text-primary)] uppercase">{position.symbol}</span>
+                            <span className={`text-[10px] font-bold px-1 py-0.5 rounded ${position.side === 'Buy' ? 'bg-[var(--green)]/10 text-[var(--green)]' : 'bg-[var(--red)]/10 text-[var(--red)]'}`}>
+                                {position.side === 'Buy' ? 'Long' : 'Short'}
                             </span>
-                            <span className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-[11px] font-medium px-1.5 py-[2px] rounded-[2px] capitalize">
-                                {position.marginMode}
-                            </span>
-                            <span className="bg-[var(--bg-secondary)] text-[var(--text-primary)] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">
+                            <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
                                 {position.leverage}x
                             </span>
                         </div>
 
-                        {/* Price Input Area */}
-                        <div className="space-y-4 mb-6">
+                        {/* Price Area */}
+                        <div className="space-y-2 mb-3">
                             <div className="flex gap-2">
-                                <div className={`flex-1 bg-[var(--input-bg)] rounded-lg px-3 h-[52px] flex flex-col justify-center border transition-colors ${isPriceFocused ? 'border-[var(--text-primary)]' : 'border-transparent'}`}>
-                                    <span className="text-[12px] text-[var(--text-tertiary)] font-medium leading-none mb-1">Price (USDT)</span>
+                                <div className={`flex-[1.8] bg-[var(--bg-secondary)] rounded-xl px-4 flex flex-col justify-center h-[42px] border transition-colors ${isPriceFocused ? 'border-[var(--text-primary)]' : 'border-transparent'}`}>
                                     {orderType === 'Market' ? (
-                                        <div className="font-bold text-[var(--text-primary)] text-[16px]">Market price</div>
+                                        <div className="text-[14px] font-medium text-[var(--text-tertiary)]">Market Price</div>
                                     ) : (
-                                        <input
-                                            type="text"
-                                            className="bg-transparent font-bold text-[var(--text-primary)] text-[16px] outline-none w-full p-0 leading-none"
-                                            value={priceInput}
-                                            onChange={(e) => setPriceInput(e.target.value)}
-                                            onFocus={() => setIsPriceFocused(true)}
-                                            onBlur={() => setIsPriceFocused(false)}
-                                        />
+                                        <div className="flex items-center justify-between">
+                                            <input
+                                                type="number"
+                                                className="bg-transparent font-medium text-[var(--text-primary)] text-[14px] outline-none w-full p-0"
+                                                value={priceInput}
+                                                onChange={(e) => setPriceInput(e.target.value)}
+                                                onFocus={() => setIsPriceFocused(true)}
+                                                onBlur={() => setIsPriceFocused(false)}
+                                                placeholder="Price"
+                                            />
+                                            <span className="text-[12px] text-[var(--text-secondary)] font-medium ml-2">USDT</span>
+                                        </div>
                                     )}
                                 </div>
                                 <button 
-                                    className={`px-4 h-[52px] rounded-lg font-bold text-[14px] transition-colors ${orderType === 'Market' ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] border border-[var(--border-color)]' : 'bg-[var(--input-bg)] text-[var(--text-secondary)]'}`}
+                                    className={`flex-1 h-[42px] rounded-xl font-medium text-[14px] border transition-colors ${orderType === 'Market' ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] border-[var(--border-strong)]' : 'bg-[var(--bg-secondary)] text-[var(--text-tertiary)] border-transparent'}`}
                                     onClick={() => setOrderType(orderType === 'Market' ? 'Limit' : 'Market')}
                                 >
                                     Market
                                 </button>
                             </div>
-                            <div className="text-[13px] font-medium px-1">
-                                <span className="text-[var(--text-tertiary)]">Last price </span>
-                                <span className="text-[var(--text-primary)] border-b border-dashed border-[var(--text-tertiary)]">
+                            <div className="flex justify-between items-center px-1">
+                                <span className="text-[11px] text-[var(--text-tertiary)] font-medium">Last price</span>
+                                <span className="text-[12px] font-medium text-[var(--text-primary)]">
                                     {formatPrice(position.markPrice)} USDT
                                 </span>
                             </div>
                         </div>
 
-                        {/* Amount Input Area */}
-                        <div className="space-y-4 mb-8">
-                            <div className="bg-[var(--input-bg)] rounded-lg px-3 h-[52px] flex flex-col justify-center">
-                                <span className="text-[12px] text-[var(--text-tertiary)] font-medium leading-none mb-1">Amount ({position.symbol.replace('USDT', '')})</span>
-                                <input
-                                    type="text"
-                                    className="bg-transparent font-bold text-[var(--text-primary)] text-[16px] outline-none w-full p-0 leading-none"
-                                    value={amountInput}
-                                    readOnly
-                                />
+                        {/* Amount Area */}
+                        <div className="space-y-3 mb-6">
+                            <div className="bg-[var(--bg-secondary)] rounded-xl px-4 flex items-center h-[42px] justify-between">
+                                <span className="text-[11px] text-[var(--text-tertiary)] font-medium uppercase tracking-tight">Amount</span>
+                                <div className="text-[14px] font-medium text-[var(--text-primary)]">{amountPercent}%</div>
                             </div>
 
-                            {/* Percentage Slider (5 dots) */}
-                            <div className="relative w-full h-8 flex items-center px-[6px]">
-                                <div className="absolute left-[6px] right-[6px] h-[4px] bg-[var(--bg-secondary)] rounded-full overflow-hidden">
-                                    <div className="h-full bg-[var(--text-primary)] transition-all duration-150" style={{ width: `${amountPercent}%` }} />
+                            {/* Slider */}
+                            <div className="relative h-[20px] mb-4 flex items-center px-2">
+                                <div className="absolute left-2 right-2 h-[2px] bg-[var(--border-strong)]/30 rounded-full">
+                                    <div 
+                                        className="h-full transition-all duration-75 bg-[var(--text-primary)] rounded-full" 
+                                        style={{ width: `${amountPercent}%` }} 
+                                    />
                                 </div>
-                                <div className="absolute left-[6px] right-[6px] flex justify-between items-center h-full z-10 pointer-events-none">
+                                <div className="absolute left-2 right-2 flex justify-between items-center h-full z-40 pointer-events-none">
                                     {[0, 25, 50, 75, 100].map(val => (
-                                        <div
-                                            key={val}
-                                            onClick={() => handlePercentageChange(val)}
-                                            className={`w-[13px] h-[13px] rounded-full border-[2.5px] z-20 transition-all cursor-pointer pointer-events-auto shadow-sm ${amountPercent >= val ? 'bg-[var(--text-primary)] border-[var(--text-primary)] scale-110' : 'bg-[var(--bg-primary)] border-[var(--border-strong)]'}`}
-                                        />
+                                        <div key={val} className="flex flex-col items-center relative">
+                                            <div 
+                                                className={`w-2 h-2 rounded-full border-2 z-50 transition-colors duration-75 bg-[var(--bg-primary)] ${amountPercent >= val ? 'border-[var(--text-primary)]' : 'border-[var(--border-strong)]'}`} 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setAmountPercent(val);
+                                                }}
+                                                style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+                                            />
+                                            <span className="text-[9px] text-[var(--text-tertiary)] font-medium absolute top-3.5 whitespace-nowrap">{val}%</span>
+                                        </div>
                                     ))}
                                 </div>
-                                <input
-                                    type="range" min="0" max="100" step="25" value={amountPercent}
-                                    onChange={(e) => handlePercentageChange(parseInt(e.target.value))}
-                                    className="absolute w-full h-full opacity-0 cursor-pointer z-30 left-0"
+                                <input 
+                                    type="range" min="0" max="100" step="1"
+                                    value={amountPercent} 
+                                    onChange={e => setAmountPercent(parseInt(e.target.value))} 
+                                    className="absolute w-full h-full opacity-0 cursor-pointer z-50 left-0" 
                                 />
                             </div>
 
-                            <div className="flex justify-between items-center px-1">
-                                <span className="text-[13px] font-medium text-[var(--text-tertiary)]">Size {position.size} {position.symbol.replace('USDT', '')}</span>
-                                <div className="text-[13px] font-medium">
-                                    <span className="text-[var(--text-tertiary)] mr-1">Estimated PnL</span>
-                                    <span className={`${estPnL >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'} border-b border-dashed ${estPnL >= 0 ? 'border-[var(--green)]' : 'border-[var(--red)]'}`}>
+                            <div className="space-y-1.5 px-1">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[11px] text-[var(--text-tertiary)] font-medium">Size</span>
+                                    <span className="text-[11px] font-medium text-[var(--text-primary)]">{position.size} {position.symbol.replace('USDT', '')}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[11px] text-[var(--text-tertiary)] font-medium">Est. PnL</span>
+                                    <span className={`text-[11px] font-medium ${estPnL >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
                                         {estPnL >= 0 ? '+' : ''}{estPnL.toFixed(2)} USDT
                                     </span>
                                 </div>
@@ -186,10 +186,9 @@ const FuturesCloseSheet: React.FC<FuturesCloseSheetProps> = ({
                         <button
                             onClick={handleConfirm}
                             disabled={amountPercent === 0}
-                            className={`w-full py-4 rounded-full font-bold flex flex-col items-center justify-center transition-all active:scale-[0.98] ${amountPercent === 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-[#f4516c] text-white shadow-lg'}`}
+                            className={`w-full py-2.5 rounded-[20px] font-bold text-[15px] transition-all active:scale-[0.98] ${amountPercent === 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-[#f4516c] text-white shadow-sm'}`}
                         >
-                            <span className="text-[17px]">Close</span>
-                            <span className="text-[12px] opacity-90 font-medium leading-none mt-0.5">≈ {amountToClose.toFixed(2)} {position.symbol.replace('USDT', '')}</span>
+                            Confirm
                         </button>
                     </motion.div>
                 </>

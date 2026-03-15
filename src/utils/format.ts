@@ -7,12 +7,15 @@ import Decimal from 'decimal.js';
  */
 export const getPrecisionForPrice = (price: number): number => {
     const p = Math.abs(price);
-    if (p >= 1000) return 2;     // BTC, ETH (contoh: 65000.50)
-    if (p >= 50) return 3;       // SOL, LTC (contoh: 145.125)
-    if (p >= 1) return 4;        // ADA, MATIC (contoh: 1.1234)
-    if (p >= 0.1) return 5;      // DOGE, TRX (contoh: 0.09452)
-    if (p >= 0.001) return 6;    // Koin micin standar
-    if (p >= 0.00001) return 8;  // Koin meme (SHIB)
+    if (p >= 1000) return 1;     // BTC, ETH (contoh: 65000.5)
+    if (p >= 100) return 2;      // SOL, LTC (contoh: 145.12)
+    if (p >= 10) return 3;       // ADA, DOT (contoh: 18.123)
+    if (p >= 1) return 4;        // XRP, MATIC (contoh: 1.1234)
+    if (p >= 0.1) return 5;      // DOGE, TRX (contoh: 0.12345)
+    if (p >= 0.01) return 6;     // Koin micin standar
+    if (p >= 0.001) return 7;    // Koin micin extra
+    if (p >= 0.0001) return 8;   // Koin meme (SHIB)
+    if (p >= 0.00001) return 9;
     return 10;                   // Koin PEPE dll
 };
 
@@ -57,8 +60,9 @@ export const formatPrice = (price: string | number, enforcePrecision?: number): 
 
     // Kalau nggak, deteksi otomatis
     const precision = getPrecisionForPrice(num);
+    const minDigits = precision < 4 ? Math.min(2, precision) : precision;
     return num.toLocaleString('en-US', { 
-        minimumFractionDigits: precision < 4 ? 2 : precision, 
+        minimumFractionDigits: minDigits, 
         maximumFractionDigits: precision 
     });
 };

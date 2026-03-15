@@ -10,7 +10,7 @@ import useExchangeStore from '../stores/useExchangeStore';
 import CoinIcon from '../components/CoinIcon';
 
 const TradeHistoryView = () => {
-    const { setActivePage, openOrders, tradeHistory, positions, wallets, spotCostBasis, markets, positionHistory, cancelSpotOrder, closeFuturesPosition, ticker } = useExchangeStore();
+    const { setActivePage, openOrders, tradeHistory, positions, wallets, spotCostBasis, markets, positionHistory, cancelSpotOrder, closeFuturesPosition, ticker, spotTPSL, setFuturesTPSL, setSpotTPSL, setPositions } = useExchangeStore();
     const [activeTab, setActiveTab] = useState<'open_orders' | 'order_history' | 'positions_assets' | 'position_history' | 'trading_history' | 'bots'>('trading_history');
     const [posAssetFilter, setPosAssetFilter] = useState<'All' | 'Position' | 'Assets'>('All');
     const [openOrderFilter, setOpenOrderFilter] = useState<'All' | 'Futures' | 'Spot'>('All');
@@ -182,42 +182,206 @@ const TradeHistoryView = () => {
                 </div>
 
                 <div className="pb-4">
-                    {filteredOrders.length === 0 ? (
+                    {filteredOrders.length === 0 && 
+                     positions.filter(p => (p.tpPrice || p.slPrice) && (openOrderFilter === 'All' || openOrderFilter === 'Futures')).length === 0 &&
+                     spotTPSL.filter(s => (s.tpPrice || s.slPrice) && (openOrderFilter === 'All' || openOrderFilter === 'Spot')).length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20 opacity-50 text-[var(--text-tertiary)] text-[14px]">
                             <FileSearch size={48} className="text-[var(--text-tertiary)] mb-2" />
                             No data
                         </div>
-                    ) : filteredOrders.map((order, idx) => (
-                        <div key={order.id || idx} className="px-4 py-4 border-b border-gray-50 last:border-b-0">
-                            <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1">
-                                    <h4 className="text-[17px] font-bold text-[var(--text-primary)] flex items-center gap-1">{order.symbol} {(order as any).leverage ? 'Perp' : 'Spot'}</h4>
+                    ) : (
+                        <>
+                            {/* Standard Limit Orders */}
+                            {filteredOrders.map((order, idx) => (
+                                <div key={order.id || idx} className="px-4 py-4 border-b border-gray-50 last:border-b-0">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-1">
+                                            <h4 className="text-[17px] font-bold text-[var(--text-primary)] flex items-center gap-1">{order.symbol.replace('USDT', '')} {(order as any).leverage ? 'Perp' : 'Spot'}</h4>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[14px] font-medium text-[var(--text-primary)] cursor-pointer" onClick={() => cancelSpotOrder(order.id)}>Cancel</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mb-3">
+                                        <span className={`${order.side === 'Buy' ? 'bg-[var(--green-bg)] text-[var(--green)]' : 'bg-[var(--red-bg)] text-[var(--red)]'} text-[11px] font-medium px-1.5 py-[2px] rounded-[2px]`}>{order.side}</span>
+                                        <span className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-[11px] font-medium px-1.5 py-[2px] rounded-[2px]">{order.type}</span>
+                                        <span className="text-[12px] text-[var(--text-tertiary)] font-medium ml-0.5">{formatDateTime(order.timestamp || Date.now())}</span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-1">
+                                        <div>
+                                            <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 w-max border-b border-dashed border-[var(--border-color)]">Order amount</p>
+                                            <p className="text-[14px] font-medium text-[var(--text-primary)]">{order.amount}</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 mx-auto w-max border-b border-dashed border-[var(--border-color)]">Filled</p>
+                                            <p className="text-[14px] font-medium text-[var(--text-primary)]">{order.filled || 0}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 ml-auto w-max border-b border-dashed border-[var(--border-color)]">Order price</p>
+                                            <p className="text-[14px] font-medium text-[var(--text-primary)]">{order.price}</p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-[14px] font-medium text-[var(--text-primary)] cursor-pointer" onClick={() => cancelSpotOrder(order.id)}>Cancel</span>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-1.5 mb-3">
-                                <span className={`${order.side === 'Buy' ? 'bg-[var(--green-bg)] text-[var(--green)]' : 'bg-[var(--red-bg)] text-[var(--red)]'} text-[11px] font-medium px-1.5 py-[2px] rounded-[2px]`}>{order.side}</span>
-                                <span className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-[11px] font-medium px-1.5 py-[2px] rounded-[2px]">{order.type}</span>
-                                <span className="text-[12px] text-[var(--text-tertiary)] font-medium ml-0.5">{formatDateTime(order.timestamp || Date.now())}</span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-1">
-                                <div>
-                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 w-max border-b border-dashed border-[var(--border-color)]">Order amount</p>
-                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{order.amount}</p>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 mx-auto w-max border-b border-dashed border-[var(--border-color)]">Filled</p>
-                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{order.filled || 0}</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 ml-auto w-max border-b border-dashed border-[var(--border-color)]">Order price</p>
-                                    <p className="text-[14px] font-medium text-[var(--text-primary)]">{order.price}</p>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                            ))}
+
+                            {/* Futures TP/SL Triggers */}
+                            {(openOrderFilter === 'All' || openOrderFilter === 'Futures') && positions
+                                .filter(p => p.tpPrice || p.slPrice)
+                                .map(p => (
+                                    <div key={`tpsl-fut-${p.id}`} className="px-4 py-4 border-b border-gray-50 last:border-b-0">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <h4 className="text-[17px] font-bold text-[var(--text-primary)]">{p.symbol.replace('USDT', '')} Perp</h4>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-[14px] font-medium text-[var(--text-primary)] cursor-pointer" onClick={() => setFuturesTPSL(p.id, null, null)}>Cancel</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 mb-3">
+                                            <span className="bg-[#fee2e2] text-[#ef4444] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">TP/SL</span>
+                                            <span className={`${p.side === 'Buy' ? 'bg-[var(--red-bg)] text-[var(--red)]' : 'bg-[var(--green-bg)] text-[var(--green)]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{p.side === 'Buy' ? 'Sell' : 'Buy'}</span>
+                                            <span className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">{p.marginMode} {p.leverage}x</span>
+                                            <span className="text-[12px] text-[var(--text-tertiary)] font-medium ml-0.5">{formatDateTime(Date.now())}</span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-y-4">
+                                            <div>
+                                                <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">TP trigger</p>
+                                                <p className="text-[14px] font-bold text-[var(--text-primary)]">{p.tpPrice ? `${p.tpPrice} (Last)` : '--'}</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] mx-auto w-max">SL trigger</p>
+                                                <p className="text-[14px] font-bold text-[var(--text-primary)]">{p.slPrice ? `${p.slPrice} (Last)` : '--'}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Amount</p>
+                                                <p className="text-[14px] font-bold text-[var(--text-primary)]">All</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+
+
+                            {/* Partial TP/SL Orders (Futures) */}
+                            {(openOrderFilter === 'All' || openOrderFilter === 'Futures') && positions
+                                .map(p => (
+                                    <React.Fragment key={`partials-${p.id}`}>
+                                        {(p.tpOrders || []).map((tp, tidx) => (
+                                            <div key={`tp-partial-${p.id}-${tidx}`} className="px-4 py-4 border-b border-gray-50 last:border-b-0">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <h4 className="text-[17px] font-bold text-[var(--text-primary)]">{p.symbol.replace('USDT', '')} Perp</h4>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-[14px] font-medium text-[var(--text-primary)] cursor-pointer" onClick={() => {
+                                                            const nextTp = p.tpOrders?.filter((_, i) => i !== tidx) || [];
+                                                            setPositions(positions.map(pos => pos.id === p.id ? { ...pos, tpOrders: nextTp } : pos));
+                                                        }}>Cancel</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 mb-3">
+                                                    <span className="bg-[#ccfbf1] text-[#0d9488] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">Partial TP</span>
+                                                    <span className={`${p.side === 'Buy' ? 'bg-[var(--red-bg)] text-[var(--red)]' : 'bg-[var(--green-bg)] text-[var(--green)]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{p.side === 'Buy' ? 'Sell' : 'Buy'}</span>
+                                                    <span className="text-[12px] text-[var(--text-tertiary)] font-medium ml-0.5">{formatDateTime(Date.now())}</span>
+                                                </div>
+                                                <div className="grid grid-cols-3 gap-y-4">
+                                                    <div>
+                                                        <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">Trigger price</p>
+                                                        <p className="text-[14px] font-bold text-[var(--text-primary)]">{tp.price} (Last)</p>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Amount</p>
+                                                        <p className="text-[14px] font-bold text-[var(--text-primary)]">{tp.amount}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {(p.slOrders || []).map((sl, sidx) => (
+                                            <div key={`sl-partial-${p.id}-${sidx}`} className="px-4 py-4 border-b border-gray-50 last:border-b-0">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <h4 className="text-[17px] font-bold text-[var(--text-primary)]">{p.symbol.replace('USDT', '')} Perp</h4>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-[14px] font-medium text-[var(--text-primary)] cursor-pointer" onClick={() => {
+                                                            const nextSl = p.slOrders?.filter((_, i) => i !== sidx) || [];
+                                                            setPositions(positions.map(pos => pos.id === p.id ? { ...pos, slOrders: nextSl } : pos));
+                                                        }}>Cancel</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 mb-3">
+                                                    <span className="bg-[#fee2e2] text-[#ef4444] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">Partial SL</span>
+                                                    <span className={`${p.side === 'Buy' ? 'bg-[var(--red-bg)] text-[var(--red)]' : 'bg-[var(--green-bg)] text-[var(--green)]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{p.side === 'Buy' ? 'Sell' : 'Buy'}</span>
+                                                    <span className="text-[12px] text-[var(--text-tertiary)] font-medium ml-0.5">{formatDateTime(Date.now())}</span>
+                                                </div>
+                                                <div className="grid grid-cols-3 gap-y-4">
+                                                    <div>
+                                                        <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">Trigger price</p>
+                                                        <p className="text-[14px] font-bold text-[var(--text-primary)]">{sl.price} (Last)</p>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Amount</p>
+                                                        <p className="text-[14px] font-bold text-[var(--text-primary)]">{sl.amount}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {p.trailingStop && (
+                                            <div key={`trailing-${p.id}`} className="px-4 py-4 border-b border-gray-50 last:border-b-0">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <h4 className="text-[17px] font-bold text-[var(--text-primary)]">{p.symbol.replace('USDT', '')} Perp</h4>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-[14px] font-medium text-[var(--text-primary)] cursor-pointer" onClick={() => {
+                                                            setPositions(positions.map(pos => pos.id === p.id ? { ...pos, trailingStop: undefined } : pos));
+                                                        }}>Cancel</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 mb-3">
+                                                    <span className="bg-[#fef9c3] text-[#854d0e] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">Trailing Stop</span>
+                                                    <span className={`${p.side === 'Buy' ? 'bg-[var(--red-bg)] text-[var(--red)]' : 'bg-[var(--green-bg)] text-[var(--green)]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{p.side === 'Buy' ? 'Sell' : 'Buy'}</span>
+                                                    <span className="text-[12px] text-[var(--text-tertiary)] font-medium ml-0.5">{formatDateTime(Date.now())}</span>
+                                                </div>
+                                                <div className="grid grid-cols-3 gap-y-4">
+                                                    <div>
+                                                        <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">Activation</p>
+                                                        <p className="text-[14px] font-bold text-[var(--text-primary)]">{p.trailingStop.activationPrice}</p>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Callback</p>
+                                                        <p className="text-[14px] font-bold text-[var(--text-primary)]">{p.trailingStop.callbackRate}%</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </React.Fragment>
+                                ))}
+
+                            {/* Spot TP/SL Triggers */}
+                            {(openOrderFilter === 'All' || openOrderFilter === 'Spot') && spotTPSL
+                                .map(s => (
+                                    <div key={`tpsl-spot-${s.symbol}`} className="px-4 py-4 border-b border-gray-50 last:border-b-0">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <h4 className="text-[17px] font-bold text-[var(--text-primary)]">{s.symbol}/USDT</h4>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-[14px] font-medium text-[var(--text-primary)] cursor-pointer" onClick={() => setSpotTPSL(s.symbol, null, null, 0)}>Cancel</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 mb-3">
+                                            <span className="bg-[#fee2e2] text-[#ef4444] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">TP/SL</span>
+                                            <span className="bg-[var(--red-bg)] text-[var(--red)] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">Sell</span>
+                                            <span className="text-[12px] text-[var(--text-tertiary)] font-medium ml-0.5">{formatDateTime(Date.now())}</span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-y-4">
+                                            <div>
+                                                <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">TP trigger</p>
+                                                <p className="text-[14px] font-bold text-[var(--text-primary)]">{s.tpPrice ? `${s.tpPrice} (Last)` : '--'}</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] mx-auto w-max">SL trigger</p>
+                                                <p className="text-[14px] font-bold text-[var(--text-primary)]">{s.slPrice ? `${s.slPrice} (Last)` : '--'}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Amount</p>
+                                                <p className="text-[14px] font-bold text-[var(--text-primary)]">{s.amount}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                        </>
+                    )}
                 </div>
             </div>
         );

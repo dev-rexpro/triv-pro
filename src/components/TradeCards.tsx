@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useMemo } from 'react';
 import CoinIcon from './CoinIcon';
+import { formatPrice } from '../utils/format';
 import {
     FiChevronRight as ChevronRight,
     FiShare2 as Share,
@@ -30,7 +31,7 @@ export const AssetPositionCard = React.memo(({ symbol, amount, lastPrice }: Asse
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1 border-b border-dashed border-[var(--tag-border)] pb-0.5">
-                        <span className="text-[var(--green)] font-bold text-[14px]">+{pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-[var(--green)] font-bold text-[14px]">+{formatPrice(pnl)}</span>
                         <span className="text-[var(--green)] font-bold text-[14px]">({pnlPercent.toFixed(2)}%)</span>
                     </div>
                     <Share size={16} className="text-[var(--text-tertiary)]" />
@@ -41,24 +42,24 @@ export const AssetPositionCard = React.memo(({ symbol, amount, lastPrice }: Asse
                 <div>
                     <div className="text-[11px] font-medium text-[var(--text-tertiary)] mb-1 border-b border-dashed border-slate-200 inline-block">Equity</div>
                     <div className="font-bold text-[16px] text-[var(--text-primary)] leading-tight">{amount.toFixed(4)}</div>
-                    <div className="text-[12px] text-[var(--text-tertiary)] font-medium">${(amount * lastPrice).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
+                    <div className="text-[12px] text-[var(--text-tertiary)] font-medium">${formatPrice(amount * lastPrice)}</div>
                 </div>
                 <div>
                     <div className="text-[11px] font-medium text-[var(--text-tertiary)] mb-1 border-b border-dashed border-slate-200 inline-block">Cost price</div>
                     <div className="font-bold text-[16px] text-[var(--text-primary)] leading-tight">
-                        ${costPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ${formatPrice(costPrice)}
                     </div>
                 </div>
                 <div className="text-right">
                     <div className="text-[11px] font-medium text-[var(--text-tertiary)] mb-1 border-b border-dashed border-slate-200 inline-block">Last price</div>
-                    <div className="font-bold text-[16px] text-[var(--text-primary)]">${lastPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="font-bold text-[16px] text-[var(--text-primary)]">${formatPrice(lastPrice)}</div>
                 </div>
             </div>
 
             <div>
                 <div className="text-[11px] font-medium text-[var(--text-tertiary)] mb-1 border-b border-dashed border-slate-200 inline-block">Balance</div>
                 <div className="font-bold text-[16px] text-[var(--text-primary)] leading-tight">{amount.toFixed(4)}</div>
-                <div className="text-[12px] text-[var(--text-tertiary)] font-medium">${(amount * lastPrice).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
+                <div className="text-[12px] text-[var(--text-tertiary)] font-medium">${formatPrice(amount * lastPrice)}</div>
             </div>
 
             <div className="flex gap-3 mt-4">

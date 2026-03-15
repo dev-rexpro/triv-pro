@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion } from 'motion/react';
 import useExchangeStore from '../stores/useExchangeStore';
+import { formatPrice } from '../utils/format';
 import { FiSearch as Search, FiStar as Star } from 'react-icons/fi';
 
 const QUOTE_TABS = ['USDT', 'USDC', 'BNB', 'BTC', 'ETH', 'USD'];
@@ -78,11 +79,6 @@ const PairPickerOverlay = () => {
         return v.toFixed(2);
     };
 
-    const formatPrice = (p: number) => {
-        if (p >= 10) return p.toLocaleString(undefined, { maximumFractionDigits: 2 });
-        if (p >= 0.01) return p.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-        return p.toLocaleString(undefined, { maximumSignificantDigits: 4 });
-    };
 
     return (
         <motion.div

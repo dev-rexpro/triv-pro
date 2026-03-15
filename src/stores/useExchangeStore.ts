@@ -1029,6 +1029,7 @@ const useExchangeStore = create<ExchangeState>()(
                 }
             },
             addPosition: (pos) => set(s => ({ positions: [...s.positions, pos] })),
+            setPositions: (positions) => set({ positions }),
             setFuturesTPSL: async (positionId, tpPrice, slPrice) => {
                 const { positions, user, tradeHistory } = get();
                 const pos = positions.find(p => p.id === positionId);
@@ -1158,13 +1159,15 @@ const useExchangeStore = create<ExchangeState>()(
                 if (order.type === 'Limit') {
                     const cost = new Decimal(order.price).times(new Decimal(order.amount));
                     if (order.side === 'Buy') {
-                        if (new Decimal(newWallets.spot.USDT || 0).lt(cost)) {
+                        const USDT_EPSILON = 0.00000001; // Tiny tolerance
+                        if (new Decimal(newWallets.spot.USDT || 0).plus(USDT_EPSILON).lt(cost)) {
                             get().showToast('Insufficient Balance', `Required ${cost.toDecimalPlaces(8).toNumber()} USDT`, 'error');
                             return;
                         }
                         newWallets.spot.USDT = new Decimal(newWallets.spot.USDT || 0).minus(cost).toNumber();
                     } else {
-                        if (new Decimal(newWallets.spot[symbol] || 0).lt(new Decimal(order.amount))) {
+                        const COIN_EPSILON = 0.00000001; // Tiny tolerance
+                        if (new Decimal(newWallets.spot[symbol] || 0).plus(COIN_EPSILON).lt(new Decimal(order.amount))) {
                             get().showToast('Insufficient Balance', `Required ${order.amount} ${symbol}`, 'error');
                             return;
                         }
@@ -1221,7 +1224,8 @@ const useExchangeStore = create<ExchangeState>()(
 
                     if (order.side === 'Buy') {
                         const totalCost = cost.plus(fee);
-                        if (new Decimal(newWallets.spot.USDT || 0).lt(totalCost)) {
+                        const USDT_EPSILON = 0.00000001; 
+                        if (new Decimal(newWallets.spot.USDT || 0).plus(USDT_EPSILON).lt(totalCost)) {
                             get().showToast('Insufficient Balance', `Required ${totalCost.toDecimalPlaces(8).toNumber()} USDT`, 'error');
                             return;
                         }
@@ -1234,7 +1238,8 @@ const useExchangeStore = create<ExchangeState>()(
                         newWallets.spot.USDT = new Decimal(newWallets.spot.USDT || 0).minus(totalCost).toNumber();
                         newWallets.spot[symbol] = newAmount.toNumber();
                     } else {
-                        if (new Decimal(newWallets.spot[symbol] || 0).lt(dAmount)) {
+                        const COIN_EPSILON = 0.00000001;
+                        if (new Decimal(newWallets.spot[symbol] || 0).plus(COIN_EPSILON).lt(dAmount)) {
                             get().showToast('Insufficient Balance', `Required ${order.amount} ${symbol}`, 'error');
                             return;
                         }
@@ -1366,7 +1371,8 @@ const useExchangeStore = create<ExchangeState>()(
                 const availableMargin = currentEquity.minus(totalLockedMargin);
 
                 const totalRequired = marginRequired.plus(fee);
-                if (availableMargin.lt(totalRequired)) {
+                const MARGIN_EPSILON = 0.00000001;
+                if (availableMargin.plus(MARGIN_EPSILON).lt(totalRequired)) {
                     get().showToast('Margin Call', `Required ${totalRequired.toDecimalPlaces(8).toNumber()} USDT`, 'error');
                     return;
                 }
@@ -1477,9 +1483,9 @@ const useExchangeStore = create<ExchangeState>()(
                 get().updateAssetPrices(true);
             },
 
-            closeFuturesPosition: async (id, closeAmount?: number, closePrice?: number) => {
+            closeFuturesPosition: async (id, closeAmount?: number, closePrice?: number, existingPos?: FuturesPosition) => {
                 const { positions, wallets, positionHistory, user } = get();
-                const pos = positions.find(p => p.id === id);
+                const pos = existingPos || positions.find(p => p.id === id);
                 if (!pos) return;
 
                 const amountToClose = closeAmount !== undefined ? Math.min(closeAmount, pos.size) : pos.size;
@@ -1762,7 +1768,20 @@ const useExchangeStore = create<ExchangeState>()(
                 if (!force && now - lastPortfolioCalc < 3000) return;
                 lastPortfolioCalc = now;
 
-                let triggeredClosures: { id: string; type: string; symbol?: string }[] = [];
+                // Periodic Sync (Background refresh from Supabase every 15s)
+                const { user, fetchSupabasePositions, fetchSupabaseOpenOrders, fetchSupabaseFavorites } = get();
+                const lastSync = (window as any)._lastSupabaseSync || 0;
+                if (user && now - lastSync > 15000) {
+                    (window as any)._lastSupabaseSync = now;
+                    // Run sync in background without blocking price updates
+                    Promise.all([
+                        fetchSupabasePositions(),
+                        fetchSupabaseOpenOrders(),
+                        fetchSupabaseFavorites()
+                    ]).catch(e => console.warn('Background sync failed:', e));
+                }
+
+                let triggeredClosures: { pos: any; type: string }[] = [];
                 let filledSpotOrders: any[] = [];
                 let isLiquidated = false;
                 let liquidatedPositions: any[] = [];
@@ -1847,7 +1866,7 @@ const useExchangeStore = create<ExchangeState>()(
                         if (trigger) {
                             fillOccurred = true;
                             triggeredSpotSell.push(s);
-                            triggeredClosures.push({ id: 'SPOT', type, symbol: s.symbol });
+                            triggeredClosures.push({ pos: s, type });
 
                             const sellAmount = new Decimal(s.amount);
                             const sellValue = sellAmount.times(currentPrice);
@@ -1940,6 +1959,9 @@ const useExchangeStore = create<ExchangeState>()(
                             }
                         }
 
+                        let nextTpOrders = pos.tpOrders || [];
+                        let nextSlOrders = pos.slOrders || [];
+
                         if (!triggerCloseEntire) {
                             if (pos.tpOrders && pos.tpOrders.length > 0) {
                                 const pendingTps = [];
@@ -1954,7 +1976,7 @@ const useExchangeStore = create<ExchangeState>()(
                                         pendingTps.push(tp);
                                     }
                                 }
-                                pos.tpOrders = pendingTps;
+                                nextTpOrders = pendingTps;
                             }
 
                             if (pos.slOrders && pos.slOrders.length > 0) {
@@ -1970,7 +1992,7 @@ const useExchangeStore = create<ExchangeState>()(
                                         pendingSls.push(sl);
                                     }
                                 }
-                                pos.slOrders = pendingSls;
+                                nextSlOrders = pendingSls;
                             }
                         }
 
@@ -1980,7 +2002,7 @@ const useExchangeStore = create<ExchangeState>()(
                         }
 
                         if (triggerCloseEntire) {
-                            triggeredClosures.push({ id: pos.id, type: closeType });
+                            triggeredClosures.push({ pos, type: closeType });
                         } else {
                             const isCross = pos.marginMode?.toLowerCase() === 'cross';
                             if (isCross) {
@@ -2002,7 +2024,9 @@ const useExchangeStore = create<ExchangeState>()(
                                 size: remainingSize.toNumber(),
                                 markPrice: markPrice.toNumber(),
                                 pnl: pnl.toDecimalPlaces(8).toNumber(),
-                                pnlPercent: pnlPercent.toDecimalPlaces(2).toNumber()
+                                pnlPercent: pnlPercent.toDecimalPlaces(2).toNumber(),
+                                tpOrders: nextTpOrders,
+                                slOrders: nextSlOrders
                             });
                         }
                     });
@@ -2127,11 +2151,8 @@ const useExchangeStore = create<ExchangeState>()(
                     get().syncWalletsToSupabase();
                 }
 
-                const store = get();
-                const user = store.user;
-
                 if (liquidatedPositions.length > 0 && user) {
-                    store.showToast('Liquidation Alert', 'Positions liquidated due to insufficient margin.', 'error');
+                    get().showToast('Liquidation Alert', 'Positions liquidated due to insufficient margin.', 'error');
 
                     const historyInserts = liquidatedPositions.map(pos => ({
                         user_id: user.id,
@@ -2179,18 +2200,19 @@ const useExchangeStore = create<ExchangeState>()(
                 if (triggeredClosures.length > 0 && user) {
                     import('../utils/supabase').then(({ supabase }) => {
                         triggeredClosures.forEach(async c => {
-                            if (c.id === 'SPOT') {
-                                store.showToast(`${c.type} Triggered`, `Spot asset ${c.symbol} sold.`, 'info');
+                            if (!c.pos.id) { // Spot TPSL doesn't have ID in this context, or has symbol
+                                const symbol = c.pos.symbol;
+                                store.showToast(`${c.type} Triggered`, `Spot asset ${symbol} sold.`, 'info');
 
-                                const spotMarket = store.markets.find(m => m.symbol === `${c.symbol}USDT` || m.symbol === `${c.symbol}USD`);
+                                const spotMarket = store.markets.find(m => m.symbol === `${symbol}USDT` || m.symbol === `${symbol}USD`);
                                 const execPrice = spotMarket ? parseFloat(spotMarket.lastPrice) : 0;
-                                const spAsset = store.spotTPSL.find(s => s.symbol === c.symbol);
+                                const spAsset = store.spotTPSL.find(s => s.symbol === symbol);
 
                                 if (spAsset) {
                                     await supabase.from('orders_spot').insert([{
                                         id: crypto.randomUUID(),
                                         user_id: user.id,
-                                        pair: `${c.symbol}USDT`,
+                                        pair: `${symbol}USDT`,
                                         side: 'sell',
                                         type: 'market',
                                         price: execPrice,
@@ -2200,7 +2222,7 @@ const useExchangeStore = create<ExchangeState>()(
                                     }]);
 
                                     const { data: profile } = await supabase.from('profiles').select('preferences').eq('id', user.id).maybeSingle();
-                                    const updatedTPSL = store.spotTPSL.filter(s => s.symbol !== c.symbol);
+                                    const updatedTPSL = store.spotTPSL.filter(s => s.symbol !== symbol);
                                     await supabase.from('profiles').upsert({
                                         id: user.id,
                                         preferences: { ...(profile?.preferences || {}), spotTPSL: updatedTPSL },
@@ -2210,7 +2232,7 @@ const useExchangeStore = create<ExchangeState>()(
                                 store.syncWalletsToSupabase();
                             } else {
                                 store.showToast(`${c.type} Triggered`, `Position auto-closed.`, 'info');
-                                store.closeFuturesPosition(c.id);
+                                store.closeFuturesPosition(c.pos.id, undefined, undefined, c.pos);
                             }
                         });
                     });

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatPrice } from '../utils/format';
 import {
     FiX as Close,
     FiDownload as Download,
@@ -185,11 +186,11 @@ const SharePnLSheet = () => {
                                         <div className="grid grid-cols-2 gap-4 pb-3 border-b border-white/10">
                                             <div>
                                                 <p className="text-gray-500 text-[10px] mb-0.5">Entry price</p>
-                                                <p className="text-white font-medium text-[13px]">{entryPrice.toLocaleString()}</p>
+                                                <p className="text-white font-medium text-[13px]">{formatPrice(entryPrice)}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-gray-500 text-[10px] mb-0.5">Last price</p>
-                                                <p className="text-white font-medium text-[13px]">{lastPrice.toLocaleString()}</p>
+                                                <p className="text-white/60 text-[10px] uppercase font-bold mb-0.5">Last Price</p>
+                                                <p className="text-white font-medium text-[13px]">{formatPrice(lastPrice)}</p>
                                             </div>
                                         </div>
 

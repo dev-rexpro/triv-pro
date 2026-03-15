@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX as Close, FiChevronRight as ChevronRight, FiInfo as Info } from 'react-icons/fi';
 import useExchangeStore from '../stores/useExchangeStore';
+import { formatPrice } from '../utils/format';
 import CoinIcon from './CoinIcon';
 import Decimal from 'decimal.js';
 
@@ -47,7 +48,7 @@ const SpotTradeSheet = () => {
     const totalUsdt = useMemo(() => {
         const p = orderType === 'Market' ? lastPrice : parseFloat(price) || 0;
         const a = parseFloat(amount) || 0;
-        return (p * a).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return formatPrice(p * a);
     }, [orderType, lastPrice, price, amount]);
 
     const maxAmount = side === 'buy' 
@@ -126,13 +127,13 @@ const SpotTradeSheet = () => {
                             <div className="flex justify-between items-center">
                                 <span className="text-[12px] text-[var(--text-tertiary)] font-medium">Cost price</span>
                                 <span className="text-[13px] font-bold text-[var(--text-primary)]">
-                                    {costPrice.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                                    {formatPrice(costPrice)}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-[12px] text-[var(--text-tertiary)] font-medium">Last price</span>
                                 <span className="text-[13px] font-bold text-[var(--text-primary)]">
-                                    {lastPrice.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                                    {formatPrice(lastPrice)}
                                 </span>
                             </div>
                         </div>

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'motion/react';
 import useExchangeStore from '../stores/useExchangeStore';
+import { formatPrice } from '../utils/format';
 import { searchDexScreener, COIN_NAME_MAP } from '../utils/api';
 import CoinIcon from './CoinIcon';
 import { FiSearch as Search, FiStar as Star } from 'react-icons/fi';
@@ -255,8 +256,8 @@ const SearchOverlay = ({ mode = 'search', onSelect, onClose }: { mode?: 'search'
                                                     <div className="font-bold text-[var(--text-primary)] text-[15px] leading-none">{coin.symbol.replace('USDT', '')}</div>
                                                 </div>
                                                 <div className="flex items-center gap-4">
-                                                    <div className="text-right">
-                                                        <div className="font-semibold text-[15px] text-[var(--text-primary)] leading-tight">{coin.lastPrice >= 10 ? parseFloat(coin.lastPrice).toLocaleString() : parseFloat(coin.lastPrice).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</div>
+                                                        <div className="text-right">
+                                                        <div className="font-semibold text-[15px] text-[var(--text-primary)] leading-tight">{formatPrice(coin.lastPrice)}</div>
                                                         <div className={`text-[11px] font-semibold ${parseFloat(coin.priceChangePercent) >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
                                                             {parseFloat(coin.priceChangePercent) >= 0 ? '+' : ''}{parseFloat(coin.priceChangePercent).toFixed(2)}%
                                                         </div>
@@ -309,7 +310,7 @@ const SearchOverlay = ({ mode = 'search', onSelect, onClose }: { mode?: 'search'
                                                 <div className="flex items-center gap-3">
                                                     {price !== null ? (
                                                         <div className="text-right">
-                                                            <div className="font-semibold text-[15px] text-[var(--text-primary)] leading-tight">{price >= 10 ? price.toLocaleString() : price.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 })}</div>
+                                                            <div className="font-semibold text-[15px] text-[var(--text-primary)] leading-tight">{formatPrice(price)}</div>
                                                             <div className={`text-[12px] font-semibold flex justify-end ${change >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
                                                                 {change >= 0 ? '+' : ''}{change.toFixed(2)}%
                                                             </div>
@@ -357,7 +358,7 @@ const SearchOverlay = ({ mode = 'search', onSelect, onClose }: { mode?: 'search'
                                                 <div className="flex items-center gap-3">
                                                     {price !== null ? (
                                                         <div className="text-right">
-                                                            <div className="font-semibold text-[15px] text-[var(--text-primary)] leading-tight">{price >= 10 ? price.toLocaleString() : price.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 })}</div>
+                                                            <div className="font-semibold text-[15px] text-[var(--text-primary)] leading-tight">{formatPrice(price)}</div>
                                                             <div className={`text-[12px] font-semibold flex justify-end ${change >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
                                                                 {change >= 0 ? '+' : ''}{change.toFixed(2)}%
                                                             </div>
@@ -425,10 +426,7 @@ const SearchOverlay = ({ mode = 'search', onSelect, onClose }: { mode?: 'search'
                                                 </div>
                                                 <div className="text-right flex flex-col items-end shrink-0 overflow-hidden">
                                                     <div className="font-bold text-[var(--text-primary)] text-[15px] truncate w-full text-right leading-tight">
-                                                        {price < 0.01
-                                                            ? price.toLocaleString(undefined, { maximumSignificantDigits: 4 })
-                                                            : price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })
-                                                        }
+                                                        {formatPrice(price)}
                                                     </div>
                                                     <div className={`text-[12px] font-semibold truncate w-full text-right ${pair.priceChange?.h24 >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
                                                         {pair.priceChange?.h24 >= 0 ? '+' : ''}{parseFloat(pair.priceChange?.h24 || 0).toFixed(2)}%

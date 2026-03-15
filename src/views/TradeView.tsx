@@ -104,6 +104,7 @@ const TradeView = () => {
     const [klines, setKlines] = useState<any[]>([]);
     const [precision, setPrecision] = useState(0.1);
     const [tickSize, setTickSize] = useState<number | null>(null);
+    const [stepSize, setStepSize] = useState<number | null>(null);
     const [isPrecisionSheetOpen, setIsPrecisionSheetOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'orders' | 'positions' | 'bots'>('orders');
     const [assetFilter, setAssetFilter] = useState<'All' | 'Positions' | 'Assets'>('All');
@@ -206,12 +207,18 @@ const TradeView = () => {
     const availableBalance = wallets?.spot?.[currentAsset] || 0;
 
     const MAX_BTC_SPOT = 0.0554000;
+    const totalUnrealizedPnlValue = (positions || []).reduce((sum, pos) => sum + (pos.pnl || 0), 0);
+    const currentEquityValue = (wallets?.futures?.USDT || 0) + totalUnrealizedPnlValue;
     const totalLockedMargin = (positions || []).reduce((sum, pos) => sum + pos.margin, 0);
-    const availableFuturesUSDT = Math.max(0, (wallets?.futures?.USDT || 0) - totalLockedMargin);
+    const availableFuturesUSDT = Math.max(0, currentEquityValue - totalLockedMargin);
 
     const currentPrice = ticker ? parseFloat(ticker.lastPrice) : 72000;
-    const maxBuySellFutures = (availableFuturesUSDT * leverage) / currentPrice;
-    const currentFuturesAmount = (sliderPercent / 100) * maxBuySellFutures;
+    const futuresFeeRate = 0.0005; // Matches store/useExchangeStore.ts
+    const maxBuySellFutures = availableFuturesUSDT / (currentPrice * (1 / leverage + futuresFeeRate));
+    
+    const rawFuturesAmount = (sliderPercent / 100) * maxBuySellFutures;
+    const step = stepSize || 0.0001;
+    const currentFuturesAmount = Math.floor(rawFuturesAmount / step) * step;
     const currentFuturesCost = (sliderPercent / 100) * availableFuturesUSDT;
 
     const liqPriceLong = currentPrice * (1 - 1 / leverage);
@@ -258,6 +265,10 @@ const TradeView = () => {
                     const priceFilter = symbolInfo.filters.find((f: any) => f.filterType === 'PRICE_FILTER');
                     if (priceFilter && priceFilter.tickSize) {
                         setTickSize(parseFloat(priceFilter.tickSize));
+                    }
+                    const lotSizeFilter = symbolInfo.filters.find((f: any) => f.filterType === 'LOT_SIZE');
+                    if (lotSizeFilter && lotSizeFilter.stepSize) {
+                        setStepSize(parseFloat(lotSizeFilter.stepSize));
                     }
                 }
             } catch (err) { }
@@ -430,7 +441,8 @@ const TradeView = () => {
                     let maxAmount = availableBalance;
                     if (tradeSide === 'buy') {
                         const price = parseFloat(priceInput.replace(/,/g, '')) || 0;
-                        maxAmount = price > 0 ? availableBalance / price : 0;
+                        const spotFeeRate = 0.001; // Matches store/useExchangeStore.ts
+                        maxAmount = price > 0 ? availableBalance / (price * (1 + spotFeeRate)) : 0;
                     }
                     const pct = Math.min(100, Math.max(0, (numVal / maxAmount) * 100));
                     setSliderPercent(pct);
@@ -448,16 +460,27 @@ const TradeView = () => {
         if (activeTopTab === 'Futures') {
             const limit = maxBuySellFutures;
             if (pct === 0) setAmountInput('');
-            else setAmountInput(formatInput((limit * (pct / 100)).toFixed(4)));
+            else {
+                const rawVal = limit * (pct / 100);
+                const step = stepSize || 0.0001;
+                // Round down to nearest stepSize to avoid exceeding balance
+                const rounded = Math.floor(rawVal / step) * step;
+                const decimals = step < 1 ? step.toString().split('.')[1]?.length || 0 : 0;
+                setAmountInput(formatInput(rounded.toFixed(decimals)));
+            }
         } else {
             if (availableBalance > 0) {
                 let maxAmount = availableBalance;
                 if (tradeSide === 'buy') {
                     const price = parseFloat(priceInput.replace(/,/g, '')) || 0;
-                    maxAmount = price > 0 ? availableBalance / price : 0;
+                    const spotFeeRate = 0.001; // Matches store/useExchangeStore.ts
+                    maxAmount = price > 0 ? availableBalance / (price * (1 + spotFeeRate)) : 0;
                 }
                 const val = maxAmount * (pct / 100);
-                setAmountInput(pct === 0 ? '' : formatInput(val.toFixed(8)));
+                const step = stepSize || 0.00000001;
+                const rounded = Math.floor(val / step) * step;
+                const decimals = step < 1 ? step.toString().split('.')[1]?.length || 0 : 0;
+                setAmountInput(pct === 0 ? '' : formatInput(rounded.toFixed(decimals)));
             }
         }
     };
@@ -540,7 +563,7 @@ const TradeView = () => {
     const maxBuySellValue = maxBuySellAmount === 0 ? '0' : maxBuySellAmount.toFixed(8);
 
     const totalUsdt = amountInput && !isNaN(parseFloat(amountInput.replace(/,/g, '')))
-        ? (parseFloat(amountInput.replace(/,/g, '')) * currentPriceNum).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        ? formatPrice(parseFloat(amountInput.replace(/,/g, '')) * currentPriceNum)
         : '';
 
     const renderSvgChart = (customHeight?: number) => {
@@ -941,7 +964,7 @@ const TradeView = () => {
                                 <div className="flex flex-col gap-1 text-[11px] px-1 mb-1.5">
                                     <div className="flex justify-between text-[var(--text-tertiary)]"><span>Max buy</span><span className="text-[var(--text-primary)] font-bold">{formatAbbreviated(maxBuySellFutures)} {baseCoin}</span></div>
                                     <div className="flex justify-between text-[var(--text-tertiary)]"><span>Cost</span><span className="text-[var(--text-primary)] font-bold">{currentFuturesCost.toFixed(2)} USDT</span></div>
-                                    <div className="flex justify-between text-[var(--text-tertiary)]"><span>Liq. price</span><span className="text-[var(--text-primary)] font-bold">{sliderPercent > 0 ? liqPriceLong.toFixed(1) : '--'}</span></div>
+                                    <div className="flex justify-between text-[var(--text-tertiary)]"><span>Liq. price</span><span className="text-[var(--text-primary)] font-bold">{sliderPercent > 0 ? formatPrice(liqPriceLong) : '--'}</span></div>
                                 </div>
                                 <button className="w-full h-[44px] rounded-full font-bold text-white bg-[var(--green)] flex flex-col items-center justify-center shrink-0 overflow-hidden shadow-sm mb-2" onClick={() => handlePlaceOrder('buy')}>
                                     <span className="text-[14px] leading-tight">Buy (Long) {leverage}x</span>
@@ -950,7 +973,7 @@ const TradeView = () => {
                                 <div className="flex flex-col gap-1 text-[11px] px-1 mt-1 mb-1.5">
                                     <div className="flex justify-between text-[var(--text-tertiary)]"><span>Max sell</span><span className="text-[var(--text-primary)] font-bold">{formatAbbreviated(maxBuySellFutures)} {baseCoin}</span></div>
                                     <div className="flex justify-between text-[var(--text-tertiary)]"><span>Cost</span><span className="text-[var(--text-primary)] font-bold">{currentFuturesCost.toFixed(2)} USDT</span></div>
-                                    <div className="flex justify-between text-[var(--text-tertiary)]"><span>Liq. price</span><span className="text-[var(--text-primary)] font-bold">{sliderPercent > 0 ? liqPriceShort.toFixed(1) : '--'}</span></div>
+                                    <div className="flex justify-between text-[var(--text-tertiary)]"><span>Liq. price</span><span className="text-[var(--text-primary)] font-bold">{sliderPercent > 0 ? formatPrice(liqPriceShort) : '--'}</span></div>
                                 </div>
                                 <button className="w-full h-[44px] rounded-full font-bold text-white bg-[var(--red)] flex flex-col items-center justify-center shrink-0 overflow-hidden shadow-sm" onClick={() => handlePlaceOrder('sell')}>
                                     <span className="text-[14px] leading-tight">Sell (Short) {leverage}x</span>
@@ -1272,7 +1295,7 @@ const TradeView = () => {
                                         </div>
                                         <div className="text-right">
                                             <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Order price</p>
-                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">{order.price.toLocaleString('en-US')}</p>
+                                            <p className="text-[15px] font-bold text-[var(--text-primary)]">{formatPrice(order.price)}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1451,15 +1474,15 @@ const TradeView = () => {
 
                                             <div>
                                                 <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] w-max">Entry price</p>
-                                                <p className="text-[14px] font-medium text-[var(--text-primary)]">{pos.entryPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-[14px] font-medium text-[var(--text-primary)]">{formatPrice(pos.entryPrice)}</p>
                                             </div>
                                             <div className="text-center">
                                                 <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-var(--border-color) mx-auto w-max">Mark price</p>
-                                                <p className="text-[14px] font-medium text-[var(--text-primary)]">{pos.markPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-[14px] font-medium text-[var(--text-primary)]">{formatPrice(pos.markPrice)}</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-var(--border-color) ml-auto w-max">Liq. price</p>
-                                                <p className="text-[14px] font-medium text-[var(--text-primary)]">{pos.liqPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                                                <p className="text-[14px] font-medium text-[var(--text-primary)]">{formatPrice(pos.liqPrice)}</p>
                                             </div>
                                         </div>
 
@@ -1614,7 +1637,7 @@ const TradeView = () => {
                                                         onClick={() => setSpotCostPriceSheetOpen(true, { symbol, costPrice, balance })}
                                                     >
                                                         {costPrice > 0 ? (
-                                                            <span>${costPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
+                                                            <span>${formatPrice(costPrice)}</span>
                                                         ) : (
                                                             <span className="text-[var(--text-tertiary)] opacity-30 tracking-widest">____</span>
                                                         )}
@@ -1623,7 +1646,7 @@ const TradeView = () => {
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-0.5">Last price</p>
-                                                    <p className="text-[14px] font-medium text-[var(--text-primary)] tabular-nums">${lastPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                                    <p className="text-[14px] font-medium text-[var(--text-primary)] tabular-nums">${formatPrice(lastPrice)}</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-0.5">Balance</p>
@@ -1903,17 +1926,17 @@ const TradeView = () => {
                 onConfirm={handleFinalConfirm}
                 symbol={currentSymbol}
                 side={(pendingOrder?.side || tradeSide) === 'buy' ? 'Buy' : 'Sell'}
-                price={orderType === 'Market' ? 'Market' : (pendingOrder?.p || 0).toLocaleString()}
+                price={orderType === 'Market' ? 'Market' : formatPrice(pendingOrder?.p || 0)}
                 amount={pendingOrder?.a || 0}
-                total={((pendingOrder?.p || currentPrice) * (pendingOrder?.a || 0)).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                total={formatPrice((pendingOrder?.p || currentPrice) * (pendingOrder?.a || 0))}
                 type={activeTopTab === 'Futures' ? `Isolated-${orderType}` : orderType}
                 isFutures={activeTopTab === 'Futures'}
                 leverage={leverage}
-                liqPrice={(pendingOrder?.side || tradeSide) === 'buy' ? liqPriceLong.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : liqPriceShort.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                liqPrice={(pendingOrder?.side || tradeSide) === 'buy' ? formatPrice(liqPriceLong) : formatPrice(liqPriceShort)}
                 priceGap={(((((pendingOrder?.side || tradeSide) === 'buy' ? liqPriceLong : liqPriceShort) / currentPrice) - 1) * 100).toFixed(2)}
-                priceGapUsdt={(((pendingOrder?.side || tradeSide) === 'buy' ? liqPriceLong : liqPriceShort) - currentPrice).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-                tpPrice={pendingOrder?.tpPrice}
-                slPrice={pendingOrder?.slPrice}
+                priceGapUsdt={formatPrice(((pendingOrder?.side || tradeSide) === 'buy' ? liqPriceLong : liqPriceShort) - currentPrice)}
+                tpPrice={pendingOrder?.tpPrice ? formatPrice(pendingOrder.tpPrice) : undefined}
+                slPrice={pendingOrder?.slPrice ? formatPrice(pendingOrder.slPrice) : undefined}
             />
 
             {/* Margin Mode Sheet */}

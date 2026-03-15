@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX as Close } from 'react-icons/fi';
 import useExchangeStore from '../stores/useExchangeStore';
+import { formatPrice } from '../utils/format';
 
 const SpotCostPriceSheet = () => {
     const { 
@@ -49,7 +50,7 @@ const SpotCostPriceSheet = () => {
         if (isNaN(price) || price <= 0) return;
 
         await setSpotCostPrice(coin, price);
-        showToast('Cost Price Updated', `Cost price for ${coin} updated to $${price.toLocaleString()}`, 'success');
+        showToast('Cost Price Updated', `Cost price for ${coin} updated to $${formatPrice(price)}`, 'success');
         setSpotCostPriceSheetOpen(false);
     };
 

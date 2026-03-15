@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX as Close, FiChevronRight as ChevronRight, FiInfo as Info } from 'react-icons/fi';
 import useExchangeStore from '../stores/useExchangeStore';
+import { formatPrice as globalFormatPrice } from '../utils/format';
 import CoinIcon from './CoinIcon';
 import Decimal from 'decimal.js';
 
@@ -33,19 +34,22 @@ const SpotTPSLSheet = () => {
     const availableCoin = activeSpotTPSLAsset?.amount || 0;
     const costBasisValue = useExchangeStore.getState().spotCostBasis[activeSpotTPSLAsset?.symbol || ''] || lastPrice;
 
+    const precision = market?.pricePrecision || 2;
+    const formatPrice = useCallback((price: number | string) => {
+        return globalFormatPrice(price, precision);
+    }, [precision]);
+
     const updateTPByPercent = useCallback((percent: number) => {
         setTpChangePercent(percent.toString());
         const trigger = new Decimal(costBasisValue).times(1 + percent / 100).toNumber();
-        const precision = market?.pricePrecision || 2;
-        setTpTriggerPrice(trigger.toFixed(precision));
-    }, [costBasisValue, market]);
+        setTpTriggerPrice(formatPrice(trigger));
+    }, [costBasisValue]);
 
     const updateSLByPercent = useCallback((percent: number) => {
         setSlChangePercent(percent.toString());
         const trigger = new Decimal(costBasisValue).times(1 - percent / 100).toNumber();
-        const precision = market?.pricePrecision || 2;
-        setSlTriggerPrice(trigger.toFixed(precision));
-    }, [costBasisValue, market]);
+        setSlTriggerPrice(formatPrice(trigger));
+    }, [costBasisValue]);
 
     const updateAmountByPercent = useCallback((percent: number) => {
         setAmountSlider(percent);
@@ -115,12 +119,11 @@ const SpotTPSLSheet = () => {
                         {/* Price Stats */}
                         <div className="space-y-1.5 mb-3">
                             <div className="flex justify-between items-center">
-                                <span className="text-[12px] text-[var(--text-tertiary)] font-medium border-b border-dashed border-[var(--border-color)]">Cost price</span>
-                                <span className="text-[13px] font-bold text-[var(--text-primary)]">{costBasisValue.toLocaleString(undefined, { minimumFractionDigits: 1 })}</span>
+                                <span className="text-[13px] font-bold text-[var(--text-primary)]">{formatPrice(costBasisValue)}</span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-[12px] text-[var(--text-tertiary)] font-medium">Last price</span>
-                                <span className="text-[13px] font-bold text-[var(--text-primary)]">{lastPrice.toLocaleString(undefined, { minimumFractionDigits: 1 })}</span>
+                                <span className="text-[13px] font-bold text-[var(--text-primary)]">{formatPrice(lastPrice)}</span>
                             </div>
                         </div>
 
