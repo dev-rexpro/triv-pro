@@ -71,6 +71,7 @@ const TradeView = () => {
     const cancelAllOrders = useExchangeStore(state => state.cancelAllOrders);
     const showToast = useExchangeStore(state => state.showToast);
     const spotSymbols = useExchangeStore(state => state.spotSymbols);
+    const marketConfigs = useExchangeStore(state => state.marketConfigs);
 
     const [activeTopTab, setActiveTopTab] = useState<'Spot' | 'Futures' | 'Bots' | 'Convert'>(tradeType === 'futures' ? 'Futures' : 'Spot');
     const currentSymbol = selectedCoin || 'BTCUSDT';
@@ -161,6 +162,12 @@ const TradeView = () => {
 
         const source = activeTopTab === 'Futures' ? futuresSymbols : spotSymbols;
         const info = (source || []).find(s => s.symbol === tradingSymbol);
+        
+        // Use marketConfigs as primary source if available
+        if (marketConfigs[tradingSymbol]) {
+            return marketConfigs[tradingSymbol].pricePrecision;
+        }
+
         if (info) return info.pricePrecision;
         
         // Fallback heuristic matching format.ts
@@ -174,7 +181,7 @@ const TradeView = () => {
         if (p >= 0.01) return 6;
         if (p >= 0.001) return 7;
         return 8;
-    }, [tradingSymbol, activeTopTab, spotSymbols, futuresSymbols, ticker, tickSize]);
+    }, [tradingSymbol, activeTopTab, spotSymbols, futuresSymbols, ticker, tickSize, marketConfigs]);
 
     const orderBook = useMemo(() => ({
         bids: wsOrderBook.bids.map(b => ({ price: parseFloat(b[0]), amount: parseFloat(b[1]) })),
@@ -240,6 +247,10 @@ const TradeView = () => {
 
     const currentPrice = ticker ? parseFloat(ticker.lastPrice) : 72000;
     const futuresFeeRate = 0.0005; // Matches store/useExchangeStore.ts
+    const maxLeverageFromConfig = useMemo(() => {
+        return marketConfigs[tradingSymbol]?.maxLeverage || 100;
+    }, [marketConfigs, tradingSymbol]);
+
     const maxBuySellFutures = availableFuturesUSDT / (currentPrice * (1 / leverage + futuresFeeRate));
     
     const rawFuturesAmount = (sliderPercent / 100) * maxBuySellFutures;
@@ -695,23 +706,46 @@ const TradeView = () => {
             </div>
 
             {/* Symbol Header */}
-            <div className="px-4 flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-primary)] sticky top-0 z-[100] h-[52px]" style={{ transform: 'translateZ(0)' }}>
-                <div className="flex items-center gap-2 cursor-pointer h-full" onClick={() => setSearchOpen(true)}>
-                    <h1 className="text-[18px] font-bold text-[var(--text-primary)] leading-none uppercase">{activeTopTab === 'Futures' ? currentSymbol : currentSymbol.replace('USDT', '/USDT')}</h1>
-                    {activeTopTab === 'Futures' ? (
-                        <span className="bg-[#faad14]/10 text-[#faad14] text-[10px] font-bold px-1.5 py-[2px] rounded-[4px] leading-none">Perp</span>
-                    ) : (
-                        <span className="bg-slate-400/10 text-slate-400 text-[10px] font-bold px-1.5 py-[2px] rounded-[4px] leading-none">10x</span>
-                    )}
-                    <ArrowDropDown className="w-6 h-6 text-[var(--text-secondary)] mt-0.5" />
+            {activeTopTab !== 'Bots' && (
+                <div className="px-4 flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-primary)] sticky top-0 z-[100] h-[52px]" style={{ transform: 'translateZ(0)' }}>
+                    <div className="flex items-center gap-2 cursor-pointer h-full" onClick={() => setSearchOpen(true)}>
+                        <h1 className="text-[18px] font-bold text-[var(--text-primary)] leading-none uppercase">{activeTopTab === 'Futures' ? currentSymbol : currentSymbol.replace('USDT', '/USDT')}</h1>
+                        {activeTopTab === 'Futures' ? (
+                            <span className="bg-[#faad14]/10 text-[#faad14] text-[10px] font-bold px-1.5 py-[2px] rounded-[4px] leading-none">Perp</span>
+                        ) : (
+                            <span className="bg-slate-400/10 text-slate-400 text-[10px] font-bold px-1.5 py-[2px] rounded-[4px] leading-none">10x</span>
+                        )}
+                        <ArrowDropDown className="w-6 h-6 text-[var(--text-secondary)] mt-0.5" />
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <CandlestickChart className="w-7 h-7 text-[var(--text-primary)] cursor-pointer" onClick={() => setActivePage('chart-trade')} />
+                        <AlignRight className="w-7 h-7 text-[var(--text-primary)]" />
+                    </div>
                 </div>
-                <div className="flex items-center gap-4">
-                    <CandlestickChart className="w-7 h-7 text-[var(--text-primary)] cursor-pointer" onClick={() => setActivePage('chart-trade')} />
-                    <AlignRight className="w-7 h-7 text-[var(--text-primary)]" />
-                </div>
-            </div>
+            )}
 
-            <div className="flex items-stretch px-3 py-3">
+            {activeTopTab === 'Bots' ? (
+                <div className="flex-1 flex flex-col items-center justify-center py-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="w-24 h-24 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center mb-6 relative">
+                        <div className="absolute inset-0 rounded-full bg-[var(--accent)] opacity-10 animate-pulse" />
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 8V4H8" />
+                            <rect width="16" height="12" x="4" y="8" rx="2" />
+                            <path d="M2 14h2" />
+                            <path d="M20 14h2" />
+                            <path d="M15 13v2" />
+                            <path d="M9 13v2" />
+                        </svg>
+                    </div>
+                    <h2 className="text-[24px] font-bold text-[var(--text-primary)] mb-2">Trading Bots</h2>
+                    <p className="text-[16px] text-[var(--text-tertiary)] font-medium mb-8 text-center px-10">Automate your trades with advanced grid and DCA bots.</p>
+                    <div className="bg-[var(--accent)]/10 text-[var(--accent)] px-4 py-2 rounded-full font-bold text-[14px]">
+                        Coming Soon
+                    </div>
+                </div>
+            ) : (
+                <>
+                <div className="flex items-stretch px-3 py-3">
                 {/* Left Panel: Trade Inputs */}
                 <div className="w-[58%] pr-1 flex flex-col gap-1.5">
                     {activeTopTab === 'Futures' ? (
@@ -1251,7 +1285,7 @@ const TradeView = () => {
             </div>
 
             {/* Control Row (Current symbol / Cancel all) - Root level for robust stickiness */}
-            {(activeTab === 'orders' || activeTab === 'positions') && (
+            {activeTopTab !== 'Bots' && (activeTab === 'orders' || activeTab === 'positions') && (
                 <div className="px-4 py-2.5 flex items-center justify-between bg-[var(--bg-primary)] border-b border-[var(--border-color)] sticky top-[100px] z-[80]" style={{ transform: 'translateZ(0)' }}>
                     <label className="flex items-center gap-2 cursor-pointer group" onClick={() => setIsCurrentSymbolChecked(!isCurrentSymbolChecked)}>
                         <div className={`w-4 h-4 rounded-[3px] flex items-center justify-center border transition-colors ${isCurrentSymbolChecked ? 'bg-[var(--btn-primary-bg)] border-[var(--btn-primary-bg)]' : 'border-[var(--border-strong)] bg-[var(--bg-card)]'}`}>
@@ -1793,17 +1827,26 @@ const TradeView = () => {
                 )}
 
                 {activeTab === 'bots' && (
-                    <div className="flex flex-col items-center justify-center py-20 opacity-50">
+                    <div className="flex flex-col items-center justify-center py-16 animate-in fade-in duration-500">
                         <div className="w-16 h-16 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center relative mb-4">
-                            <FileText className="w-8 h-8 text-[var(--text-tertiary)]" />
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <rect width="16" height="12" x="4" y="8" rx="2" />
+                                <path d="M12 8V4H8" />
+                                <path d="M9 13v2" />
+                                <path d="M15 13v2" />
+                            </svg>
                         </div>
-                        <span className="text-[14px] text-[var(--text-tertiary)] font-medium">No active bots</span>
+                        <h3 className="text-[16px] font-bold text-[var(--text-primary)] mb-1">Trading Bots</h3>
+                        <span className="text-[13px] text-[var(--text-tertiary)] font-medium">Coming soon</span>
                     </div>
                 )}
             </div>
+            </>
+        )}
 
             {/* Mini Chart Drawer */}
-            <div className={`fixed w-full max-w-md bg-[var(--bg-primary)] transition-all duration-300 border-t border-[var(--border-color)] z-[150] ${isMiniChartOpen ? 'h-[320px]' : 'h-[48px]'}`} style={{ bottom: 'calc(65px + var(--safe-area-bottom))' }}>
+            {activeTopTab !== 'Bots' && (
+                <div className={`fixed w-full max-w-md bg-[var(--bg-primary)] transition-all duration-300 border-t border-[var(--border-color)] z-[150] ${isMiniChartOpen ? 'h-[320px]' : 'h-[48px]'}`} style={{ bottom: 'calc(65px + var(--safe-area-bottom))' }}>
                 <div
                     className="flex items-center justify-between px-4 cursor-pointer h-12 -mt-1"
                     onClick={() => setIsMiniChartOpen(!isMiniChartOpen)}
@@ -1838,6 +1881,56 @@ const TradeView = () => {
                     </div>
                 )}
             </div>
+            )}
+            {/* Close All Confirmation Modal */}
+            <AnimatePresence>
+                {
+                    isCloseAllConfirmOpen && (
+                        <>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 bg-[var(--overlay-bg)] z-[1000]"
+                                onClick={() => setIsCloseAllConfirmOpen(false)}
+                            />
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0, x: '-50%', y: '-50%' }}
+                                animate={{ scale: 1, opacity: 1, x: '-50%', y: '-50%' }}
+                                exit={{ scale: 0.9, opacity: 0, x: '-50%', y: '-50%' }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                                className="fixed top-1/2 left-1/2 w-[90%] max-w-[340px] bg-[var(--bg-primary)] rounded-[24px] z-[1001] overflow-hidden"
+                            >
+                                <div className="p-6 flex flex-col items-center text-center">
+                                    <div className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center mb-4">
+                                        <Info className="w-6 h-6 text-white" />
+                                    </div>
+                                    <p className="text-[16px] leading-[1.4] text-[var(--text-primary)] font-medium px-2">
+                                        Your positions will all be closed at <span className="font-bold">market price</span>, and any open orders (or reduce-only orders) will be canceled. Options won't be affected.
+                                    </p>
+                                </div>
+                                <div className="flex border-t border-[var(--border-color)] h-14">
+                                    <button
+                                        className="flex-1 text-[16px] font-semibold text-[var(--text-primary)] border-r border-[var(--border-color)] active:bg-[var(--bg-hover)] transition-colors"
+                                        onClick={() => setIsCloseAllConfirmOpen(false)}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        className="flex-1 text-[16px] font-bold text-[var(--text-primary)] active:bg-[var(--bg-hover)] transition-colors"
+                                        onClick={() => {
+                                            closeAll();
+                                            setIsCloseAllConfirmOpen(false);
+                                        }}
+                                    >
+                                        Close all
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </>
+                    )
+                }
+            </AnimatePresence>
             {/* Precision Bottom Sheet */}
             <AnimatePresence>
                 {isPrecisionSheetOpen && (
@@ -2092,10 +2185,12 @@ const TradeView = () => {
                 onClose={() => setIsLeverageSheetOpen(false)}
                 currentLeverage={leverage}
                 onLeverageChange={(val) => setLeverage(val)}
-                maxLeverage={100}
+                maxLeverage={maxLeverageFromConfig}
                 availableBalance={availableFuturesUSDT}
                 currentPrice={currentPrice}
                 symbol={currentSymbol}
+                mmr={marketConfigs[tradingSymbol]?.mmr || 0.005}
+                side={tradeSide}
             />
 
             {/* TP/SL Sheets */}
@@ -2115,62 +2210,7 @@ const TradeView = () => {
                 onClose={() => setIsPositionCloseModalOpen(false)}
                 position={selectedPositionForClose}
             />
-
-            {/* Close All Confirmation Modal */}
-            <AnimatePresence>
-                {
-                    isCloseAllConfirmOpen && (
-                        <>
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="fixed inset-0 bg-[var(--overlay-bg)] z-[1000]"
-                                onClick={() => setIsCloseAllConfirmOpen(false)}
-                            />
-                            <motion.div
-                                initial={{ scale: 0.9, opacity: 0, x: '-50%', y: '-50%' }}
-                                animate={{ scale: 1, opacity: 1, x: '-50%', y: '-50%' }}
-                                exit={{ scale: 0.9, opacity: 0, x: '-50%', y: '-50%' }}
-                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                                className="fixed top-1/2 left-1/2 w-[90%] max-w-[340px] bg-[var(--bg-primary)] rounded-[24px] z-[1001] overflow-hidden"
-                            >
-                                <div className="p-6 flex flex-col items-center text-center">
-                                    <div className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center mb-4">
-                                        <Info className="w-6 h-6 text-white" />
-                                    </div>
-                                    <p className="text-[16px] leading-[1.4] text-[var(--text-primary)] font-medium px-2">
-                                        Your positions will all be closed at <span className="font-bold">market price</span>, and any open orders (or reduce-only orders) will be canceled. Options won't be affected.
-                                    </p>
-                                </div>
-                                <div className="flex border-t border-[var(--border-color)] h-14">
-                                    <button
-                                        className="flex-1 text-[16px] font-semibold text-[var(--text-primary)] border-r border-[var(--border-color)] active:bg-[var(--bg-hover)] transition-colors"
-                                        onClick={() => setIsCloseAllConfirmOpen(false)}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        className="flex-1 text-[16px] font-bold text-[var(--text-primary)] active:bg-[var(--bg-hover)] transition-colors"
-                                        onClick={() => {
-                                            closeAll();
-                                            setIsCloseAllConfirmOpen(false);
-                                            setToastMessage({
-                                                title: 'Close all successful',
-                                                message: 'All positions have been closed and orders canceled.'
-                                            });
-                                            setTimeout(() => setToastMessage(null), 3000);
-                                        }}
-                                    >
-                                        Close all
-                                    </button>
-                                </div>
-                            </motion.div>
-                        </>
-                    )
-                }
-            </AnimatePresence >
-        </div >
+        </div>
     );
 };
 

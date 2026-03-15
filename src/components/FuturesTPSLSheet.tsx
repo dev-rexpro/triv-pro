@@ -14,6 +14,7 @@ const FuturesTPSLSheet = () => {
         activeFuturesPosition, 
         futuresMarkets,
         futuresSymbols,
+        marketConfigs,
         setFuturesTPSL,
         showToast
     } = useExchangeStore();
@@ -51,11 +52,16 @@ const FuturesTPSLSheet = () => {
     }, [isFuturesTPSLSheetOpen]);
 
     const precision = useMemo(() => {
+        // Use marketConfigs as primary if available
+        if (marketConfigs[activeFuturesPosition?.symbol || '']) {
+            return marketConfigs[activeFuturesPosition?.symbol || ''].pricePrecision;
+        }
+
         if (market?.pricePrecision) return market.pricePrecision;
         const symbolInfo = futuresSymbols.find(s => s.symbol === activeFuturesPosition?.symbol);
         if (symbolInfo?.pricePrecision) return symbolInfo.pricePrecision;
         return getPrecisionForPrice(currentMarkPrice);
-    }, [market, futuresSymbols, activeFuturesPosition?.symbol, currentMarkPrice]);
+    }, [market, futuresSymbols, activeFuturesPosition?.symbol, currentMarkPrice, marketConfigs]);
 
     const formatPrice = useCallback((price: number | string) => {
         if (typeof price === 'string') price = parseFloat(price);

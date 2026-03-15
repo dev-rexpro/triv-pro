@@ -65,6 +65,7 @@ interface ExchangeState {
         show_deposit_offer?: boolean;
         [key: string]: any;
     };
+    marketConfigs: Record<string, { pricePrecision: number; maxLeverage: number; mmr: number }>;
 
     isSpotTPSLSheetOpen: boolean;
     setSpotTPSLSheetOpen: (open: boolean, asset?: { symbol: string; amount: number }) => void;
@@ -202,6 +203,7 @@ interface ExchangeState {
     setTheme: (theme: 'light' | 'dark' | 'system') => void;
     toggleTheme: () => void;
     setSelectedCoin: (coin: string) => void;
+    fetchMarketConfigs: () => Promise<void>;
 }
 
 const useExchangeStore = create<ExchangeState>()(
@@ -255,6 +257,7 @@ const useExchangeStore = create<ExchangeState>()(
             isSigningUp: false,
             isInitializing: true,
             preferences: {},
+            marketConfigs: {},
 
             isSpotTPSLSheetOpen: false,
             setSpotTPSLSheetOpen: (open, asset) => set({ isSpotTPSLSheetOpen: open, activeSpotTPSLAsset: asset || null }),
@@ -997,7 +1000,9 @@ const useExchangeStore = create<ExchangeState>()(
             },
             initializeUserData: async () => {
                 set({ isInitializing: true }); // Ensure it's true at start
-                const { user, fetchProfile, fetchSupabaseWallets, fetchSupabaseHistory, fetchSupabaseFavorites, fetchSupabasePositions } = get();
+                const { user, fetchProfile, fetchSupabaseWallets, fetchSupabaseHistory, fetchSupabaseFavorites, fetchSupabasePositions, fetchMarketConfigs } = get();
+                
+                await fetchMarketConfigs(); // Configs available for everyone
 
                 if (!user) {
                     set({ isInitializing: false });
@@ -2641,40 +2646,82 @@ const useExchangeStore = create<ExchangeState>()(
                 };
             },
 
-            closeAll: () => {
+            closeAll: async () => {
+                const { user, wallets, spotCostBasis, markets, positions, showToast } = get();
+                
+                // 1. Database Cleanup (Nuclear)
+                if (user) {
+                    try {
+                        // Delete all open spot orders
+                        await supabase.from('orders_spot').delete().eq('user_id', user.id).eq('status', 'open');
+                        
+                        // Delete all open futures positions
+                        await supabase.from('positions_futures').delete().eq('user_id', user.id);
+                        
+                        // Delete all spot TPSL (assuming stored in orders_spot or similar, but clearing state is key)
+                    } catch (err) {
+                        console.error('Failed to cleanup database in closeAll:', err);
+                    }
+                }
+
+                // 2. Local State Reset & Spot Liquidation
                 set((state) => {
-                    const { wallets, spotCostBasis, markets } = state;
-                    const newWallets = { ...wallets };
+                    const newWallets = JSON.parse(JSON.stringify(state.wallets));
                     let additionalUsdt = 0;
 
-                    // Convert all spot assets (that we have cost basis for) back to USDT
+                    // Convert all spot assets back to USDT (Liquidation)
                     const newSpotWallets = { ...newWallets.spot };
-                    Object.keys(spotCostBasis).forEach(symbol => {
+                    Object.keys(state.spotCostBasis).forEach(symbol => {
                         const coin = symbol.replace('USDT', '');
                         const amount = newSpotWallets[coin] || 0;
                         if (amount > 0) {
-                            const market = markets.find(m => m.symbol === symbol);
+                            const market = state.markets.find(m => m.symbol === symbol);
                             const price = market ? parseFloat(market.lastPrice) : 0;
                             additionalUsdt += amount * price;
                             delete newSpotWallets[coin];
                         }
                     });
 
+                    // Handle Futures Margin Recovery (Simplified Demo: Add margin of closed positions back to USDT)
+                    const totalMarginInPositions = (state.positions || []).reduce((sum, pos) => sum + pos.margin, 0);
+                    newWallets.futures.USDT = (newWallets.futures.USDT || 0) + totalMarginInPositions;
+
                     newSpotWallets.USDT = (newSpotWallets.USDT || 0) + additionalUsdt;
                     newWallets.spot = newSpotWallets;
-
-                    // Reset futures wallet USDT to include margin from closed positions
-                    // (Simplified: in this demo, positions are effectively removed)
 
                     return {
                         openOrders: [],
                         positions: [],
                         spotCostBasis: {},
+                        spotTPSL: [],
                         wallets: newWallets
                     };
                 });
-                get().updateAssetPrices(true);
-                get().syncWalletsToSupabase();
+
+                // 3. Final Sync
+                await get().syncWalletsToSupabase();
+                showToast('Nuclear Reset Successful', 'All positions closed, orders canceled, and assets liquidated.', 'success');
+            },
+
+            fetchMarketConfigs: async () => {
+                try {
+                    const { data, error } = await supabase.from('market_configs').select('*');
+                    if (error) throw error;
+                    
+                    if (data) {
+                        const configsMap: Record<string, { pricePrecision: number; maxLeverage: number; mmr: number }> = {};
+                        data.forEach(item => {
+                            configsMap[item.symbol] = {
+                                pricePrecision: item.price_precision,
+                                maxLeverage: item.max_leverage,
+                                mmr: item.maint_margin_ratio
+                            };
+                        });
+                        set({ marketConfigs: configsMap });
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch market configs:', error);
+                }
             },
         }),
         {

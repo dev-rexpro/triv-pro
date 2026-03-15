@@ -13,6 +13,7 @@ const SpotTPSLSheet = () => {
         activeSpotTPSLAsset, 
         markets, 
         spotSymbols,
+        marketConfigs,
         wallets, 
         setSpotTPSL,
         showToast 
@@ -36,11 +37,16 @@ const SpotTPSLSheet = () => {
     const costBasisValue = useExchangeStore.getState().spotCostBasis[activeSpotTPSLAsset?.symbol || ''] || lastPrice;
 
     const precision = useMemo(() => {
+        // Use marketConfigs as primary if available
+        if (marketConfigs[symbol]) {
+            return marketConfigs[symbol].pricePrecision;
+        }
+
         if (market?.pricePrecision) return market.pricePrecision;
         const symbolInfo = spotSymbols.find(s => s.symbol === symbol);
         if (symbolInfo?.pricePrecision) return symbolInfo.pricePrecision;
         return getPrecisionForPrice(lastPrice);
-    }, [market, spotSymbols, symbol, lastPrice]);
+    }, [market, spotSymbols, symbol, lastPrice, marketConfigs]);
     const formatPrice = useCallback((price: number | string) => {
         return globalFormatPrice(price, precision);
     }, [precision]);
