@@ -25,6 +25,8 @@ export interface BinanceSymbolInfo {
     baseAsset: string;   // e.g. 'BTC'
     quoteAsset: string;  // e.g. 'USDT'
     type: 'spot' | 'futures';
+    pricePrecision: number;
+    tickSize: number;
 }
 
 // Fetch ALL active Spot + Futures symbols from exchangeInfo
@@ -36,21 +38,38 @@ export const fetchExchangeInfo = async (): Promise<{ spotSymbols: BinanceSymbolI
 
     const spotSymbols: BinanceSymbolInfo[] = spot.symbols
         .filter((s: any) => s.status === 'TRADING' && s.quoteAsset === 'USDT')
-        .map((s: any) => ({
-            symbol: s.symbol,
-            baseAsset: s.baseAsset,
-            quoteAsset: s.quoteAsset,
-            type: 'spot' as const
-        }));
+        .map((s: any) => {
+            const priceFilter = s.filters.find((f: any) => f.filterType === 'PRICE_FILTER');
+            const tickSize = priceFilter ? parseFloat(priceFilter.tickSize) : 0.01;
+            // Calculate precision from tickSize (e.g. 0.0001 -> 4)
+            const precision = tickSize < 1 ? Math.round(-Math.log10(tickSize)) : 0;
+
+            return {
+                symbol: s.symbol,
+                baseAsset: s.baseAsset,
+                quoteAsset: s.quoteAsset,
+                type: 'spot' as const,
+                pricePrecision: s.quotePrecision ?? precision, // Fallback to calculated precision
+                tickSize: tickSize
+            };
+        });
 
     const futuresSymbols: BinanceSymbolInfo[] = futures.symbols
         .filter((s: any) => s.status === 'TRADING' && s.quoteAsset === 'USDT')
-        .map((s: any) => ({
-            symbol: s.symbol,
-            baseAsset: s.baseAsset,
-            quoteAsset: s.quoteAsset,
-            type: 'futures' as const
-        }));
+        .map((s: any) => {
+            const priceFilter = s.filters.find((f: any) => f.filterType === 'PRICE_FILTER');
+            const tickSize = priceFilter ? parseFloat(priceFilter.tickSize) : 0.01;
+            const precision = tickSize < 1 ? Math.round(-Math.log10(tickSize)) : 0;
+
+            return {
+                symbol: s.symbol,
+                baseAsset: s.baseAsset,
+                quoteAsset: s.quoteAsset,
+                type: 'futures' as const,
+                pricePrecision: s.pricePrecision ?? precision, // Standard for Futures is pricePrecision
+                tickSize: tickSize
+            };
+        });
 
     return { spotSymbols, futuresSymbols };
 };

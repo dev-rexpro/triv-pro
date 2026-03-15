@@ -13,18 +13,26 @@ import {
 } from 'react-icons/lu';
 import { HiOutlineChartBar as BarChart2, HiOutlineChartPie as PieChart } from 'react-icons/hi2';
 import { MdOutlineArrowDropDown as ArrowDropDown } from 'react-icons/md';
-import { formatPrice } from '../utils/format';
+import { formatPrice, formatAbbreviated } from '../utils/format';
+import { useOrderBookSocket } from '../hooks/useOrderBookSocket';
+import { useTickerSocket } from '../hooks/useTickerSocket';
+import useExchangeStore from '../stores/useExchangeStore';
+import RealChart from '../components/RealChart';
 
 const baseUrl = 'https://api.binance.com';
-const prefix = '/api/v3'; // Or '/fapi/v1' for futures
+const prefix = '/api/v3';
 const currentSymbol = 'BTCUSDT';
 const activeInterval = '1h';
 
-
 export default function SpotTradeView() {
+    const { 
+        openOrders, spotTPSL, positions, wallets, spotCostBasis, spotSymbols 
+    } = useExchangeStore();
+
     const [tradeSide, setTradeSide] = useState<'buy' | 'sell'>('buy');
-    const [ticker, setTicker] = useState<any>(null);
-    const [orderBook, setOrderBook] = useState({ bids: [], asks: [] });
+    const wsTicker = useTickerSocket(currentSymbol, 'spot');
+    const { orderBook: wsOrderBook } = useOrderBookSocket(currentSymbol, 'spot');
+    
     const [priceInput, setPriceInput] = useState('');
     const [amountInput, setAmountInput] = useState('');
     const [tickSize, setTickSize] = useState<number>(0.001);
@@ -38,11 +46,57 @@ export default function SpotTradeView() {
     const [isCurrentSymbolChecked, setIsCurrentSymbolChecked] = useState(false);
     const [orderBookView, setOrderBookView] = useState<'both' | 'buy' | 'sell'>('both');
     const [isMiniChartOpen, setIsMiniChartOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'orders' | 'positions' | 'bots'>('orders');
     const [klines, setKlines] = useState<any[]>([]);
 
     const MAX_BTC = 0.0554000;
 
     const currentPriceNum = parseFloat(priceInput) || 0;
+
+    const ticker = useMemo(() => {
+        if (!wsTicker) return null;
+        return {
+            ...wsTicker,
+            lastPrice: wsTicker.lastPrice.toString(),
+            priceChangePercent: wsTicker.priceChangePercent.toString()
+        };
+    }, [wsTicker]);
+
+    const pricePrecision = useMemo(() => {
+        if (tickSize && tickSize > 0) {
+            const str = tickSize.toString();
+            if (str.includes('e-')) return parseInt(str.split('e-')[1], 10);
+            const parts = str.split('.');
+            return parts.length > 1 ? parts[1].length : 0;
+        }
+
+        const info = (spotSymbols || []).find(s => s.symbol === currentSymbol);
+        if (info && info.pricePrecision !== 8) return info.pricePrecision; // 8 is often a generic quote precision
+        
+        // Fallback heuristic matching format.ts
+        const lastPriceNum = ticker ? parseFloat(ticker.lastPrice) : 0;
+        const p = Math.abs(lastPriceNum);
+        if (p >= 1000) return 1;
+        if (p >= 100) return 2;
+        if (p >= 10) return 3;
+        if (p >= 1) return 4;
+        if (p >= 0.1) return 5;
+        if (p >= 0.01) return 6;
+        if (p >= 0.001) return 7;
+        return 8;
+    }, [currentSymbol, spotSymbols, ticker, tickSize]);
+
+    const orderBook = useMemo(() => ({
+        bids: wsOrderBook.bids.map(b => ({ price: parseFloat(b[0]), amount: parseFloat(b[1]) })),
+        asks: wsOrderBook.asks.map(a => ({ price: parseFloat(a[0]), amount: parseFloat(a[1]) })).reverse()
+    }), [wsOrderBook]);
+
+    // Auto-fill price input saat pertama kali buka koin
+    useEffect(() => {
+        if (ticker?.lastPrice && priceInput === '') {
+            setPriceInput(formatInput(parseFloat(ticker.lastPrice).toString()));
+        }
+    }, [ticker?.lastPrice, priceInput]);
 
     const dynamicPrecisions = useMemo(() => {
         if (tickSize && tickSize > 0) {
@@ -96,17 +150,6 @@ export default function SpotTradeView() {
     };
 
     useEffect(() => {
-        const fetchTicker = async () => {
-            try {
-                const res = await fetch(`${baseUrl}${prefix}/ticker/24hr?symbol=${currentSymbol}`);
-                const data = await res.json();
-                setTicker(data);
-                if (priceInput === '') { // Changed from '0' to '' for initial state
-                    setPriceInput(formatInput(parseFloat(data.lastPrice).toString()));
-                }
-            } catch (err) { }
-        };
-
         const fetchKlines = async (interval: string) => {
             try {
                 const res = await fetch(`${baseUrl}${prefix}/klines?symbol=${currentSymbol}&interval=${interval}&limit=100`);
@@ -122,20 +165,9 @@ export default function SpotTradeView() {
             } catch (err) { }
         };
 
-        const fetchOrderBook = async () => {
-            try {
-                const res = await fetch(`${baseUrl}${prefix}/depth?symbol=${currentSymbol}&limit=1000`);
-                const data = await res.json();
-                setOrderBook({
-                    bids: data.bids.map((b: any) => ({ price: parseFloat(b[0]), amount: parseFloat(b[1]) })),
-                    asks: data.asks.map((a: any) => ({ price: parseFloat(a[0]), amount: parseFloat(a[1]) })).reverse()
-                });
-            } catch (err) { }
-        };
-
         const fetchExchangeInfo = async () => {
             try {
-                const res = await fetch(`${baseUrl}${prefix === '/api/v3' ? '/api/v3' : '/fapi/v1'}/exchangeInfo?symbol=${currentSymbol}`);
+                const res = await fetch(`${baseUrl}${prefix}/exchangeInfo?symbol=${currentSymbol}`);
                 const data = await res.json();
                 const symbolInfo = data.symbols?.[0];
                 if (symbolInfo) {
@@ -148,16 +180,7 @@ export default function SpotTradeView() {
         };
 
         fetchExchangeInfo();
-        fetchTicker();
         fetchKlines(activeInterval);
-        fetchOrderBook();
-
-        const interval = setInterval(() => {
-            fetchTicker();
-            fetchOrderBook();
-        }, 2000);
-
-        return () => clearInterval(interval);
     }, []);
 
 
@@ -310,7 +333,7 @@ export default function SpotTradeView() {
                 {/* Symbol Header */}
                 <div className="px-4 flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-primary)] sticky top-0 z-30 h-[52px]">
                     <div className="flex items-center gap-2">
-                        <h1 className="text-[22px] font-bold text-[var(--text-primary)] leading-none">BTC/USDT</h1>
+                        <h1 className="text-[22px] font-bold text-[var(--text-primary)] leading-none">{currentSymbol.replace('USDT', '/USDT')}</h1>
                         <span className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-[11px] font-bold px-1.5 py-[1px] rounded-[4px] leading-none mt-0.5">10x</span>
                         <div className="text-[var(--text-secondary)] mt-0.5"><ArrowDropDown size={24} /></div>
                     </div>
@@ -483,18 +506,13 @@ export default function SpotTradeView() {
                         {(orderBookView === 'both' || orderBookView === 'sell') && (
                             <div className="flex flex-col flex-1 justify-end relative gap-[1px]">
                                 {(() => {
-                                    let totalAsks = 0;
-                                    const asksWithDepth = [...aggregatedAsks].reverse().map(ask => {
-                                        totalAsks += ask.amount;
-                                        return { ...ask, depth: totalAsks };
-                                    }).reverse();
-                                    const maxDAsks = totalAsks > 0 ? totalAsks : 1;
+                                    const maxAmount = Math.max(...aggregatedAsks.slice(-askLimit).map(a => a.amount), 1);
 
-                                    return asksWithDepth.slice(-askLimit).map((ask: any, i: number) => (
+                                    return aggregatedAsks.slice(-askLimit).map((ask: any, i: number) => (
                                         <div key={`ask-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-[var(--bg-hover)]" onClick={() => setPriceInput(formatInput(ask.price.toFixed(precisionDecimals)))}>
-                                            <div className="absolute right-0 top-0 h-full bg-[var(--red-bg)] transition-all duration-300" style={{ width: `${(ask.depth / maxDAsks) * 100}%` }} />
+                                            <div className="absolute right-0 top-0 h-full bg-[var(--red-bg)] transition-all duration-300" style={{ width: `${(ask.amount / maxAmount) * 100}%` }} />
                                             <span className="text-[var(--red)] font-medium relative z-10 text-[12px] tracking-tight">
-                                                {ask.price.toLocaleString('en-US', { minimumFractionDigits: precisionDecimals, maximumFractionDigits: precisionDecimals })}
+                                                {formatPrice(ask.price, pricePrecision)}
                                             </span>
                                             <span className="text-[var(--text-secondary)] relative z-10 text-[12px] font-medium tracking-tight">
                                                 {ask.amount >= 1 ? ask.amount.toFixed(2) : ask.amount.toFixed(5)}
@@ -523,18 +541,13 @@ export default function SpotTradeView() {
                         {(orderBookView === 'both' || orderBookView === 'buy') && (
                             <div className="flex flex-col flex-1 relative gap-[1px]">
                                 {(() => {
-                                    let totalBids = 0;
-                                    const bidsWithDepth = aggregatedBids.map(bid => {
-                                        totalBids += bid.amount;
-                                        return { ...bid, depth: totalBids };
-                                    });
-                                    const maxDBids = totalBids > 0 ? totalBids : 1;
+                                    const maxAmount = Math.max(...aggregatedBids.slice(0, bidLimit).map(b => b.amount), 1);
 
-                                    return bidsWithDepth.slice(0, bidLimit).map((bid: any, i: number) => (
+                                    return aggregatedBids.slice(0, bidLimit).map((bid: any, i: number) => (
                                         <div key={`bid-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-[var(--bg-hover)]" onClick={() => setPriceInput(formatInput(bid.price.toFixed(precisionDecimals)))}>
-                                            <div className="absolute right-0 top-0 h-full bg-[var(--green-bg)] transition-all duration-300" style={{ width: `${(bid.depth / maxDBids) * 100}%` }} />
+                                            <div className="absolute right-0 top-0 h-full bg-[var(--green-bg)] transition-all duration-300" style={{ width: `${(bid.amount / maxAmount) * 100}%` }} />
                                             <span className="text-[var(--green)] font-medium relative z-10 text-[12px] tracking-tight">
-                                                {bid.price.toLocaleString('en-US', { minimumFractionDigits: precisionDecimals, maximumFractionDigits: precisionDecimals })}
+                                                {formatPrice(bid.price, pricePrecision)}
                                             </span>
                                             <span className="text-[var(--text-secondary)] relative z-10 text-[12px] font-medium tracking-tight">
                                                 {bid.amount >= 1 ? bid.amount.toFixed(2) : bid.amount.toFixed(5)}
@@ -547,9 +560,12 @@ export default function SpotTradeView() {
 
                         {(() => {
                             let buyRatio = 50;
-                            if (orderBook.bids.length > 0 && orderBook.asks.length > 0) {
-                                const totalBids = orderBook.bids.reduce((acc, curr: any) => acc + curr.amount, 0);
-                                const totalAsks = orderBook.asks.reduce((acc, curr: any) => acc + curr.amount, 0);
+                            const topBids = orderBook.bids.slice(0, 20);
+                            const topAsks = orderBook.asks.slice(0, 20);
+
+                            if (topBids.length > 0 && topAsks.length > 0) {
+                                const totalBids = topBids.reduce((acc, curr: any) => acc + curr.amount, 0);
+                                const totalAsks = topAsks.reduce((acc, curr: any) => acc + curr.amount, 0);
                                 const total = totalBids + totalAsks;
                                 if (total > 0) buyRatio = (totalBids / total) * 100;
                             }
@@ -596,8 +612,44 @@ export default function SpotTradeView() {
 
                 {/* Orders/Positions Tabs */}
                 <div className="border-b border-[var(--border-color)] px-4 flex items-center gap-3 overflow-x-auto no-scrollbar sticky top-[52px] z-20 bg-[var(--bg-primary)] h-[48px]">
-                    <span className="font-bold text-[15px] text-[var(--text-primary)] flex items-center gap-1 h-full shrink-0">Orders (0) <div className="text-[var(--text-tertiary)]"><ArrowDropDown size={20} /></div></span>
-                    <span className="font-semibold text-[15px] text-[var(--text-secondary)] flex items-center gap-1 h-full shrink-0">Positions (0) & assets <div className="text-[var(--text-tertiary)]"><ArrowDropDown size={20} /></div></span>
+                    <div
+                        className={`flex items-center gap-1.5 h-full shrink-0 cursor-pointer transition-colors ${activeTab === 'orders' ? 'text-[var(--text-primary)] font-bold' : 'text-[var(--text-secondary)] font-semibold'}`}
+                        onClick={() => setActiveTab('orders')}
+                    >
+                        <span className="text-[15px]">
+                            Orders ({
+                                openOrders.filter(o => !isCurrentSymbolChecked || o.symbol === currentSymbol).length +
+                                spotTPSL.filter(s => !isCurrentSymbolChecked || s.symbol === currentSymbol.replace('USDT', '')).length +
+                                positions.filter(p => (!isCurrentSymbolChecked || p.symbol === currentSymbol) && (p.tpPrice || p.slPrice)).length
+                            })
+                        </span>
+                        <div className="text-[var(--text-tertiary)]"><ArrowDropDown size={20} /></div>
+                    </div>
+                    <div
+                        className={`flex items-center gap-1.5 h-full shrink-0 cursor-pointer transition-colors ${activeTab === 'positions' ? 'text-[var(--text-primary)] font-bold' : 'text-[var(--text-secondary)] font-semibold'}`}
+                        onClick={() => setActiveTab('positions')}
+                    >
+                        <span className="text-[15px]">
+                            Positions ({
+                                positions.filter(p => !isCurrentSymbolChecked || p.symbol === currentSymbol).length +
+                                Object.entries(wallets?.spot || {})
+                                    .filter(([symbol, amount]) => {
+                                        if (amount <= 0) return false;
+                                        if (isCurrentSymbolChecked && symbol !== currentSymbol.replace('USDT', '')) return false;
+
+                                        const hasCost = spotCostBasis?.[symbol] && spotCostBasis[symbol] > 0;
+                                        return !!hasCost;
+                                    }).length
+                            }) & assets
+                        </span>
+                        <div className="text-[var(--text-tertiary)]"><ArrowDropDown size={20} /></div>
+                    </div>
+                    <div
+                        className={`flex items-center h-full shrink-0 cursor-pointer transition-colors ${activeTab === 'bots' ? 'text-[var(--text-primary)] font-bold' : 'text-[var(--text-secondary)] font-semibold'}`}
+                        onClick={() => setActiveTab('bots')}
+                    >
+                        <span className="text-[15px]">Bots (0)</span>
+                    </div>
                     <span className="font-semibold text-[15px] text-[var(--text-secondary)] flex items-center h-full shrink-0">Bots (0)</span>
                     <div className="ml-auto sticky right-0 bg-[var(--bg-primary)] pl-2 flex items-center h-full shrink-0">
                         <div className="text-[var(--text-primary)] flex items-center"><FileText size={20} /></div>
@@ -617,16 +669,91 @@ export default function SpotTradeView() {
                     </button>
                 </div>
 
-                {/* Empty state placeholder */}
-                <div className="flex justify-center py-10 relative z-10 bg-[var(--bg-primary)] flex-1 min-h-[300px]">
-                    <div className="w-20 h-20 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center relative mt-6">
-                        <div className="absolute -left-1 bottom-4 w-5 h-4 bg-[#4a5568] rounded-[3px]" />
-                        <div className="absolute -left-1 bottom-9 w-5 h-4 bg-[#4a5568] rounded-[3px]" />
-                        <div className="w-14 h-14 rounded-full border border-[var(--border-color)] flex items-center justify-center bg-[var(--bg-primary)] shadow-sm z-10">
-                            <span className="text-[var(--text-tertiary)] text-2xl font-light">!</span>
+                {/* Content Area */}
+                <div className="flex-1 min-h-screen relative z-0 bg-[var(--bg-primary)]">
+                    {activeTab === 'orders' && (
+                        <div className="flex flex-col">
+                            {/* Spot Limit Orders */}
+                            {openOrders
+                                .filter(order => !isCurrentSymbolChecked || order.symbol === currentSymbol)
+                                .map((order) => (
+                                    <div key={order.id} className="p-4 border-b border-[var(--border-color)]">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-1.5">
+                                                <h4 className="text-[16px] font-bold text-[var(--text-primary)]">{order.symbol.replace('USDT', '/USDT')}</h4>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-[14px] font-semibold text-[var(--text-primary)] cursor-pointer" onClick={() => (useExchangeStore.getState() as any).cancelSpotOrder(order.id)}>Cancel</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 mb-4">
+                                            <span className="bg-[var(--green-bg)] text-[var(--green)] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">{order.type}</span>
+                                            <span className={`${order.side === 'Buy' ? 'bg-[var(--green-bg)] text-[var(--green)]' : 'bg-[var(--red-bg)] text-[var(--red)]'} text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]`}>{order.side}</span>
+                                            <span className="text-[11px] text-[var(--text-tertiary)] font-medium ml-1">Limit Order</span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-1">
+                                            <div>
+                                                <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] w-max">Amount ({order.symbol.replace('USDT', '')})</p>
+                                                <p className="text-[15px] font-bold text-[var(--text-primary)]">{order.amount}</p>
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] mx-auto w-max">Filled (%)</p>
+                                                <p className="text-[15px] font-bold text-[var(--text-primary)]">{order.filled}%</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[12px] text-[var(--text-tertiary)] font-medium mb-1 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Price</p>
+                                                <p className="text-[15px] font-bold text-[var(--text-primary)]">{formatPrice(order.price)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+
+                            {/* Spot TP/SL */}
+                            {spotTPSL
+                                .filter(s => !isCurrentSymbolChecked || s.symbol === currentSymbol.replace('USDT', ''))
+                                .map(s => (
+                                    <div key={`tpsl-spot-${s.symbol}`} className="p-4 border-b border-[var(--border-color)]">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h4 className="text-[16px] font-bold text-[var(--text-primary)]">{s.symbol}/USDT</h4>
+                                            <span className="text-[14px] font-semibold text-[var(--text-primary)] cursor-pointer" onClick={() => (useExchangeStore.getState() as any).setSpotTPSL(s.symbol, null, null, 0)}>Cancel</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 mb-4">
+                                            <span className="bg-[#fee2e2] text-[#ef4444] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">TPSL</span>
+                                            <span className="bg-[var(--red-bg)] text-[var(--red)] text-[11px] font-bold px-1.5 py-[2px] rounded-[2px]">Sell</span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-4">
+                                            <div>
+                                                <p className="text-[12px] text-[var(--text-tertiary)] font-medium">TP Trigger</p>
+                                                <p className="text-[15px] font-bold text-[var(--green)]">{s.tpPrice || '--'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[12px] text-[var(--text-tertiary)] font-medium">SL Trigger</p>
+                                                <p className="text-[15px] font-bold text-[var(--red)]">{s.slPrice || '--'}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[12px] text-[var(--text-tertiary)] font-medium">Amount</p>
+                                                <p className="text-[15px] font-bold">{s.amount}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+
+                            {/* Empty state if nothing */}
+                            {(openOrders.filter(o => !isCurrentSymbolChecked || o.symbol === currentSymbol).length === 0 &&
+                              spotTPSL.filter(s => !isCurrentSymbolChecked || s.symbol === currentSymbol.replace('USDT', '')).length === 0) && (
+                                <div className="flex flex-col items-center justify-center py-20 opacity-40">
+                                    <div className="w-20 h-20 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center relative mb-6">
+                                        <div className="absolute -left-1 bottom-4 w-5 h-4 bg-[#4a5568] rounded-[3px]" />
+                                        <div className="absolute -left-1 bottom-9 w-5 h-4 bg-[#4a5568] rounded-[3px]" />
+                                        <div className="w-14 h-14 rounded-full border border-[var(--border-color)] flex items-center justify-center bg-[var(--bg-primary)] shadow-sm z-10">
+                                            <span className="text-[var(--text-tertiary)] text-2xl font-light">!</span>
+                                        </div>
+                                    </div>
+                                    <span className="text-[16px] text-[var(--text-tertiary)] font-medium">No open orders</span>
+                                </div>
+                            )}
                         </div>
-                        <div className="absolute right-0 top-0 w-2.5 h-2.5 border-[1.5px] border-gray-400 rotate-45" />
-                    </div>
+                    )}
                 </div>
 
                 {/* Mini Chart Drawer */}
@@ -635,7 +762,7 @@ export default function SpotTradeView() {
                         className="flex items-center justify-between px-4 py-3 cursor-pointer"
                         onClick={() => setIsMiniChartOpen(!isMiniChartOpen)}
                     >
-                        <span className="text-[14px] font-bold text-[var(--text-primary)]">BTC/USDT chart</span>
+                        <span className="text-[14px] font-bold text-[var(--text-primary)]">{currentSymbol.replace('USDT', '/USDT')} chart</span>
                         <div className={`text-[var(--text-secondary)] transition-transform flex items-center ${isMiniChartOpen ? '' : 'rotate-180'}`}><ChevronDown size={20} /></div>
                     </div>
                     {isMiniChartOpen && (
@@ -650,7 +777,7 @@ export default function SpotTradeView() {
                                 <div className="absolute top-2 left-0 z-10 opacity-[0.03] pointer-events-none w-full h-full flex justify-center items-center">
                                     <h1 className="text-[100px] font-black text-[var(--text-primary)]">OKX</h1>
                                 </div>
-                                {renderSvgChart(200)}
+                                <RealChart data={klines} height={200} pricePrecision={pricePrecision} />
                             </div>
                         </div>
                     )}

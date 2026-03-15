@@ -49,18 +49,23 @@ export const roundToFixed = (value: number, decimals?: number): number => {
     }
 };
 
-export const formatPrice = (price: string | number, enforcePrecision?: number): string => {
+export const formatPrice = (price: string | number | undefined, enforcePrecision?: number): string => {
+    if (price === undefined || price === null) return '-';
     const num = typeof price === 'string' ? parseFloat(price) : price;
-    if (num === 0) return '0.00';
-    
-    // Kalau komponen maksa presisi tertentu, pake itu
+
+    // Kalau komponen maksa presisi tertentu, pake itu secara FIX (biar rapi vertikal ala OKX/Binance)
     if (enforcePrecision !== undefined) {
-        return num.toLocaleString('en-US', { minimumFractionDigits: enforcePrecision, maximumFractionDigits: enforcePrecision });
+        return num.toLocaleString('en-US', { 
+            minimumFractionDigits: enforcePrecision, 
+            maximumFractionDigits: enforcePrecision 
+        });
     }
 
     // Kalau nggak, deteksi otomatis
     const precision = getPrecisionForPrice(num);
-    const minDigits = precision < 4 ? Math.min(2, precision) : precision;
+    // Untuk koin mahal tetap kasih minimal 2 desimal biar nggak aneh (65000 -> 65000.00)
+    const minDigits = Math.min(precision, 2); 
+    
     return num.toLocaleString('en-US', { 
         minimumFractionDigits: minDigits, 
         maximumFractionDigits: precision 

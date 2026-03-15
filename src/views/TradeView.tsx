@@ -70,6 +70,7 @@ const TradeView = () => {
     const setSpotTPSL = useExchangeStore(state => state.setSpotTPSL);
     const cancelAllOrders = useExchangeStore(state => state.cancelAllOrders);
     const showToast = useExchangeStore(state => state.showToast);
+    const spotSymbols = useExchangeStore(state => state.spotSymbols);
 
     const [activeTopTab, setActiveTopTab] = useState<'Spot' | 'Futures' | 'Bots' | 'Convert'>(tradeType === 'futures' ? 'Futures' : 'Spot');
     const currentSymbol = selectedCoin || 'BTCUSDT';
@@ -138,8 +139,8 @@ const TradeView = () => {
 
     const wsType = activeTopTab === 'Futures' ? 'futures' : 'spot';
     const wsTicker = useTickerSocket(tradingSymbol, wsType);
-    const { orderBook: wsOrderBook } = useOrderBookSocket(tradingSymbol, wsType, 20);
-
+    const { orderBook: wsOrderBook } = useOrderBookSocket(tradingSymbol, wsType);
+ 
     // Compat with existing code (mapping numeric/array types)
     const ticker = useMemo(() => {
         if (!wsTicker) return null;
@@ -149,6 +150,31 @@ const TradeView = () => {
             priceChangePercent: wsTicker.priceChangePercent.toString()
         };
     }, [wsTicker]);
+
+    const pricePrecision = useMemo(() => {
+        if (tickSize && tickSize > 0) {
+            const str = tickSize.toString();
+            if (str.includes('e-')) return parseInt(str.split('e-')[1], 10);
+            const parts = str.split('.');
+            return parts.length > 1 ? parts[1].length : 0;
+        }
+
+        const source = activeTopTab === 'Futures' ? futuresSymbols : spotSymbols;
+        const info = (source || []).find(s => s.symbol === tradingSymbol);
+        if (info) return info.pricePrecision;
+        
+        // Fallback heuristic matching format.ts
+        const lastPriceNum = ticker ? parseFloat(ticker.lastPrice) : 0;
+        const p = Math.abs(lastPriceNum);
+        if (p >= 1000) return 1;
+        if (p >= 100) return 2;
+        if (p >= 10) return 3;
+        if (p >= 1) return 4;
+        if (p >= 0.1) return 5;
+        if (p >= 0.01) return 6;
+        if (p >= 0.001) return 7;
+        return 8;
+    }, [tradingSymbol, activeTopTab, spotSymbols, futuresSymbols, ticker, tickSize]);
 
     const orderBook = useMemo(() => ({
         bids: wsOrderBook.bids.map(b => ({ price: parseFloat(b[0]), amount: parseFloat(b[1]) })),
@@ -1020,23 +1046,18 @@ const TradeView = () => {
                     </div>
 
                     {(() => {
-                        let totalAsks = 0;
-                        const asksWithDepth = [...currentAsks].reverse().map(ask => {
-                            totalAsks += ask.amount;
-                            return { ...ask, depth: totalAsks };
-                        }).reverse();
-                        const maxDAsks = totalAsks > 0 ? totalAsks : 1;
+                        const maxAmount = Math.max(...currentAsks.map(a => a.amount), 1);
 
                         return (orderBookView === 'both' || orderBookView === 'sell') && (
                             <div className="flex flex-col flex-1 justify-end relative gap-[1px]">
-                                {asksWithDepth.map((ask: any, i: number) => (
+                                {currentAsks.map((ask: any, i: number) => (
                                     <div key={`ask-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-[var(--bg-hover)]" onClick={() => {
                                         setPriceInput(formatInput(ask.price.toFixed(precisionDecimals)));
                                         setIsPriceAuto(false);
                                     }}>
-                                        <div className="absolute right-0 top-0 h-full bg-[var(--red-bg)] transition-all duration-300" style={{ width: `${(ask.depth / maxDAsks) * 100}%` }} />
+                                        <div className="absolute right-0 top-0 h-full bg-[var(--red-bg)] transition-all duration-300" style={{ width: `${(ask.amount / maxAmount) * 100}%` }} />
                                         <span className="text-[var(--red)] font-medium relative z-10 text-[12px] tracking-tight">
-                                            {ask.price.toLocaleString('en-US', { minimumFractionDigits: precisionDecimals, maximumFractionDigits: precisionDecimals })}
+                                            {formatPrice(ask.price, pricePrecision)}
                                         </span>
                                         <span className="text-[var(--text-secondary)] relative z-10 text-[12px] font-medium tracking-tight">
                                             {formatAbbreviated(ask.amount)}
@@ -1050,12 +1071,12 @@ const TradeView = () => {
                     <div className="py-2 my-0.5 relative group">
                         <div className="flex items-center justify-between px-1">
                             <span className={`text-[18px] font-bold ${isPositive ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
-                                {ticker ? formatPrice(ticker.lastPrice) : '--'}
+                                {ticker ? formatPrice(ticker.lastPrice, pricePrecision) : '--'}
                             </span>
                             <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)]" />
                         </div>
                         <div className="text-[var(--text-secondary)] text-[11px] px-1 mt-0.5 font-medium">
-                            ≈${ticker ? formatPrice(ticker.lastPrice) : '--'}
+                            ≈${ticker ? formatPrice(ticker.lastPrice, pricePrecision) : '--'}
                             <span className={isPositive ? 'text-[var(--green)] ml-1' : 'text-[var(--red)] ml-1'}>
                                 {ticker ? `${parseFloat(ticker.priceChangePercent) > 0 ? '+' : ''}${parseFloat(ticker.priceChangePercent).toFixed(2)}%` : ''}
                             </span>
@@ -1063,23 +1084,18 @@ const TradeView = () => {
                     </div>
 
                     {(() => {
-                        let totalBids = 0;
-                        const bidsWithDepth = currentBids.map(bid => {
-                            totalBids += bid.amount;
-                            return { ...bid, depth: totalBids };
-                        });
-                        const maxDBids = totalBids > 0 ? totalBids : 1;
+                        const maxAmount = Math.max(...currentBids.map(b => b.amount), 1);
 
                         return (orderBookView === 'both' || orderBookView === 'buy') && (
                             <div className="flex flex-col flex-1 relative gap-[1px]">
-                                {bidsWithDepth.map((bid: any, i: number) => (
+                                {currentBids.map((bid: any, i: number) => (
                                     <div key={`bid-${i}`} className="flex justify-between relative h-[22px] items-center px-1 cursor-pointer hover:bg-[var(--bg-hover)]" onClick={() => {
                                         setPriceInput(formatInput(bid.price.toFixed(precisionDecimals)));
                                         setIsPriceAuto(false);
                                     }}>
-                                        <div className="absolute right-0 top-0 h-full bg-[var(--green-bg)] transition-all duration-300" style={{ width: `${(bid.depth / maxDBids) * 100}%` }} />
+                                        <div className="absolute right-0 top-0 h-full bg-[var(--green-bg)] transition-all duration-300" style={{ width: `${(bid.amount / maxAmount) * 100}%` }} />
                                         <span className="text-[var(--green)] font-medium relative z-10 text-[12px] tracking-tight">
-                                            {bid.price.toLocaleString('en-US', { minimumFractionDigits: precisionDecimals, maximumFractionDigits: precisionDecimals })}
+                                            {formatPrice(bid.price, pricePrecision)}
                                         </span>
                                         <span className="text-[var(--text-secondary)] relative z-10 text-[12px] font-medium tracking-tight">
                                             {formatAbbreviated(bid.amount)}
@@ -1092,9 +1108,9 @@ const TradeView = () => {
 
                     {(() => {
                         let buyRatio = 50;
-                        if (orderBook.bids.length > 0 && orderBook.asks.length > 0) {
-                            const totalBids = orderBook.bids.reduce((acc, curr: any) => acc + curr.amount, 0);
-                            const totalAsks = orderBook.asks.reduce((acc, curr: any) => acc + curr.amount, 0);
+                        if (currentBids.length > 0 && currentAsks.length > 0) {
+                            const totalBids = currentBids.reduce((acc, curr: any) => acc + curr.amount, 0);
+                            const totalAsks = currentAsks.reduce((acc, curr: any) => acc + curr.amount, 0);
                             const total = totalBids + totalAsks;
                             if (total > 0) buyRatio = (totalBids / total) * 100;
                         }
@@ -1180,9 +1196,9 @@ const TradeView = () => {
                         }}
                     >
                         <span className="text-[14px]">Orders ({
-                            openOrders.filter(o => !isCurrentSymbolChecked || o.symbol === currentSymbol).length +
+                            openOrders.filter(o => !isCurrentSymbolChecked || o.symbol === tradingSymbol).length +
                             spotTPSL.filter(s => !isCurrentSymbolChecked || s.symbol === baseCoin).length +
-                            positions.filter(p => (!isCurrentSymbolChecked || p.symbol === currentSymbol) && (p.tpPrice || p.slPrice)).length
+                            positions.filter(p => (!isCurrentSymbolChecked || p.symbol === tradingSymbol) && (p.tpPrice || p.slPrice)).length
                         })</span>
                         <ArrowDropDown className="w-[18px] h-[18px] mt-0.5" />
                     </div>
@@ -1266,7 +1282,7 @@ const TradeView = () => {
 
                         {/* Order Cards from Store */}
                         {openOrders
-                            .filter(order => !isCurrentSymbolChecked || order.symbol === currentSymbol)
+                            .filter(order => !isCurrentSymbolChecked || order.symbol === tradingSymbol)
                             .map((order) => (
                                 <div key={order.id} className="p-4 border-b border-[var(--border-color)]">
                                     <div className="flex items-center justify-between mb-3">
@@ -1322,7 +1338,7 @@ const TradeView = () => {
 
                         {/* TP/SL Triggers (Futures - Full) */}
                         {positions
-                            .filter(p => (!isCurrentSymbolChecked || p.symbol === currentSymbol) && (p.tpPrice || p.slPrice))
+                            .filter(p => (!isCurrentSymbolChecked || p.symbol === tradingSymbol) && (p.tpPrice || p.slPrice))
                             .map(p => (
                                 <div key={`tpsl-fut-${p.id}`} className="p-4 border-b border-[var(--border-color)]">
                                     <div className="flex items-center justify-between mb-3">
@@ -1368,7 +1384,7 @@ const TradeView = () => {
 
                         {/* TP/SL Triggers (Futures - Partials) */}
                         {positions
-                            .filter(p => !isCurrentSymbolChecked || p.symbol === currentSymbol)
+                            .filter(p => !isCurrentSymbolChecked || p.symbol === tradingSymbol)
                             .flatMap(p => [
                                 ...(p.tpOrders || []).map(tp => ({ ...tp, symbol: p.symbol, side: 'TP', positionSide: p.side })),
                                 ...(p.slOrders || []).map(sl => ({ ...sl, symbol: p.symbol, side: 'SL', positionSide: p.side }))
@@ -1452,9 +1468,9 @@ const TradeView = () => {
 
                         {/* Empty state placeholder if no orders */}
                         {(() => {
-                            const filteredOrders = openOrders.filter(o => !isCurrentSymbolChecked || o.symbol === currentSymbol);
+                            const filteredOrders = openOrders.filter(o => !isCurrentSymbolChecked || o.symbol === tradingSymbol);
                             const filteredSpotTPSL = spotTPSL.filter(s => !isCurrentSymbolChecked || s.symbol === baseCoin);
-                            const filteredFuturesTPSL = positions.filter(p => !isCurrentSymbolChecked || p.symbol === currentSymbol)
+                            const filteredFuturesTPSL = positions.filter(p => !isCurrentSymbolChecked || p.symbol === tradingSymbol)
                                 .some(p => p.tpPrice || p.slPrice || (p.tpOrders && p.tpOrders.length > 0) || (p.slOrders && p.slOrders.length > 0));
 
                             if (filteredOrders.length === 0 && filteredSpotTPSL.length === 0 && !filteredFuturesTPSL) {
@@ -1817,7 +1833,7 @@ const TradeView = () => {
                             <div className="absolute inset-0 flex items-center justify-center z-10 opacity-[0.05] pointer-events-none -translate-y-2">
                                 <img src={trivLogo} alt="Triv" className="h-16" />
                             </div>
-                            <RealChart data={klines} height={210} />
+                            <RealChart data={klines} height={210} pricePrecision={pricePrecision} />
                         </div>
                     </div>
                 )}

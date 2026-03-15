@@ -18,6 +18,7 @@ import {
     calculateSupportResistance,
     calculateEnvelope
 } from '../utils/indicators';
+import { formatPrice } from '../utils/format';
 
 interface RealChartProps {
     data: any[];
@@ -67,6 +68,14 @@ const RealChart: React.FC<RealChartProps> = React.memo(({ data, height, pricePre
                 borderVisible: false,
                 timeVisible: true,
                 secondsVisible: false,
+                tickMarkFormatter: (time: number) => {
+                    const date = new Date(time * 1000);
+                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    const day = date.getDate().toString().padStart(2, '0');
+                    const hours = date.getHours().toString().padStart(2, '0');
+                    const minutes = date.getMinutes().toString().padStart(2, '0');
+                    return `${month}/${day}, ${hours}:${minutes}`;
+                },
             },
             crosshair: {
                 vertLine: { labelBackgroundColor: isDark ? '#2B3139' : '#111111' },
@@ -85,8 +94,8 @@ const RealChart: React.FC<RealChartProps> = React.memo(({ data, height, pricePre
             wickUpColor: '#20b26c',
             wickDownColor: '#ef454a',
             priceFormat: {
-                type: 'price',
-                precision: pricePrecision,
+                type: 'custom',
+                formatter: (price: number) => formatPrice(price, pricePrecision),
                 minMove: 1 / Math.pow(10, pricePrecision),
             },
         });
@@ -120,19 +129,38 @@ const RealChart: React.FC<RealChartProps> = React.memo(({ data, height, pricePre
         };
     }, []);
 
+    // Price Precision reactivity
+    useEffect(() => {
+        if (mainSeriesRef.current) {
+            mainSeriesRef.current.applyOptions({
+                priceFormat: {
+                    type: 'custom',
+                    formatter: (price: number) => formatPrice(price, pricePrecision),
+                    minMove: 1 / Math.pow(10, pricePrecision),
+                },
+            });
+        }
+    }, [pricePrecision]);
+
     // Theme effect
     useEffect(() => {
         if (!chartRef.current) return;
         const isDark = theme === 'dark';
         chartRef.current.applyOptions({
-            layout: { textColor: isDark ? '#979797' : '#999999' },
+            layout: { textColor: isDark ? '#7a7a7a' : '#999999' },
             grid: {
-                vertLines: { color: isDark ? 'rgba(43, 49, 57, 0.05)' : 'rgba(240, 240, 240, 0.5)' },
-                horzLines: { color: isDark ? 'rgba(43, 49, 57, 0.05)' : 'rgba(240, 240, 240, 0.5)' },
+                vertLines: { color: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(240, 240, 240, 0.5)' },
+                horzLines: { color: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(240, 240, 240, 0.5)' },
             },
             crosshair: {
-                vertLine: { labelBackgroundColor: isDark ? '#2B3139' : '#111111' },
-                horzLine: { labelBackgroundColor: isDark ? '#2B3139' : '#111111' },
+                vertLine: { 
+                    color: isDark ? '#3d3d3d' : '#888888',
+                    labelBackgroundColor: isDark ? '#2B3139' : '#111111' 
+                },
+                horzLine: { 
+                    color: isDark ? '#3d3d3d' : '#888888',
+                    labelBackgroundColor: isDark ? '#2B3139' : '#111111' 
+                },
             },
         });
     }, [theme]);

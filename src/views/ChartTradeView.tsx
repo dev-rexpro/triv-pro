@@ -37,7 +37,11 @@ import trivLogo from '../assets/triv-logo.svg';
 const INTERVALS = ['5m', '15m', '1h', '4h', '1D'];
 
 const ChartTradeView = () => {
-    const { selectedCoin, tradeType, setActivePage, setSearchOpen, favorites, toggleFavorite, markets, futuresMarkets } = useExchangeStore();
+    const { 
+        selectedCoin, tradeType, setActivePage, setSearchOpen, 
+        favorites, toggleFavorite, markets, futuresMarkets,
+        spotSymbols, futuresSymbols
+    } = useExchangeStore();
     const [interval, setInterval_] = useState('1h');
     const [activeTab, setActiveTab] = useState('Chart');
     const [infoTab, setInfoTab] = useState('Crypto info');
@@ -47,6 +51,7 @@ const ChartTradeView = () => {
     const [klines, setKlines] = useState<any[]>([]);
     const [coinInfo, setCoinInfo] = useState<any>(null);
     const [coinInfoLoading, setCoinInfoLoading] = useState(false);
+    const [tickSize, setTickSize] = useState<number | null>(null);
 
     const isFutures = tradeType === 'futures';
     const { orderBook } = useOrderBookSocket(selectedCoin, isFutures ? 'futures' : 'spot', 10);
@@ -111,6 +116,34 @@ const ChartTradeView = () => {
         const map: any = { '5m': '5m', '15m': '15m', '1h': '1h', '4h': '4h', '1D': '1d' };
         return map[interval] || '1h';
     }, [interval]);
+ 
+    // Derive price precision from store info
+    const pricePrecision = useMemo(() => {
+        if (tickSize && tickSize > 0) {
+            const str = tickSize.toString();
+            if (str.includes('e-')) return parseInt(str.split('e-')[1], 10);
+            const parts = str.split('.');
+            return parts.length > 1 ? parts[1].length : 0;
+        }
+
+        const source = isFutures ? futuresSymbols : spotSymbols;
+        const info = source.find(s => s.symbol === selectedCoin);
+        if (info && info.pricePrecision !== 8) return info.pricePrecision;
+        
+        // Fallback heuristic if not found (matching format.ts)
+        const getHeuristic = (price: number) => {
+            const p = Math.abs(price);
+            if (p >= 1000) return 1;
+            if (p >= 100) return 2;
+            if (p >= 10) return 3;
+            if (p >= 1) return 4;
+            if (p >= 0.1) return 5;
+            if (p >= 0.01) return 6;
+            if (p >= 0.001) return 7;
+            return 8;
+        };
+        return getHeuristic(lastPrice);
+    }, [selectedCoin, isFutures, spotSymbols, futuresSymbols, lastPrice, tickSize]);
 
     // Fetch Klines
     useEffect(() => {
@@ -118,8 +151,45 @@ const ChartTradeView = () => {
         fetchKlines(selectedCoin, apiInterval, 500, tradeType).then(data => {
             if (!cancelled) setKlines(data);
         });
+
+        // Fetch Tick Size
+        const fetchExchangeInfo = async () => {
+            try {
+                const baseUrl = tradeType === 'futures' ? 'https://fapi.binance.com' : 'https://api.binance.com';
+                const prefix = tradeType === 'futures' ? '/fapi/v1' : '/api/v3';
+                const res = await fetch(`${baseUrl}${prefix}/exchangeInfo?symbol=${selectedCoin}`);
+                const data = await res.json();
+                const symbolInfo = data.symbols?.find((s: any) => s.symbol === selectedCoin);
+                if (symbolInfo && !cancelled) {
+                    const priceFilter = symbolInfo.filters.find((f: any) => f.filterType === 'PRICE_FILTER');
+                    if (priceFilter && priceFilter.tickSize) {
+                        setTickSize(parseFloat(priceFilter.tickSize));
+                    }
+                }
+            } catch (err) { }
+        };
+        fetchExchangeInfo();
+
         return () => { cancelled = true; };
     }, [selectedCoin, apiInterval, tradeType]);
+ 
+    // Update chart last candle when ticker price changes
+    useEffect(() => {
+        if (ticker && klines.length > 0) {
+            const lastCandle = klines[klines.length - 1];
+            const currentPrice = parseFloat(ticker.lastPrice);
+            if (isNaN(currentPrice)) return;
+
+            const updatedCandle = {
+                ...lastCandle,
+                close: currentPrice,
+                high: Math.max(lastCandle.high, currentPrice),
+                low: Math.min(lastCandle.low, currentPrice)
+            };
+            const newKlines = [...klines.slice(0, -1), updatedCandle];
+            setKlines(newKlines);
+        }
+    }, [ticker]);
 
 
 
@@ -220,7 +290,7 @@ const ChartTradeView = () => {
                             </div>
                             <div className="flex items-center gap-2 mt-0.5">
                                 <span className={`text-[12px] font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                                    {formatPrice(lastPrice)}
+                                    {formatPrice(lastPrice, pricePrecision)}
                                 </span>
                                 <span className={`text-[12px] font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
                                     {isPositive ? '+' : ''}{priceChange.toFixed(2)}%
@@ -264,18 +334,18 @@ const ChartTradeView = () => {
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <span className={`text-[28px] font-bold tracking-tight leading-none ${isPositive ? 'text-[var(--green)]' : 'text-[var(--red)]'}`}>
-                                                {formatPrice(lastPrice)}
+                                                {formatPrice(lastPrice, pricePrecision)}
                                             </span>
                                         </div>
                                         <div className="text-[var(--text-secondary)] text-[12px] mt-1.5 flex items-center gap-2 font-medium">
-                                            <span>≈${formatPrice(lastPrice)}</span>
+                                            <span>≈${formatPrice(lastPrice, pricePrecision)}</span>
                                             <span className={isPositive ? 'text-[var(--green)]' : 'text-[var(--red)]'}>
                                                 {isPositive ? '+' : ''}{priceChange.toFixed(2)}%
                                             </span>
                                         </div>
                                         {isFutures && (
                                             <div className="text-[var(--text-secondary)] text-[11px] mt-0.5 font-medium">
-                                                Mark price <span className="text-[var(--text-secondary)]">{formatPrice(lastPrice)}</span>
+                                                Mark price <span className="text-[var(--text-secondary)]">{formatPrice(lastPrice, pricePrecision)}</span>
                                             </div>
                                         )}
                                         {cgMcapRank && (
@@ -286,9 +356,9 @@ const ChartTradeView = () => {
                                     </div>
                                     <div className="grid grid-cols-2 gap-x-5 gap-y-1.5 text-[10px] text-right mt-1">
                                         <div className="text-[var(--text-tertiary)]">24h high</div>
-                                        <div className="text-[var(--text-primary)] font-bold">{formatPrice(high24)}</div>
+                                        <div className="text-[var(--text-primary)] font-bold">{formatPrice(high24, pricePrecision)}</div>
                                         <div className="text-[var(--text-tertiary)]">24h low</div>
-                                        <div className="text-[var(--text-primary)] font-bold">{formatPrice(low24)}</div>
+                                        <div className="text-[var(--text-primary)] font-bold">{formatPrice(low24, pricePrecision)}</div>
                                         <div className="text-[var(--text-tertiary)]">24h vol ({baseAsset})</div>
                                         <div className="text-[var(--text-primary)] font-bold">{formatVol(vol24)}</div>
                                         <div className="text-[var(--text-tertiary)]">24h vol (USDT)</div>
@@ -334,7 +404,7 @@ const ChartTradeView = () => {
                                         <div className="absolute inset-0">
                                             <RealChart
                                                 data={klines}
-                                                pricePrecision={lastPrice > 1 ? 2 : 4}
+                                                pricePrecision={pricePrecision}
                                             />
                                         </div>
 
@@ -386,7 +456,7 @@ const ChartTradeView = () => {
                                     <RealChart
                                         data={klines}
                                         height={320}
-                                        pricePrecision={lastPrice > 1 ? 2 : 4}
+                                        pricePrecision={pricePrecision}
                                     />
 
                                     {/* Watermark Logo */}
@@ -450,7 +520,7 @@ const ChartTradeView = () => {
                                                     <div key={i} className="flex justify-between relative h-5 items-center">
                                                         <div className="absolute right-0 top-0 h-full bg-[#00C076] opacity-[0.12]" style={{ width: `${pct}%` }}></div>
                                                         <span className="text-[var(--text-secondary)] relative z-10">{parseFloat(qty).toFixed(3)}</span>
-                                                        <span className="text-[var(--green)] font-medium relative z-10">{formatPrice(parseFloat(price))}</span>
+                                                        <span className="text-[var(--green)] font-medium relative z-10">{formatPrice(parseFloat(price), pricePrecision)}</span>
                                                     </div>
                                                 );
                                             })}
@@ -462,7 +532,7 @@ const ChartTradeView = () => {
                                                 return (
                                                     <div key={i} className="flex justify-between relative h-5 items-center">
                                                         <div className="absolute left-0 top-0 h-full bg-[#FF4D5B] opacity-[0.12]" style={{ width: `${pct}%` }}></div>
-                                                        <span className="text-[var(--red)] font-medium relative z-10">{formatPrice(parseFloat(price))}</span>
+                                                        <span className="text-[var(--red)] font-medium relative z-10">{formatPrice(parseFloat(price), pricePrecision)}</span>
                                                         <span className="text-[var(--text-secondary)] relative z-10">{parseFloat(qty).toFixed(3)}</span>
                                                     </div>
                                                 );
