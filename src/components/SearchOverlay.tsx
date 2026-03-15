@@ -442,17 +442,7 @@ const SearchOverlay = ({ mode = 'search', onSelect, onClose }: { mode?: 'search'
                             </div>
                         )}
 
-                        {(activeTab === 'Bots' || activeTab === 'Traders' || activeTab === 'Feed') && (
-                            <div className="flex flex-col items-center justify-center py-20 opacity-50">
-                                <div className="w-16 h-16 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center mb-4">
-                                    <span className="text-2xl">⏳</span>
-                                </div>
-                                <h3 className="text-[16px] font-bold text-[var(--text-primary)] mb-1">{activeTab}</h3>
-                                <p className="text-[13px] text-[var(--text-tertiary)] font-medium">Coming soon</p>
-                            </div>
-                        )}
-
-                        {dexResults.length === 0 && spotResults.length === 0 && futuresResults.length === 0 && !isTyping && !['Bots', 'Traders', 'Feed'].includes(activeTab) && (
+                        {dexResults.length === 0 && spotResults.length === 0 && futuresResults.length === 0 && !isTyping && (
                             <div className="text-center text-[var(--text-tertiary)] mt-10">No results found</div>
                         )}
                         {isTyping && spotResults.length === 0 && futuresResults.length === 0 && dexResults.length === 0 && (

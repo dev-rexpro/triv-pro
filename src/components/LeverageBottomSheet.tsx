@@ -86,23 +86,23 @@ const LeverageBottomSheet: React.FC<LeverageBottomSheetProps> = ({
                         className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-[var(--bg-primary)] rounded-t-[24px] z-[1001] px-6 pt-3 pb-8"
                     >
                         {/* Handle */}
-                        <div className="flex justify-center mb-4">
+                        <div className="flex justify-center mb-6">
                             <div className="w-10 h-1 bg-[var(--bg-secondary)] rounded-full" />
                         </div>
                         {/* Header */}
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-4">
                             <h2 className="text-[18px] font-semibold text-[var(--text-primary)]">Adjust leverage</h2>
                             <button onClick={onClose} className="p-1">
-                                <span className="w-6 h-6 text-[var(--text-tertiary)] flex items-center justify-center">
+                                <span className="w-6 h-6 text-[#999999] flex items-center justify-center">
                                     <XIcon size={24} />
                                 </span>
                             </button>
                         </div>
 
                         {/* Current Display */}
-                        <div className="flex flex-col items-center mb-4">
+                        <div className="flex flex-col items-center mb-6">
                             <span className="text-[13px] text-[var(--text-secondary)] font-medium mb-1">
-                                Current <span className="text-[var(--text-primary)] font-medium">{currentLeverage}x</span>
+                                Current <span className="text-[var(--text-primary)] font-bold">{currentLeverage}x</span>
                             </span>
 
                             <div className="flex items-center gap-6">
@@ -134,12 +134,12 @@ const LeverageBottomSheet: React.FC<LeverageBottomSheetProps> = ({
                         </div>
 
                         {/* Presets Grid */}
-                        <div className="flex items-center justify-between bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-full p-1 mb-4 overflow-hidden">
+                        <div className="flex items-center justify-between bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-full p-1 mb-6 overflow-hidden">
                             {presets.map((p) => (
                                 <button
                                     key={p}
                                     onClick={() => setTempLeverage(p)}
-                                    className={`flex-1 py-1 text-[13px] font-medium rounded-full transition-all duration-200 ${tempLeverage === p
+                                    className={`flex-1 py-1.5 text-[13px] font-bold rounded-full transition-all duration-200 ${tempLeverage === p
                                         ? 'bg-[var(--text-primary)] text-[var(--bg-primary)] shadow-sm'
                                         : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
                                         }`}
@@ -150,22 +150,22 @@ const LeverageBottomSheet: React.FC<LeverageBottomSheetProps> = ({
                         </div>
 
                         {/* Stats Information */}
-                        <div className="bg-[var(--bg-secondary)] rounded-[12px] p-3 flex flex-col gap-2 mb-4">
+                        <div className="bg-[var(--bg-secondary)] rounded-[12px] p-4 flex flex-col gap-3 mb-6">
                             <div className="flex justify-between items-start">
-                                <span className="text-[12px] text-[var(--text-secondary)] font-medium leading-[1.2] max-w-[180px]">
-                                    Max position size
+                                <span className="text-[13px] text-[var(--text-secondary)] font-medium leading-[1.2] max-w-[180px]">
+                                    Max position size at adjusted leverage
                                 </span>
-                                <span className="text-[12px] text-[var(--text-primary)] font-medium">{maxPositionSize} USDT</span>
+                                <span className="text-[13px] text-[var(--text-primary)] font-bold">{maxPositionSize} USDT</span>
                             </div>
 
                             <div className="flex justify-between items-center">
-                                <span className="text-[12px] text-[var(--text-secondary)] font-medium">Margin required</span>
-                                <span className="text-[12px] text-[var(--text-primary)] font-medium">{marginRequired} USDT</span>
+                                <span className="text-[13px] text-[var(--text-secondary)] font-medium">Margin required</span>
+                                <span className="text-[13px] text-[var(--text-primary)] font-bold">{marginRequired} USDT</span>
                             </div>
 
                             <div className="flex justify-between items-center">
-                                <span className="text-[12px] text-[var(--text-secondary)] font-medium">Est. liq. price</span>
-                                <span className="text-[12px] text-[var(--text-primary)] font-medium">₮{estLiqPrice}</span>
+                                <span className="text-[13px] text-[var(--text-secondary)] font-medium">Estimated liquidation price</span>
+                                <span className="text-[13px] text-[var(--text-primary)] font-bold">₮{estLiqPrice}</span>
                             </div>
                         </div>
 
@@ -175,7 +175,7 @@ const LeverageBottomSheet: React.FC<LeverageBottomSheetProps> = ({
                                 onLeverageChange(tempLeverage);
                                 onClose();
                             }}
-                            className="w-full py-3.5 bg-[var(--text-primary)] text-[var(--bg-primary)] rounded-full font-bold text-[16px] shadow-sm transform transition-all active:scale-[0.98] active:brightness-95 h-[50px] flex items-center justify-center"
+                            className="w-full py-4.5 bg-[#2b6a15] text-white rounded-full font-bold text-[16px] shadow-sm transform transition-all active:scale-[0.98] active:brightness-95 h-[56px] flex items-center justify-center"
                         >
                             Confirm
                         </button>

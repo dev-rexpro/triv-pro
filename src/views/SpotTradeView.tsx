@@ -754,15 +754,6 @@ export default function SpotTradeView() {
                             )}
                         </div>
                     )}
-                    {activeTab === 'bots' && (
-                        <div className="flex flex-col items-center justify-center py-20 opacity-40">
-                            <div className="w-20 h-20 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center relative mb-6">
-                                <span className="text-4xl">⏳</span>
-                            </div>
-                            <h3 className="text-[18px] font-bold text-[var(--text-primary)] mb-1">Trading Bots</h3>
-                            <span className="text-[16px] text-[var(--text-tertiary)] font-medium">Coming soon</span>
-                        </div>
-                    )}
                 </div>
 
                 {/* Mini Chart Drawer */}
