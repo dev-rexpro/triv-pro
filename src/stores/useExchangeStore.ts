@@ -148,7 +148,8 @@ interface ExchangeState {
 
     // Demo Actions
     setWallets: (wallets: { spot: WalletBalances; futures: WalletBalances; earn: WalletBalances }) => void;
-    addTransaction: (tx: TransactionRecord) => void;
+    addTransaction: (tx: TransactionRecord) => Promise<string>;
+    updateTransaction: (id: string, updates: Partial<TransactionRecord>) => Promise<void>;
     addTrade: (trade: TradeRecord) => void;
     addPosition: (pos: FuturesPosition) => void;
     removePosition: (id: string) => void;
@@ -157,7 +158,7 @@ interface ExchangeState {
     setHideBalance: (val: boolean) => void;
     placeSpotOrder: (order: { symbol: string; side: 'Buy' | 'Sell'; type: 'Limit' | 'Market'; price: number; amount: number; marginMode: string; leverage: number }) => void;
     cancelSpotOrder: (orderId: string) => void;
-    placeFuturesOrder: (order: { symbol: string; side: 'Buy' | 'Sell'; type: 'Limit' | 'Market'; price: number; amount: number; marginMode: string; leverage: number }) => void;
+    placeFuturesOrder: (order: { symbol: string; side: 'Buy' | 'Sell'; type: 'Limit' | 'Market'; price: number; amount: number; marginMode: string; leverage: number }, tpPrice?: number | null, slPrice?: number | null) => Promise<boolean | void>;
     closeFuturesPosition: (id: string, closeAmount?: number, closePrice?: number) => void;
     getPnLForTimeframe: (timeframe: string) => { value: number; percent: number; hasData: boolean };
     setShowOrderConfirmation: (val: boolean) => void;
@@ -461,133 +462,6 @@ const useExchangeStore = create<ExchangeState>()(
                 }));
             },
 
-            updateAssetPrices: (force = false) => {
-                const { assets, markets, futuresMarkets, rates, currency, wallets, spotCostBasis, spotTPSL } = get();
-                const allMarkets = [...markets, ...futuresMarkets];
-                const newAssets: Asset[] = [];
-                let totalBalance = new Decimal(0);
-                let totalSpotBalance = new Decimal(0);
-                let totalFuturesBalance = new Decimal(0);
-                let totalEarnBalance = new Decimal(0);
-                let totalTodayPnl = new Decimal(0);
-                let totalTodaySpotPnl = new Decimal(0);
-
-                const usdRate = rates[currency] || 1;
-
-                // Calculate asset values
-                const assetMap = new Map<string, Asset>();
-
-                // Process Spot Wallets
-                Object.entries(wallets.spot).forEach(([coin, balance]) => {
-                    if (balance === 0) return;
-                    const market = allMarkets.find(m => m.baseAsset === coin || m.quoteAsset === coin);
-                    const price = market?.lastPrice || 0;
-                    const value = new Decimal(balance).times(price);
-                    const costPrice = spotCostBasis[coin] || price;
-                    const pnl = value.minus(new Decimal(balance).times(costPrice));
-                    const pnlPercent = costPrice > 0 ? pnl.dividedBy(new Decimal(balance).times(costPrice)).times(100) : new Decimal(0);
-
-                    const tpsl = spotTPSL.find(t => t.symbol === coin);
-
-                    const asset: Asset = {
-                        symbol: coin,
-                        balance: balance as number,
-                        usdValue: value.toNumber(),
-                        price: price,
-                        type: 'spot',
-                        pnl: pnl.toNumber(),
-                        pnlPercent: pnlPercent.toNumber(),
-                        costPrice: costPrice,
-                        tpPrice: tpsl?.tpPrice || null,
-                        slPrice: tpsl?.slPrice || null,
-                    };
-                    assetMap.set(coin, asset);
-                    totalSpotBalance = totalSpotBalance.plus(value);
-                    totalTodaySpotPnl = totalTodaySpotPnl.plus(pnl);
-                });
-
-                // Process Futures Wallets (USDT for margin)
-                Object.entries(wallets.futures).forEach(([coin, balance]) => {
-                    if (balance === 0) return;
-                    const market = allMarkets.find(m => m.baseAsset === coin || m.quoteAsset === coin);
-                    const price = market?.lastPrice || 1; // USDT price is 1
-                    const value = new Decimal(balance).times(price);
-                    const asset: Asset = {
-                        symbol: coin,
-                        balance: balance as number,
-                        usdValue: value.toNumber(),
-                        price: price,
-                        type: 'futures',
-                        pnl: 0,
-                        pnlPercent: 0,
-                        costPrice: price,
-                        tpPrice: null,
-                        slPrice: null,
-                    };
-                    assetMap.set(coin, asset);
-                    totalFuturesBalance = totalFuturesBalance.plus(value);
-                });
-
-                // Process Earn Wallets
-                Object.entries(wallets.earn).forEach(([coin, balance]) => {
-                    if (balance === 0) return;
-                    const market = allMarkets.find(m => m.baseAsset === coin || m.quoteAsset === coin);
-                    const price = market?.lastPrice || 0;
-                    const value = new Decimal(balance).times(price);
-                    const asset: Asset = {
-                        symbol: coin,
-                        balance: balance as number,
-                        usdValue: value.toNumber(),
-                        price: price,
-                        type: 'earn',
-                        pnl: 0,
-                        pnlPercent: 0,
-                        costPrice: price,
-                        tpPrice: null,
-                        slPrice: null,
-                    };
-                    assetMap.set(coin, asset);
-                    totalEarnBalance = totalEarnBalance.plus(value);
-                });
-
-                // Update Futures Positions PnL
-                let futuresUnrealizedPnl = new Decimal(0);
-                get().positions.forEach(pos => {
-                    const market = futuresMarkets.find(m => m.symbol === pos.symbol);
-                    if (market) {
-                        const markPrice = market.lastPrice;
-                        const pnl = new Decimal(pos.size)
-                            .times(markPrice - pos.entryPrice)
-                            .times(pos.side === 'Buy' ? 1 : -1);
-                        pos.markPrice = markPrice;
-                        pos.pnl = pnl.toNumber();
-                        pos.pnlPercent = new Decimal(pos.entryPrice).isZero() ? 0 : pnl.dividedBy(new Decimal(pos.size).times(pos.entryPrice)).times(100).toNumber();
-                        futuresUnrealizedPnl = futuresUnrealizedPnl.plus(pnl);
-                    }
-                });
-
-                totalBalance = totalSpotBalance.plus(totalFuturesBalance).plus(totalEarnBalance).plus(futuresUnrealizedPnl);
-                totalTodayPnl = totalTodaySpotPnl.plus(futuresUnrealizedPnl);
-
-                const pnlPercent = totalBalance.isZero() ? 0 : totalTodayPnl.dividedBy(totalBalance.minus(totalTodayPnl)).times(100).toNumber();
-
-                set({
-                    assets: Array.from(assetMap.values()),
-                    balance: totalBalance.toNumber(),
-                    spotBalance: totalSpotBalance.toNumber(),
-                    futuresBalance: totalFuturesBalance.toNumber(),
-                    earnBalance: totalEarnBalance.toNumber(),
-                    todayPnl: totalTodayPnl.toNumber(),
-                    todaySpotPnl: totalTodaySpotPnl.toNumber(),
-                    pnlPercent: pnlPercent,
-                    futuresUnrealizedPnl: futuresUnrealizedPnl.toNumber(),
-                    positions: [...get().positions] // Trigger re-render for positions
-                });
-
-                if (force) {
-                    get().syncWalletsToSupabase();
-                }
-            },
 
             syncWalletsToSupabase: async () => {
                 try {
@@ -822,11 +696,11 @@ const useExchangeStore = create<ExchangeState>()(
                         lastSync: Date.now()
                     }));
 
-                    // SMART MERGE: Similar to orders, avoid flickering on close/open
                     const now = Date.now();
                     const localPositions = get().positions;
                     const freshLocalPositions = localPositions.filter(lp => {
-                        const isFresh = (now - (lp.lastSync || 0)) < 15000;
+                        const localSyncTime = lp.lastSync || now; 
+                        const isFresh = (now - localSyncTime) < 15000;
                         const existsInDb = dbPositions.some(dbp => dbp.id === lp.id);
                         return isFresh && !existsInDb;
                     });
@@ -954,49 +828,94 @@ const useExchangeStore = create<ExchangeState>()(
                 get().setTheme(newTheme);
             },
             addTransaction: async (tx) => {
-                set(s => ({ transactionHistory: [tx, ...s.transactionHistory] }));
+                const txId = tx.id || crypto.randomUUID();
+                const newTx = { ...tx, id: txId };
+                set(s => ({ transactionHistory: [newTx, ...s.transactionHistory] }));
                 const { user } = get();
                 if (user) {
-                    // Normalize type to match DB CHECK constraint ('deposit','withdrawal','transfer','trade','stake')
                     const allowedTypes = ['deposit', 'withdrawal', 'transfer', 'trade', 'stake'];
                     const typeNorm = tx.type.toLowerCase();
                     const dbType = allowedTypes.includes(typeNorm) ? typeNorm : 'transfer';
                     try {
-                        await supabase.from('transactions').insert([{
+                        // FIX: Pastikan ID berformat UUID sebelum masuk database Postgres
+                        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(txId);
+                        const dbId = isUUID ? txId : crypto.randomUUID();
+
+                        const { error } = await supabase.from('transactions').insert([{
+                            id: dbId,
                             user_id: user.id,
                             type: dbType,
                             amount: tx.amount,
                             currency: tx.currency,
                             from_wallet: tx.from || null,
                             to_wallet: tx.to || null,
-                            status: tx.status.toLowerCase()
+                            status: tx.status.toLowerCase(),
+                            timestamp: new Date(tx.timestamp).toISOString()
                         }]);
+                        if (error) console.error('Transaction DB insert error:', error);
                     } catch (e) {
-                        console.warn('Transaction DB insert failed (non-critical):', e);
+                        console.warn('Transaction DB insert failed:', e);
+                    }
+                }
+                return txId;
+            },
+            updateTransaction: async (id, updates) => {
+                set(s => ({
+                    transactionHistory: s.transactionHistory.map(t => t.id === id ? { ...t, ...updates } : t)
+                }));
+                const { user } = get();
+                if (user) {
+                    try {
+                        const dbUpdates: any = {};
+                        if (updates.status) dbUpdates.status = updates.status.toLowerCase();
+                        if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
+                        
+                        if (Object.keys(dbUpdates).length > 0) {
+                            const { error } = await supabase.from('transactions')
+                                .update(dbUpdates)
+                                .eq('id', id)
+                                .eq('user_id', user.id);
+                            if (error) throw error;
+                        }
+                    } catch (e) {
+                        console.warn('Transaction DB update failed:', e);
                     }
                 }
             },
             addTrade: async (tr) => {
-                set(s => ({ tradeHistory: [tr, ...s.tradeHistory] }));
                 const { user } = get();
+                const tradeId = tr.id || crypto.randomUUID();
+                const trade = { ...tr, id: tradeId };
+                
+                set(s => ({ tradeHistory: [trade, ...s.tradeHistory] }));
+                
                 if (user) {
-                    // Deteksi apakah ini order Futures (dari awalan ID nya)
-                    const isFutures = String(tr.id).includes('TR-F') || String(tr.id).includes('LIQ');
-
-                    // Hanya insert ke tabel orders_spot kalau ini murni Spot Trade
-                    if (!isFutures) {
-                        await supabase.from('orders_spot').insert([{
+                    try {
+                        const isFutures = String(tradeId).includes('TR-F') || String(tradeId).includes('LIQ');
+                        const status = (trade as any).status || 'filled';
+                        
+                        // FIX: Pastikan ID berformat UUID untuk tabel pending_orders
+                        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tradeId);
+                        const dbId = isUUID ? tradeId : crypto.randomUUID();
+                        
+                        const { error } = await supabase.from('pending_orders').insert([{
+                            id: dbId,
                             user_id: user.id,
-                            pair: tr.symbol,
-                            side: tr.side.toLowerCase(),
-                            type: tr.type.toLowerCase(),
-                            price: tr.price,
-                            amount: tr.amount,
-                            filled: tr.amount,
-                            status: 'filled'
+                            pair: trade.symbol,
+                            side: trade.side.toLowerCase(),
+                            type: trade.type.toLowerCase(),
+                            price: trade.price,
+                            amount: trade.amount,
+                            filled: trade.amount,
+                            status: status.toLowerCase(),
+                            is_futures: isFutures
                         }]);
+                        if (error) console.error('Trade DB insert error:', error);
+                    } catch (e) {
+                        console.warn('Trade DB insert failed:', e);
                     }
                 }
+                return tradeId;
             },
             initializeUserData: async () => {
                 set({ isInitializing: true }); // Ensure it's true at start
@@ -1037,7 +956,7 @@ const useExchangeStore = create<ExchangeState>()(
                 const channel = supabase.channel(`sync-${user.id}`)
                     .on(
                         'postgres_changes',
-                        { event: '*', schema: 'public', table: 'orders_spot', filter: `user_id=eq.${user.id}` },
+                        { event: '*', schema: 'public', table: 'pending_orders', filter: `user_id=eq.${user.id}` },
                         () => { 
                             console.log('[Realtime] Syncing Spot Orders...');
                             get().fetchSupabaseOpenOrders(); 
@@ -1145,7 +1064,7 @@ const useExchangeStore = create<ExchangeState>()(
 
                     const [txData, tradeData, futuresData] = await Promise.all([
                         supabase.from('transactions').select('*').eq('user_id', user.id).order('timestamp', { ascending: false }),
-                        supabase.from('orders_spot').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+                        supabase.from('pending_orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
                         supabase.from('history_futures').select('*').eq('user_id', user.id).order('time_closed', { ascending: false })
                     ]);
 
@@ -1279,7 +1198,7 @@ const useExchangeStore = create<ExchangeState>()(
                 if (!user) return;
 
                 const { data, error } = await supabase
-                    .from('orders_spot')
+                    .from('pending_orders')
                     .select('*')
                     .eq('user_id', user.id)
                     .eq('status', 'open');
@@ -1338,7 +1257,7 @@ const useExchangeStore = create<ExchangeState>()(
                         set({ tradeHistory: [canceledTrade, ...get().tradeHistory] });
 
                         if (user) {
-                            supabase.from('orders_spot').insert([{
+                            supabase.from('pending_orders').insert([{
                                 id: crypto.randomUUID(),
                                 user_id: user.id,
                                 pair: `${symbol}USDT`,
@@ -1422,7 +1341,7 @@ const useExchangeStore = create<ExchangeState>()(
                     });
 
                     if (user) {
-                        await supabase.from('orders_spot').insert([{
+                        const { error } = await supabase.from('pending_orders').insert([{
                             id: orderId,
                             user_id: user.id,
                             pair: order.symbol,
@@ -1434,7 +1353,12 @@ const useExchangeStore = create<ExchangeState>()(
                             tp_price: tpPrice,
                             sl_price: slPrice
                         }]);
-                        get().syncWalletsToSupabase();
+                        if (error) {
+                            console.error('DB Insert Error:', error);
+                            get().showToast('System Error', 'Gagal memproses ke server.', 'error');
+                        } else {
+                            get().syncWalletsToSupabase();
+                        }
                     }
                 } else {
                     const market = markets.find(m => m.symbol === order.symbol);
@@ -1480,7 +1404,7 @@ const useExchangeStore = create<ExchangeState>()(
                     get().showToast('Market Order Filled', `${order.side === 'Buy' ? 'Bought' : 'Sold'} ${order.amount} ${symbol} at avg. ${executedPrice.toDecimalPlaces(8).toNumber()} USDT`, 'success');
 
                     const orderId = crypto.randomUUID();
-                    get().addTrade({
+                    await get().addTrade({
                         id: orderId,
                         symbol: order.symbol,
                         side: order.side,
@@ -1493,17 +1417,6 @@ const useExchangeStore = create<ExchangeState>()(
                     });
 
                     if (user) {
-                        await supabase.from('orders_spot').insert([{
-                            id: orderId,
-                            user_id: user.id,
-                            pair: order.symbol,
-                            side: order.side.toLowerCase(),
-                            type: 'market',
-                            price: executedPrice.toNumber(),
-                            amount: order.amount,
-                            filled: order.amount,
-                            status: 'filled'
-                        }]);
                         get().syncWalletsToSupabase();
                     }
 
@@ -1552,7 +1465,7 @@ const useExchangeStore = create<ExchangeState>()(
                 });
 
                 if (user) {
-                    await supabase.from('orders_spot')
+                    await supabase.from('pending_orders')
                         .update({ status: 'canceled' })
                         .eq('id', orderId);
                     get().syncWalletsToSupabase();
@@ -1591,8 +1504,6 @@ const useExchangeStore = create<ExchangeState>()(
                 const currentPrice = market ? new Decimal(market.lastPrice) : new Decimal(order.price);
                 const limitPrice = new Decimal(order.price);
 
-                // --- LIMIT ORDER LOGIC ---
-                // If it's a Limit order and the price hasn't been reached, add to openOrders
                 const isLimit = order.type === 'Limit';
                 const shouldPending = isLimit && (
                     (order.side === 'Buy' && limitPrice.lt(currentPrice)) ||
@@ -1621,7 +1532,7 @@ const useExchangeStore = create<ExchangeState>()(
                     get().showToast('Limit Order Placed', `Submitted Limit ${order.side} order for ${order.amount} ${order.symbol} at ${order.price} USDT`, 'success');
 
                     if (user) {
-                        await supabase.from('orders_spot').insert([{
+                        const { error } = await supabase.from('pending_orders').insert([{
                             id: orderId,
                             user_id: user.id,
                             pair: order.symbol,
@@ -1636,12 +1547,12 @@ const useExchangeStore = create<ExchangeState>()(
                             tp_price: tpPrice,
                             sl_price: slPrice
                         }]);
+                        if (error) console.error('Pending Order Insert Error:', error);
                         get().syncWalletsToSupabase();
                     }
-                    return;
+                    return true;
                 }
 
-                // --- IMMEDIATE EXECUTION LOGIC (Market or Marketable Limit) ---
                 const dAmount = new Decimal(order.amount);
                 const notionalValue = dAmount.times(currentPrice);
                 const marginRequired = notionalValue.div(new Decimal(order.leverage));
@@ -1656,8 +1567,8 @@ const useExchangeStore = create<ExchangeState>()(
                 const totalRequired = marginRequired.plus(fee);
                 const MARGIN_EPSILON = 0.00000001;
                 if (availableMargin.plus(MARGIN_EPSILON).lt(totalRequired)) {
-                    get().showToast('Margin Call', `Required ${totalRequired.toDecimalPlaces(8).toNumber()} USDT`, 'error');
-                    return;
+                    get().showToast('Margin Call', `Order Canceled: Required ${totalRequired.toDecimalPlaces(8).toNumber()} USDT`, 'error');
+                    return false; 
                 }
 
                 const newWallets = JSON.parse(JSON.stringify(wallets));
@@ -1684,7 +1595,8 @@ const useExchangeStore = create<ExchangeState>()(
                     liqPrice: liqPrice.toNumber(),
                     marginMode: order.marginMode,
                     tpPrice,
-                    slPrice
+                    slPrice,
+                    lastSync: Date.now()
                 };
 
                 const existingPosIdx = positions.findIndex(p => p.symbol === order.symbol && p.side === order.side);
@@ -1714,8 +1626,8 @@ const useExchangeStore = create<ExchangeState>()(
                 set({ positions: nextPositions, wallets: newWallets });
                 get().showToast('Position Opened', `${order.leverage}x ${order.side === 'Buy' ? 'Long' : 'Short'} ${order.symbol} opened at ${currentPrice.toDecimalPlaces(8).toNumber()} USDT`, 'success');
 
-                const tradeId = `TR-F-${crypto.randomUUID()}`;
-                get().addTrade({
+                const tradeId = crypto.randomUUID();
+                await get().addTrade({
                     id: tradeId,
                     symbol: order.symbol,
                     side: order.side as 'Buy' | 'Sell',
@@ -1732,7 +1644,7 @@ const useExchangeStore = create<ExchangeState>()(
 
                     if (existingPosIdx > -1) {
                         const updatedPos = nextPositions[existingPosIdx];
-                        await supabase.from('positions_futures').update({
+                        const { error } = await supabase.from('positions_futures').update({
                             entry_price: updatedPos.entryPrice,
                             size: updatedPos.size,
                             margin: updatedPos.margin,
@@ -1743,8 +1655,9 @@ const useExchangeStore = create<ExchangeState>()(
                             .eq('user_id', user.id)
                             .eq('pair', order.symbol)
                             .eq('side', dbSide);
+                        if (error) console.error('Update Position Error:', error);
                     } else {
-                        await supabase.from('positions_futures').insert([{
+                        const { error } = await supabase.from('positions_futures').insert([{
                             id: posId,
                             user_id: user.id,
                             pair: order.symbol,
@@ -1758,6 +1671,10 @@ const useExchangeStore = create<ExchangeState>()(
                             tp_price: tpPrice,
                             sl_price: slPrice
                         }]);
+                        if (error) {
+                            console.error('Insert Position Error:', error);
+                            get().showToast('System Error', 'Gagal menyimpan posisi ke server.', 'error');
+                        }
                     }
                     get().syncWalletsToSupabase();
                 }
@@ -1770,6 +1687,7 @@ const useExchangeStore = create<ExchangeState>()(
                 }
 
                 get().updateAssetPrices(true);
+                return true;
             },
 
             closeFuturesPosition: async (id, closeAmount?: number, closePrice?: number, existingPos?: FuturesPosition) => {
@@ -1826,6 +1744,20 @@ const useExchangeStore = create<ExchangeState>()(
                     wallets: newWallets,
                     positions: updatedPositions,
                     positionHistory: [newHistoryRecord, ...(positionHistory || [])]
+                });
+
+                // Record the closing trade in order history
+                get().addTrade({
+                    id: `CLOSE-F-${Date.now()}-${pos.id}`,
+                    symbol: pos.pair,
+                    side: pos.side === 'Buy' ? 'Sell' : 'Buy',
+                    type: 'Market',
+                    price: price,
+                    amount: amountToClose,
+                    fee: fee.toNumber(),
+                    pnl: realizedUsdt,
+                    timestamp: Date.now(),
+                    status: 'filled'
                 });
 
                 get().updateAssetPrices(true);
@@ -2487,16 +2419,20 @@ const useExchangeStore = create<ExchangeState>()(
                 }
 
                 if (filledSpotOrders.length > 0 && user) {
-                    import('../utils/supabase').then(({ supabase }) => {
-                        filledSpotOrders.forEach(async (order) => {
-                            await supabase.from('orders_spot')
-                                .update({ status: 'filled', filled: order.amount })
-                                .eq('user_id', user.id)
-                                .eq('pair', order.symbol)
-                                .eq('side', order.side.toLowerCase())
-                                .eq('status', 'open');
-                        });
-                        store.syncWalletsToSupabase();
+                    import('../utils/supabase').then(async ({ supabase }) => {
+                        try {
+                            const updatePromises = filledSpotOrders.map(order => 
+                                supabase.from('pending_orders')
+                                    .update({ status: 'filled', filled: order.amount })
+                                    .eq('user_id', user.id)
+                                    .eq('id', order.id)
+                            );
+                            await Promise.all(updatePromises);
+                            await store.syncWalletsToSupabase();
+                            store.fetchSupabaseHistory();
+                        } catch (err) {
+                            console.error('Auto-fill execution error:', err);
+                        }
                     });
                 }
 
@@ -2505,14 +2441,12 @@ const useExchangeStore = create<ExchangeState>()(
                         triggeredClosures.forEach(async c => {
                             if (c.type === 'FuturesFill') {
                                 const order = c.pos;
-                                store.showToast('Limit Order Filled', `Futures ${order.side} for ${order.amount} ${order.symbol} filled at ${order.price} USDT`, 'success');
                                 
                                 // Call placeFuturesOrder to actually open the position
-                                // This time it won't be pending because it's marketable or exactly at price
-                                await store.placeFuturesOrder({
+                                const success = await store.placeFuturesOrder({
                                     symbol: order.symbol,
                                     side: order.side,
-                                    type: 'Market', // Changed from 'Limit' to 'Market' to avoid infinite loop (pend-exec-pend)
+                                    type: 'Market', 
                                     price: order.price,
                                     amount: order.amount,
                                     leverage: order.leverage || 10,
@@ -2520,10 +2454,19 @@ const useExchangeStore = create<ExchangeState>()(
                                 }, order.tpPrice, order.slPrice);
 
                                 if (user) {
-                                    await supabase.from('orders_spot')
-                                        .update({ status: 'filled', filled: order.amount })
+                                    // FIX: Hanya set status "filled" jika placeFuturesOrder sukses (margin cukup)
+                                    // Jika tidak, set ke "canceled" agar tidak menjadi order hantu.
+                                    await supabase.from('pending_orders')
+                                        .update({ 
+                                            status: success ? 'filled' : 'canceled', 
+                                            filled: success ? order.amount : 0 
+                                        })
                                         .eq('user_id', user.id)
                                         .eq('id', order.id);
+                                }
+                                
+                                if (success) {
+                                    store.showToast('Limit Order Filled', `Futures ${order.side} for ${order.amount} ${order.symbol} filled at ${order.price} USDT`, 'success');
                                 }
                                 return;
                             }
@@ -2539,7 +2482,7 @@ const useExchangeStore = create<ExchangeState>()(
                                 const spAsset = store.spotTPSL.find(s => s.symbol === symbol);
 
                                 if (spAsset) {
-                                    await supabase.from('orders_spot').insert([{
+                                    await supabase.from('pending_orders').insert([{
                                         id: crypto.randomUUID(),
                                         user_id: user.id,
                                         pair: `${symbol}USDT`,
@@ -2656,12 +2599,12 @@ const useExchangeStore = create<ExchangeState>()(
                 if (user) {
                     try {
                         // Delete all open spot orders
-                        await supabase.from('orders_spot').delete().eq('user_id', user.id).eq('status', 'open');
+                        await supabase.from('pending_orders').delete().eq('user_id', user.id).eq('status', 'open');
                         
                         // Delete all open futures positions
                         await supabase.from('positions_futures').delete().eq('user_id', user.id);
                         
-                        // Delete all spot TPSL (assuming stored in orders_spot or similar, but clearing state is key)
+                        // Delete all spot TPSL (assuming stored in pending_orders or similar, but clearing state is key)
                     } catch (err) {
                         console.error('Failed to cleanup database in closeAll:', err);
                     }

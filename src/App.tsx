@@ -31,6 +31,7 @@ import SearchOverlay from './components/SearchOverlay';
 import DepositBottomSheet from './components/DepositBottomSheet';
 import PairPickerOverlay from './components/PairPickerOverlay';
 import GlobalToast from './components/GlobalToast';
+import Mosaic from './components/Mosaic';
 
 
 // Icons
@@ -107,6 +108,22 @@ export default function App() {
     wsManager.connect();
     useExchangeStore.getState().startEarnYield();
     return () => wsManager.disconnect();
+  }, []);
+
+  // Force Sync on Focus
+  useEffect(() => {
+    const handleFocus = () => {
+      const store = useExchangeStore.getState();
+      if (store.user) {
+        console.log('[System] App in focus, force syncing data...');
+        store.fetchSupabaseOpenOrders();
+        store.fetchSupabasePositions();
+        store.fetchSupabaseWallets();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   // Fetch complete symbol lists (one-time, cached)
@@ -191,9 +208,15 @@ export default function App() {
 
   // Loading / Splash State
   if (session && isInitializing) {
+    const customColors = [
+      '#3884c6', '#3884c6', '#3884c6',
+      '#80c5f9', '#3884c6', '#80c5f9',
+      '#80c5f9', '#3884c6', '#80c5f9'
+    ];
+
     return (
-      <div className="flex items-center justify-center h-screen bg-[var(--bg-primary)]">
-        <div className="w-12 h-12 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex items-center justify-center fixed inset-0 bg-[var(--bg-primary)] z-[9999]">
+        <Mosaic color={customColors} size="base" />
       </div>
     );
   }

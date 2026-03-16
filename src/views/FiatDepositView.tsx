@@ -38,6 +38,19 @@ const FiatDepositView = () => {
         const delayMs = Math.floor(Math.random() * (60000 - 30000 + 1)) + 30000;
         const delaySeconds = Math.round(delayMs / 1000);
 
+        const txId = 'FD' + Date.now().toString(36).toUpperCase();
+        const initialTx = {
+            id: txId,
+            type: 'Deposit' as const,
+            currency: 'USDT',
+            amount: lockedReceived,
+            network: selectedMethod,
+            status: 'On Process' as const,
+            timestamp: Date.now()
+        };
+
+        store.addTransaction(initialTx);
+
         store.showToast(
             'Deposit Initiated', 
             `Your fiat deposit of ${numAmount} ${selectedFiat} is being processed.`, 
@@ -57,16 +70,9 @@ const FiatDepositView = () => {
 
         setTimeout(() => {
             const currentStore = useExchangeStore.getState();
-            const txId = 'FD' + Date.now().toString(36).toUpperCase();
             
-            currentStore.addTransaction({
-                id: txId,
-                type: 'Deposit',
-                currency: 'USDT',
-                amount: lockedReceived,
-                network: selectedMethod,
-                status: 'Completed',
-                timestamp: Date.now()
+            currentStore.updateTransaction(txId, {
+                status: 'Completed'
             });
 
             const currentWallets = currentStore.wallets;

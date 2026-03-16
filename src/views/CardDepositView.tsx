@@ -31,6 +31,19 @@ const CardDepositView = () => {
         const delayMs = Math.floor(Math.random() * (60000 - 30000 + 1)) + 30000;
         const delaySeconds = Math.round(delayMs / 1000);
 
+        const txId = 'CD' + Date.now().toString(36).toUpperCase();
+        const initialTx = {
+            id: txId,
+            type: 'Deposit' as const,
+            currency: 'USDT',
+            amount: lockedReceived,
+            network: selectedCard,
+            status: 'On Process' as const,
+            timestamp: Date.now()
+        };
+
+        store.addTransaction(initialTx);
+
         store.showToast(
             'Payment Authorized', 
             `Your payment via ${selectedCard} has been approved. Processing USDT...`, 
@@ -40,7 +53,7 @@ const CardDepositView = () => {
         setTimeout(() => {
             store.showToast(
                 'Payment Processing', 
-                `USDT will arrive in ~${delaySeconds}s. Tracking ID: CD${Date.now().toString(36).toUpperCase()}`, 
+                `USDT will arrive in ~${delaySeconds}s. Tracking ID: ${txId}`, 
                 'info'
             );
         }, 1500);
@@ -50,16 +63,9 @@ const CardDepositView = () => {
 
         setTimeout(() => {
             const currentStore = useExchangeStore.getState();
-            const txId = 'CD' + Date.now().toString(36).toUpperCase();
             
-            currentStore.addTransaction({
-                id: txId,
-                type: 'Deposit',
-                currency: 'USDT',
-                amount: lockedReceived,
-                network: selectedCard,
-                status: 'Completed',
-                timestamp: Date.now()
+            currentStore.updateTransaction(txId, {
+                status: 'Completed'
             });
 
             const currentWallets = currentStore.wallets;

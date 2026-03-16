@@ -1,9 +1,10 @@
 DROP TABLE IF EXISTS public.history_futures CASCADE;
 DROP TABLE IF EXISTS public.positions_futures CASCADE;
-DROP TABLE IF EXISTS public.orders_spot CASCADE;
+DROP TABLE IF EXISTS public.pending_orders CASCADE;
 DROP TABLE IF EXISTS public.transactions CASCADE;
 DROP TABLE IF EXISTS public.wallets CASCADE;
 DROP TABLE IF EXISTS public.profiles CASCADE;
+DROP TABLE IF EXISTS public.market_configs CASCADE;
 
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER AS $$
@@ -90,7 +91,7 @@ CREATE POLICY "Users can insert own transactions" ON public.transactions FOR INS
 CREATE POLICY "Users can update own transactions" ON public.transactions FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own transactions" ON public.transactions FOR DELETE USING (auth.uid() = user_id);
 
-CREATE TABLE IF NOT EXISTS public.orders_spot (
+CREATE TABLE IF NOT EXISTS public.pending_orders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
     pair TEXT NOT NULL,
@@ -105,15 +106,20 @@ CREATE TABLE IF NOT EXISTS public.orders_spot (
     margin_mode TEXT,
     tp_price NUMERIC(20, 8),
     sl_price NUMERIC(20, 8),
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE public.orders_spot ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pending_orders ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own orders" ON public.orders_spot FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own orders" ON public.orders_spot FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own orders" ON public.orders_spot FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own orders" ON public.orders_spot FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own orders" ON public.pending_orders FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own orders" ON public.pending_orders FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own orders" ON public.pending_orders FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own orders" ON public.pending_orders FOR DELETE USING (auth.uid() = user_id);
+
+CREATE TRIGGER set_updated_at_orders
+    BEFORE UPDATE ON public.pending_orders
+    FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 CREATE TABLE IF NOT EXISTS public.positions_futures (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -164,6 +170,28 @@ CREATE POLICY "Users can view own futures history" ON public.history_futures FOR
 CREATE POLICY "Users can insert own futures history" ON public.history_futures FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own futures history" ON public.history_futures FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own futures history" ON public.history_futures FOR DELETE USING (auth.uid() = user_id);
+
+CREATE TABLE IF NOT EXISTS public.market_configs (
+    symbol TEXT PRIMARY KEY,
+    price_precision INTEGER DEFAULT 2,
+    max_leverage INTEGER DEFAULT 20,
+    maint_margin_ratio NUMERIC(10, 4) DEFAULT 0.005,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.market_configs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view market configs" ON public.market_configs FOR SELECT USING (true);
+CREATE POLICY "Authenticated users can insert/update configs" ON public.market_configs FOR ALL USING (auth.role() = 'authenticated');
+
+CREATE TRIGGER set_updated_at_market_configs
+    BEFORE UPDATE ON public.market_configs
+    FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE INDEX IF NOT EXISTS idx_pending_orders_user_status ON public.pending_orders(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_positions_user ON public.positions_futures(user_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_time ON public.transactions(user_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_history_user_time ON public.history_futures(user_id, time_closed DESC);
 
 CREATE OR REPLACE FUNCTION public.internal_transfer(
     p_user_id UUID,
@@ -225,7 +253,7 @@ BEGIN
     END IF;
 
     DELETE FROM public.transactions WHERE user_id = p_user_id;
-    DELETE FROM public.orders_spot WHERE user_id = p_user_id;
+    DELETE FROM public.pending_orders WHERE user_id = p_user_id;
     DELETE FROM public.positions_futures WHERE user_id = p_user_id;
     DELETE FROM public.history_futures WHERE user_id = p_user_id;
     DELETE FROM public.wallets WHERE user_id = p_user_id;
@@ -241,7 +269,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authen
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated;
 
 ALTER TABLE public.wallets REPLICA IDENTITY FULL;
-ALTER TABLE public.orders_spot REPLICA IDENTITY FULL;
+ALTER TABLE public.pending_orders REPLICA IDENTITY FULL;
 ALTER TABLE public.positions_futures REPLICA IDENTITY FULL;
 ALTER TABLE public.history_futures REPLICA IDENTITY FULL;
 ALTER TABLE public.transactions REPLICA IDENTITY FULL;
@@ -252,7 +280,7 @@ BEGIN;
 COMMIT;
 
 ALTER PUBLICATION supabase_realtime ADD TABLE public.wallets;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.orders_spot;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.pending_orders;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.positions_futures;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.history_futures;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.transactions;

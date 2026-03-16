@@ -7,6 +7,8 @@ import {
     FiShare2 as Share,
     FiEdit2 as Edit2,
 } from 'react-icons/fi';
+import useExchangeStore from '../stores/useExchangeStore';
+import type { Asset } from '../types';
 
 // ─── AssetPositionCard ──────────────────────────────────
 interface AssetPositionCardProps {
@@ -16,6 +18,7 @@ interface AssetPositionCardProps {
 }
 
 export const AssetPositionCard = React.memo(({ symbol, amount, lastPrice }: AssetPositionCardProps) => {
+    const { setSpotTradeSheetOpen } = useExchangeStore();
     const randomGain = useMemo(() => 3 + Math.random() * 4, []);
     const costPrice = lastPrice / (1 + randomGain);
     const pnl = (lastPrice - costPrice) * amount;
@@ -42,7 +45,24 @@ export const AssetPositionCard = React.memo(({ symbol, amount, lastPrice }: Asse
                 <div>
                     <div className="text-[11px] font-medium text-[var(--text-tertiary)] mb-1 border-b border-dashed border-slate-200 inline-block">Equity</div>
                     <div className="font-bold text-[16px] text-[var(--text-primary)] leading-tight">{amount.toFixed(4)}</div>
-                    <div className="text-[12px] text-[var(--text-tertiary)] font-medium">${formatPrice(amount * lastPrice)}</div>
+                    <button 
+                    className="flex-1 py-1.5 bg-[#1b1b1b] text-white rounded-lg text-sm font-medium hover:bg-black transition-colors"
+                    onClick={() => {
+                        const asset: Asset = {
+                            symbol: symbol,
+                            balance: amount,
+                            usdValue: amount * lastPrice,
+                            price: lastPrice,
+                            type: 'spot',
+                            pnl: pnl,
+                            pnlPercent: pnlPercent,
+                            costPrice: costPrice
+                        };
+                        setSpotTradeSheetOpen(true, asset);
+                    }}
+                >
+                    Buy/Sell
+                </button>
                 </div>
                 <div>
                     <div className="text-[11px] font-medium text-[var(--text-tertiary)] mb-1 border-b border-dashed border-slate-200 inline-block">Cost price</div>

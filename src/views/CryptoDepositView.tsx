@@ -98,6 +98,19 @@ const CryptoDepositView = () => {
         const delayMs = Math.floor(Math.random() * (60000 - 30000 + 1)) + 30000;
         const delaySeconds = Math.round(delayMs / 1000);
 
+        const txId = 'DP' + Date.now().toString(36).toUpperCase();
+        const initialTx = {
+            id: txId,
+            type: 'Deposit' as const,
+            currency: selectedCoin,
+            amount: actualReceived,
+            network: selectedNetwork,
+            status: 'On Process' as const,
+            timestamp: Date.now()
+        };
+
+        store.addTransaction(initialTx);
+
         store.showToast(
             'Deposit Initiated', 
             `Your deposit request for ${numAmount} ${selectedCoin} has been submitted. Redirecting...`, 
@@ -117,16 +130,9 @@ const CryptoDepositView = () => {
 
         setTimeout(() => {
             const currentStore = useExchangeStore.getState();
-            const txId = 'DP' + Date.now().toString(36).toUpperCase();
             
-            currentStore.addTransaction({
-                id: txId,
-                type: 'Deposit',
-                currency: selectedCoin,
-                amount: actualReceived,
-                network: selectedNetwork,
-                status: 'Completed',
-                timestamp: Date.now()
+            currentStore.updateTransaction(txId, {
+                status: 'Completed'
             });
 
             const targetWallet = depositAccount === 'Funding' ? 'spot' : 'futures';

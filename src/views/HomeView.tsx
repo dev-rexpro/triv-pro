@@ -151,6 +151,14 @@ const HomeView = () => {
     const displayBalance = useMemo(() => convertAmount(balance, currency, rates), [balance, currency, rates]);
 
     const currentPnlData = useMemo(() => {
+        if (pnlTimeframe === '1D') {
+            return {
+                value: todayPnl,
+                displayValue: convertAmount(Math.abs(todayPnl), currency, rates),
+                percent: pnlPercent,
+                hasData: true // Always show live PnL on home
+            };
+        }
         const pnl = getPnLForTimeframe(pnlTimeframe);
         return {
             value: pnl.value,
@@ -158,7 +166,7 @@ const HomeView = () => {
             percent: pnl.percent,
             hasData: pnl.hasData
         };
-    }, [getPnLForTimeframe, pnlTimeframe, currency, rates, balance, todayPnl]);
+    }, [getPnLForTimeframe, pnlTimeframe, currency, rates, balance, todayPnl, pnlPercent]);
 
     // Check which timeframes have snapshot data available
     const timeframeAvailability = useMemo(() => {
@@ -310,10 +318,10 @@ const HomeView = () => {
                                         ) : (
                                             <>
                                                 <span className="text-sm font-medium leading-none">
-                                                    {currentPnlData.value >= 0 ? '+' : '-'}{getCurrencySymbol(currency)}<SlotTicker value={Math.abs(displayPnl)} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" />
+                                                    {currentPnlData.value > 0 ? '+' : currentPnlData.value < 0 ? '-' : ''}{getCurrencySymbol(currency)}<SlotTicker value={Math.abs(displayPnl)} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" />
                                                 </span>
                                                 <span className="text-sm font-medium leading-none">
-                                                    ({currentPnlData.value >= 0 ? '+' : ''}{Number(pnlPercentDisplay).toLocaleString('id-ID', { maximumFractionDigits: 2 })}%)
+                                                    ({currentPnlData.value > 0 ? '+' : currentPnlData.value < 0 ? '-' : ''}{Math.abs(Number(pnlPercentDisplay)).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)
                                                 </span>
                                             </>
                                         )}

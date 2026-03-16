@@ -18,6 +18,8 @@ import { useOrderBookSocket } from '../hooks/useOrderBookSocket';
 import { useTickerSocket } from '../hooks/useTickerSocket';
 import useExchangeStore from '../stores/useExchangeStore';
 import RealChart from '../components/RealChart';
+import { AssetPositionCard } from '../components/TradeCards';
+import type { Asset } from '../types';
 
 const baseUrl = 'https://api.binance.com';
 const prefix = '/api/v3';
@@ -26,7 +28,7 @@ const activeInterval = '1h';
 
 export default function SpotTradeView() {
     const { 
-        openOrders, spotTPSL, positions, wallets, spotCostBasis, spotSymbols 
+        openOrders, spotTPSL, positions, wallets, spotCostBasis, spotSymbols, setSpotTradeSheetOpen 
     } = useExchangeStore();
 
     const [tradeSide, setTradeSide] = useState<'buy' | 'sell'>('buy');
@@ -640,7 +642,7 @@ export default function SpotTradeView() {
                                         const hasCost = spotCostBasis?.[symbol] && spotCostBasis[symbol] > 0;
                                         return !!hasCost;
                                     }).length
-                            }) & assets
+                            })
                         </span>
                         <div className="text-[var(--text-tertiary)]"><ArrowDropDown size={20} /></div>
                     </div>
@@ -670,8 +672,7 @@ export default function SpotTradeView() {
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 min-h-screen relative z-0 bg-[var(--bg-primary)]">
-                    {activeTab === 'orders' && (
+                <div className="flex-1 min-h-screen relative z-0 bg-[var(--bg-primary)]">                    {activeTab === 'orders' && (
                         <div className="flex flex-col">
                             {/* Spot Limit Orders */}
                             {openOrders
@@ -740,7 +741,7 @@ export default function SpotTradeView() {
 
                             {/* Empty state if nothing */}
                             {(openOrders.filter(o => !isCurrentSymbolChecked || o.symbol === currentSymbol).length === 0 &&
-                              spotTPSL.filter(s => !isCurrentSymbolChecked || s.symbol === currentSymbol.replace('USDT', '')).length === 0) && (
+                                spotTPSL.filter(s => !isCurrentSymbolChecked || s.symbol === currentSymbol.replace('USDT', '')).length === 0) && (
                                 <div className="flex flex-col items-center justify-center py-20 opacity-40">
                                     <div className="w-20 h-20 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center relative mb-6">
                                         <div className="absolute -left-1 bottom-4 w-5 h-4 bg-[#4a5568] rounded-[3px]" />
@@ -750,6 +751,50 @@ export default function SpotTradeView() {
                                         </div>
                                     </div>
                                     <span className="text-[16px] text-[var(--text-tertiary)] font-medium">No open orders</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'positions' && (
+                        <div className="flex flex-col">
+                            {Object.entries(wallets?.spot || {})
+                                .filter(([symbol, amount]) => {
+                                    if (amount <= 0) return false;
+                                    if (isCurrentSymbolChecked && symbol !== currentSymbol.replace('USDT', '')) return false;
+                                    const hasCost = spotCostBasis?.[symbol] && spotCostBasis[symbol] > 0;
+                                    return !!hasCost;
+                                })
+                                .map(([symbol, amount]) => {
+                                    const balanceStr = amount.toString();
+                                    const costPrice = spotCostBasis?.[symbol] || 0;
+                                    const lastPrice = ticker?.lastPrice ? parseFloat(ticker.lastPrice) : costPrice;
+                                    const value = amount * lastPrice;
+                                    const pnl = (lastPrice - costPrice) * amount;
+                                    const pnlPercent = costPrice > 0 ? (pnl / (costPrice * amount)) * 100 : 0;
+
+                                    return (
+                                        <AssetPositionCard
+                                            key={symbol}
+                                            symbol={symbol}
+                                            amount={amount}
+                                            lastPrice={lastPrice}
+                                        />
+                                    );
+                                })}
+                            {Object.entries(wallets?.spot || {}).filter(([symbol, amount]) => {
+                                if (amount <= 0) return false;
+                                if (isCurrentSymbolChecked && symbol !== currentSymbol.replace('USDT', '')) return false;
+                                const hasCost = spotCostBasis?.[symbol] && spotCostBasis[symbol] > 0;
+                                return !!hasCost;
+                            }).length === 0 && (
+                                <div className="flex flex-col items-center justify-center py-20 opacity-40">
+                                    <div className="w-20 h-20 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center relative mb-6">
+                                        <div className="w-14 h-14 rounded-full border border-[var(--border-color)] flex items-center justify-center bg-[var(--bg-primary)] shadow-sm z-10">
+                                            <span className="text-[var(--text-tertiary)] text-2xl font-light">!</span>
+                                        </div>
+                                    </div>
+                                    <span className="text-[16px] text-[var(--text-tertiary)] font-medium">No open positions</span>
                                 </div>
                             )}
                         </div>

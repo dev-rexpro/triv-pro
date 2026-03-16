@@ -120,8 +120,8 @@ const AssetsView = () => {
                             <span className="text-[var(--text-tertiary)] border-b border-dashed border-[var(--border-strong)] mr-2">Today's PnL</span>
                             {!hideBalance ? (
                                 <div className={`${pnlColor} flex items-center`}>
-                                    <span>{pnlPrefixSymbol}{getCurrencySymbol(currency)}<SlotTicker value={Math.abs(convertedPnl)} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" /></span>
-                                    <span className="ml-1">({pnlPrefixSymbol}{Math.abs(displayPnlPercent).toFixed(2)}%)</span>
+                                    <span>{pnl > 0 ? '+' : pnl < 0 ? '-' : ''}{getCurrencySymbol(currency)}<SlotTicker value={Math.abs(convertedPnl)} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" /></span>
+                                    <span className="ml-1">({pnl > 0 ? '+' : pnl < 0 ? '-' : ''}{Math.abs(displayPnlPercent).toFixed(2)}%)</span>
                                 </div>
                             ) : <span className="text-[var(--text-tertiary)]">******</span>}
                             <ChevronRight size={12} className="text-[var(--text-tertiary)] ml-1" />
@@ -131,8 +131,8 @@ const AssetsView = () => {
                             <span className="text-[var(--text-tertiary)] border-b border-dashed border-[var(--border-strong)] mr-2">Today's PnL</span>
                             {!hideBalance ? (
                                 <div className={`${futuresUnrealizedPnl >= 0 ? 'text-[var(--green)]' : 'text-[var(--red)]'} flex items-center`}>
-                                    <span>{futuresUnrealizedPnl >= 0 ? '+' : '-'}{getCurrencySymbol(currency)}<SlotTicker value={Math.abs(convertAmount(futuresUnrealizedPnl, currency, rates))} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" /></span>
-                                    <span className="ml-1">({futuresUnrealizedPnl >= 0 ? '+' : '-'}{Math.abs((futuresUnrealizedPnl / futuresBalance) * 100 || 0).toFixed(2)}%)</span>
+                                    <span>{futuresUnrealizedPnl > 0 ? '+' : futuresUnrealizedPnl < 0 ? '-' : ''}{getCurrencySymbol(currency)}<SlotTicker value={Math.abs(convertAmount(futuresUnrealizedPnl, currency, rates))} decimals={currency === 'IDR' ? 0 : 2} className="inline-flex" /></span>
+                                    <span className="ml-1">({futuresUnrealizedPnl > 0 ? '+' : futuresUnrealizedPnl < 0 ? '-' : ''}{Math.abs((futuresUnrealizedPnl / futuresBalance) * 100 || 0).toFixed(2)}%)</span>
                                 </div>
                             ) : <span className="text-[var(--text-tertiary)]">******</span>}
                             <ChevronRight size={12} className="text-[var(--text-tertiary)] ml-1" />

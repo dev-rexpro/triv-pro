@@ -10,6 +10,7 @@ import { RiDeleteBin7Line as Trash2 } from 'react-icons/ri';
 import { LuChevronDown } from 'react-icons/lu';
 import AnimatedPlaceholder from './AnimatedPlaceholder';
 import { useThrottledOrder } from '../hooks/useThrottledOrder';
+import Mosaic from './Mosaic';
 
 const SearchOverlay = ({ mode = 'search', onSelect, onClose }: { mode?: 'search' | 'selectSpot', onSelect?: (asset: string) => void, onClose?: () => void } = {}) => {
     const { searchQuery, setSearchQuery, setSearchOpen, history, clearHistory, addToHistory, markets, futuresMarkets, spotSymbols, futuresSymbols, favorites, toggleFavorite, rates, currency, setActivePage, setTradeType } = useExchangeStore();
@@ -180,7 +181,11 @@ const SearchOverlay = ({ mode = 'search', onSelect, onClose }: { mode?: 'search'
                             <AnimatedPlaceholder />
                         </div>
                     )}
-                    {isTyping && <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-[var(--border-color)]0 border-t-transparent rounded-full animate-spin"></div>}
+                    {isTyping && (
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                            <Mosaic size="tiny" />
+                        </div>
+                    )}
                 </div>
                 <button onClick={handleCancel} className="text-[15px] font-bold text-[var(--text-primary)]">Cancel</button>
             </div>

@@ -583,7 +583,12 @@ const TradeHistoryView = () => {
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-[11px] text-[var(--text-tertiary)] font-medium mb-0.5 border-b border-dashed border-[var(--border-color)] ml-auto w-max">Action</p>
-                                                    <button className="text-[13px] font-medium text-[var(--green)]">Buy/Sell</button>
+                                                     <button 
+                                                        className="text-[13px] font-medium text-[var(--green)]"
+                                                        onClick={() => setSpotTradeSheetOpen(true, asset)}
+                                                    >
+                                                        Buy/Sell
+                                                    </button>
                                                 </div>
                                             </>
                                         )}
@@ -591,7 +596,12 @@ const TradeHistoryView = () => {
                                     {hasTrade && (
                                         <div className="flex gap-2">
                                             <button className="flex-1 py-1.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium text-[13px]">TP/SL</button>
-                                            <button className="flex-1 py-1.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium text-[13px]" onClick={() => cancelSpotOrder(symbol)}>Sell</button>
+                                             <button 
+                                                className="flex-1 py-1.5 rounded-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium text-[13px]" 
+                                                onClick={() => setSpotTradeSheetOpen(true, asset)}
+                                            >
+                                                Sell
+                                            </button>
                                         </div>
                                     )}
                                 </div>

@@ -44,7 +44,7 @@ const MarketRow = React.memo(({ coin, showPerp = true, onClick }: MarketRowProps
                     <div className="text-xs text-[var(--text-tertiary)] font-medium mt-0.5">{formatCurrency(parseFloat(coin.lastPrice), currency, rates)}</div>
                 </div>
                 <div className={`w-[72px] py-2 rounded-md text-[13px] font-bold text-center text-white ${isPositive ? 'bg-[var(--green)]' : 'bg-[var(--red)]'}`}>
-                    {changePercent > 0 ? '+' : ''}{changePercent.toFixed(2)}%
+                    {changePercent > 0 ? '+' : changePercent < 0 ? '-' : ''}{Math.abs(changePercent).toFixed(2)}%
                 </div>
             </div>
         </div>
