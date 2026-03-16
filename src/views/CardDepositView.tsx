@@ -25,29 +25,58 @@ const CardDepositView = () => {
         if (!selectedCard || isNaN(numAmount) || numAmount <= 0) return;
 
         setIsSimulating(true);
+
+        const store = useExchangeStore.getState();
+        const lockedReceived = numAmount * 0.98;
+        const delayMs = Math.floor(Math.random() * (60000 - 30000 + 1)) + 30000;
+        const delaySeconds = Math.round(delayMs / 1000);
+
+        store.showToast(
+            'Payment Authorized', 
+            `Your payment via ${selectedCard} has been approved. Processing USDT...`, 
+            'success'
+        );
+
         setTimeout(() => {
-            // Add transaction
+            store.showToast(
+                'Payment Processing', 
+                `USDT will arrive in ~${delaySeconds}s. Tracking ID: CD${Date.now().toString(36).toUpperCase()}`, 
+                'info'
+            );
+        }, 1500);
+
+        setIsSimulating(false);
+        store.setActivePage('assets');
+
+        setTimeout(() => {
+            const currentStore = useExchangeStore.getState();
             const txId = 'CD' + Date.now().toString(36).toUpperCase();
-            addTransaction({
+            
+            currentStore.addTransaction({
                 id: txId,
                 type: 'Deposit',
-                currency: 'USDT', // We convert USD -> USDT for mock balance 
-                amount: numAmount,
+                currency: 'USDT',
+                amount: lockedReceived,
                 network: selectedCard,
                 status: 'Completed',
                 timestamp: Date.now()
             });
 
-            // Update Mock Wallets
-            const w = { ...wallets };
-            w.spot = { ...w.spot };
-            w.spot.USDT = (w.spot.USDT || 0) + numAmount;
-            setWallets(w);
+            const currentWallets = currentStore.wallets;
+            const w = JSON.parse(JSON.stringify(currentWallets));
+            w.spot.USDT = (w.spot.USDT || 0) + lockedReceived;
+            currentStore.setWallets(w);
 
-            setIsSimulating(false);
-            useExchangeStore.getState().showToast('Card Deposit Simulated!', `Bought ${numAmount} USDT using ${selectedCard}.`, 'success');
-            setActivePage('assets');
-        }, 1500);
+            if (currentStore.user) {
+                currentStore.syncWalletsToSupabase();
+            }
+
+            currentStore.showToast(
+                'Deposit Success!', 
+                `Bought ${lockedReceived.toFixed(2)} USDT using ${selectedCard}.`, 
+                'success'
+            );
+        }, delayMs);
     };
 
     return (

@@ -78,31 +78,74 @@ const CryptoDepositView = () => {
         const numAmount = parseFloat(amount);
         if (!selectedCoin || !selectedNetwork || isNaN(numAmount) || numAmount <= 0) return;
 
+        const networkObj = networks.find(n => n.id === selectedNetwork);
+        const fee = parseFloat(networkObj?.fee || '0');
+        const actualReceived = numAmount - fee;
+
+        const store = useExchangeStore.getState();
+
+        if (actualReceived <= 0) {
+            store.showToast(
+                'Deposit Failed', 
+                `Deposit amount must be greater than the network fee (${fee} ${selectedCoin}).`, 
+                'error'
+            );
+            return;
+        }
+
         setIsSimulating(true);
+
+        const delayMs = Math.floor(Math.random() * (60000 - 30000 + 1)) + 30000;
+        const delaySeconds = Math.round(delayMs / 1000);
+
+        store.showToast(
+            'Deposit Initiated', 
+            `Your deposit request for ${numAmount} ${selectedCoin} has been submitted. Redirecting...`, 
+            'success'
+        );
+
         setTimeout(() => {
-            // Add transaction record
+            store.showToast(
+                'Deposit Confirming', 
+                `Your deposit is confirming on ${selectedNetwork}. Expected arrival: ~${delaySeconds}s`, 
+                'info'
+            );
+        }, 1500);
+
+        setIsSimulating(false);
+        store.setActivePage('assets');
+
+        setTimeout(() => {
+            const currentStore = useExchangeStore.getState();
             const txId = 'DP' + Date.now().toString(36).toUpperCase();
-            addTransaction({
+            
+            currentStore.addTransaction({
                 id: txId,
                 type: 'Deposit',
                 currency: selectedCoin,
-                amount: numAmount,
+                amount: actualReceived,
                 network: selectedNetwork,
                 status: 'Completed',
                 timestamp: Date.now()
             });
 
-            // Update Mock Wallets
-            const targetWallet = depositAccount === 'Funding' ? 'spot' : 'futures'; // Map funding to spot for now
-            const w = { ...wallets };
-            w[targetWallet] = { ...w[targetWallet] };
-            w[targetWallet][selectedCoin] = (w[targetWallet][selectedCoin] || 0) + numAmount;
-            setWallets(w);
+            const targetWallet = depositAccount === 'Funding' ? 'spot' : 'futures';
+            const currentWallets = currentStore.wallets;
+            const w = JSON.parse(JSON.stringify(currentWallets));
+            
+            w[targetWallet][selectedCoin] = (w[targetWallet][selectedCoin] || 0) + actualReceived;
+            currentStore.setWallets(w);
 
-            setIsSimulating(false);
-            useExchangeStore.getState().showToast('Deposit Successful', `Deposited ${numAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })} ${selectedCoin}\ninto ${depositAccount} via ${selectedNetwork}.`, 'success');
-            setActivePage('assets');
-        }, 1500);
+            if (currentStore.user) {
+                currentStore.syncWalletsToSupabase();
+            }
+
+            currentStore.showToast(
+                'Deposit Success!', 
+                `${actualReceived.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })} ${selectedCoin} has arrived in your ${depositAccount} account.`, 
+                'success'
+            );
+        }, delayMs);
     };
 
     return (

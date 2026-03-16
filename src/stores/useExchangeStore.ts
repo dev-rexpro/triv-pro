@@ -189,7 +189,7 @@ interface ExchangeState {
     completeSetup: () => Promise<void>;
 
     // Global Toast
-    toastMessage: { isOpen: boolean; title: string; message: string; type: 'success' | 'error' } | null;
+    toastMessage: { isOpen: boolean; title: string; message: string; type: 'success' | 'info' | 'error' } | null;
     setPositions: (positions: FuturesPosition[]) => void;
     setFuturesTPSL: (positionId: string, tpPrice: number | null, slPrice: number | null) => Promise<void>;
     setSpotTPSL: (symbol: string, tpPrice: number | null, slPrice: number | null, amount: number) => Promise<void>;
@@ -1522,15 +1522,18 @@ const useExchangeStore = create<ExchangeState>()(
                 const newWallets = JSON.parse(JSON.stringify(wallets));
                 const symbol = order.symbol.replace('USDT', '');
 
-                if (order.side === 'Buy') {
-                    const cost = new Decimal(order.price).times(new Decimal(order.amount));
-                    newWallets.spot.USDT = new Decimal(newWallets.spot.USDT || 0).plus(cost).toNumber();
-                } else {
-                    newWallets.spot[symbol] = new Decimal(newWallets.spot[symbol] || 0).plus(new Decimal(order.amount)).toNumber();
+                // Only refund balance if it's a Spot order
+                if (!order.isFutures) {
+                    if (order.side === 'Buy') {
+                        const cost = new Decimal(order.price).times(new Decimal(order.amount));
+                        newWallets.spot.USDT = new Decimal(newWallets.spot.USDT || 0).plus(cost).toNumber();
+                    } else {
+                        newWallets.spot[symbol] = new Decimal(newWallets.spot[symbol] || 0).plus(new Decimal(order.amount)).toNumber();
+                    }
                 }
 
                 const canceledTrade = {
-                    id: `CANC-S-${Date.now()}-${order.id}`,
+                    id: `CANC-${order.isFutures ? 'F' : 'S'}-${Date.now()}-${order.id}`,
                     symbol: order.symbol,
                     side: order.side,
                     type: order.type,
@@ -1555,7 +1558,7 @@ const useExchangeStore = create<ExchangeState>()(
                     get().syncWalletsToSupabase();
                 }
 
-                get().showToast('Order Canceled', `Spot order successfully canceled.`, 'success');
+                get().showToast('Order Canceled', `${order.isFutures ? 'Futures' : 'Spot'} order successfully canceled.`, 'success');
             },
 
             cancelAllOrders: async (symbolFilter?: string) => {

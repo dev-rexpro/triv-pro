@@ -32,29 +32,58 @@ const FiatDepositView = () => {
         if (!selectedMethod || isNaN(numAmount) || numAmount <= 0) return;
 
         setIsSimulating(true);
+
+        const store = useExchangeStore.getState();
+        const lockedReceived = selectedFiat === 'IDR' ? (numAmount / 16300) : numAmount;
+        const delayMs = Math.floor(Math.random() * (60000 - 30000 + 1)) + 30000;
+        const delaySeconds = Math.round(delayMs / 1000);
+
+        store.showToast(
+            'Deposit Initiated', 
+            `Your fiat deposit of ${numAmount} ${selectedFiat} is being processed.`, 
+            'success'
+        );
+
         setTimeout(() => {
-            // Add transaction
+            store.showToast(
+                'Deposit Processing', 
+                `Expected arrival: ~${delaySeconds}s via ${selectedMethod}`, 
+                'info'
+            );
+        }, 1500);
+
+        setIsSimulating(false);
+        store.setActivePage('assets');
+
+        setTimeout(() => {
+            const currentStore = useExchangeStore.getState();
             const txId = 'FD' + Date.now().toString(36).toUpperCase();
-            addTransaction({
+            
+            currentStore.addTransaction({
                 id: txId,
                 type: 'Deposit',
-                currency: 'USDT', // We convert Fiat -> USDT for mock balance 
-                amount: selectedFiat === 'IDR' ? (numAmount / 16300) : numAmount,
+                currency: 'USDT',
+                amount: lockedReceived,
                 network: selectedMethod,
                 status: 'Completed',
                 timestamp: Date.now()
             });
 
-            // Update Mock Wallets
-            const w = { ...wallets };
-            w.spot = { ...w.spot };
-            w.spot.USDT = (w.spot.USDT || 0) + (selectedFiat === 'IDR' ? (numAmount / 16300) : numAmount);
-            setWallets(w);
+            const currentWallets = currentStore.wallets;
+            const w = JSON.parse(JSON.stringify(currentWallets));
+            w.spot.USDT = (w.spot.USDT || 0) + lockedReceived;
+            currentStore.setWallets(w);
+            
+            if (currentStore.user) {
+                currentStore.syncWalletsToSupabase();
+            }
 
-            setIsSimulating(false);
-            useExchangeStore.getState().showToast('Fiat Deposit Simulated!', `Amount: ${numAmount} ${selectedFiat}\nMethod: ${selectedMethod}\nCredited as USDT to Spot Wallet.`, 'success');
-            setActivePage('assets');
-        }, 1500);
+            currentStore.showToast(
+                'Deposit Success!', 
+                `${lockedReceived.toFixed(2)} USDT has been credited to your Spot Wallet.`, 
+                'success'
+            );
+        }, delayMs);
     };
 
     return (

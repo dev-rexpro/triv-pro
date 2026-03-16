@@ -35,9 +35,19 @@ const GlobalToast: React.FC = () => {
                         key="global-toast"
                         className="bg-[var(--bg-card)]/90 backdrop-blur-xl text-[var(--text-primary)] border border-[var(--border-color)] p-4 rounded-2xl shadow-[var(--shadow-toast)] flex items-center gap-3 pointer-events-auto max-w-[calc(100vw-32px)] w-full sm:max-w-md shadow-2xl"
                     >
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 [&>svg]:stroke-[2.5] ${toastMessage.type === 'success' ? 'bg-[var(--green)]/10 text-[var(--green)]' : 'bg-[var(--red)]/10 text-[var(--red)]'}`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 [&>svg]:stroke-[2.5] ${
+                            toastMessage.type === 'success' ? 'bg-[var(--green)]/10 text-[var(--green)]' : 
+                            toastMessage.type === 'info' ? 'bg-[var(--accent)]/10 text-[var(--accent)]' :
+                            'bg-[var(--red)]/10 text-[var(--red)]'
+                        }`}>
                             {toastMessage.type === 'success' ? (
                                 <Check size={20} />
+                            ) : toastMessage.type === 'info' ? (
+                                <svg viewBox="0 0 24 24" size={20} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="12" y1="16" x2="12" y2="12" />
+                                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                                </svg>
                             ) : (
                                 <XIcon size={20} />
                             )}
